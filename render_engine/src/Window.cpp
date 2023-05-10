@@ -21,8 +21,12 @@ namespace RenderEngine
 
 	void Window::update()
 	{
-		SDL_RenderCopy(_sdl_renderer, _sdl_texture, NULL, NULL);
-		SDL_RenderPresent(_sdl_renderer);
+		if (_closed)
+		{
+			return;
+		}
+		handleEvents();
+		present();
 	}
 
 
@@ -32,5 +36,23 @@ namespace RenderEngine
 		SDL_FreeSurface(_sdl_image);
 		SDL_DestroyRenderer(_sdl_renderer);
 		SDL_DestroyWindow(_window);
+	}
+	void Window::handleEvents()
+	{
+		SDL_Event event;
+
+		SDL_WaitEvent(&event);
+
+		switch (event.type)
+		{
+		case SDL_QUIT:
+			_closed = true;
+			break;
+		}
+	}
+	void Window::present()
+	{
+		SDL_RenderCopy(_sdl_renderer, _sdl_texture, NULL, NULL);
+		SDL_RenderPresent(_sdl_renderer);
 	}
 }

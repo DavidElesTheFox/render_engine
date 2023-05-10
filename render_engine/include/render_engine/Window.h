@@ -10,9 +10,16 @@ namespace RenderEngine
 	{
 	public:
 		explicit Window(VkQueue render_queue, std::string_view name);
-		void update();
 		~Window();
+
+		void update();
+		bool isClosed() const { return _closed; }
+
 	private:
+		void handleEvents();
+		void present();
+
+		bool _closed = false;
 		VkQueue _render_queue;
 		SDL_Window* _window{ nullptr };
 		SDL_Renderer* _sdl_renderer{ nullptr };

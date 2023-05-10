@@ -8,21 +8,12 @@ int main()
 	try
 	{
 		auto window = RenderEngine::RenderContext::context().getEngine(0).createWindow("Main Window");
-		bool quit = false;
-		SDL_Event event;
 
-		while (!quit)
+		while (window->isClosed() == false)
 		{
-			SDL_WaitEvent(&event);
-
-			switch (event.type)
-			{
-			case SDL_QUIT:
-				quit = true;
-				break;
-			}
 			window->update();
 		}
+
 		RenderEngine::RenderContext::context().reset();
 		return 0;
 	}
@@ -33,7 +24,7 @@ int main()
 	}
 	catch (...)
 	{
-		std::cerr << "Unkown error occurred" << std::endl;
+		std::cerr << "Unknown error occurred" << std::endl;
 		return -2;
 	}
 }

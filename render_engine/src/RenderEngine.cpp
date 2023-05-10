@@ -51,7 +51,6 @@ namespace RenderEngine
 
 	}
 
-
 	RenderEngine::~RenderEngine()
 	{
 		vkDestroyDevice(_logical_device, nullptr);

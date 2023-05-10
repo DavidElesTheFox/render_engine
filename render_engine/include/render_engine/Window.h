@@ -10,9 +10,14 @@ namespace RenderEngine
 	{
 	public:
 		explicit Window(VkQueue render_queue, std::string_view name);
+		void update();
 		~Window();
 	private:
 		VkQueue _render_queue;
 		SDL_Window* _window{ nullptr };
+		SDL_Renderer* _sdl_renderer{ nullptr };
+		SDL_Surface* _sdl_image{ nullptr };
+		SDL_Texture* _sdl_texture{ nullptr };
+
 	};
 }

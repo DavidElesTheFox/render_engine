@@ -1,0 +1,3 @@
+#pragma once
+
+#cmakedefine EMPTY_SCREEN_IMAGE_PATH "@EMPTY_SCREEN_IMAGE_PATH@"

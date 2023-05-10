@@ -2,7 +2,11 @@ cmake_minimum_required(VERSION 3.18)
 
 find_package(Vulkan REQUIRED)
 
+set(EMPTY_SCREEN_IMAGE_PATH "${DATA_DIRECTORY}/empty_screen.bmp")
+
 set(RENDER_ENGINE_HEADER_LOCATION include/render_engine)
+
+configure_file(config/data_config_in.h ${GENERATED_INCLUDE_DIR}/data_config.h)
 
 set(RENDER_ENGINE_SRC 
 	src/RenderEngine.cpp
@@ -29,5 +33,8 @@ target_link_libraries(RenderEngine
 		Vulkan::Vulkan)
 		
 
-target_include_directories(RenderEngine PUBLIC  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>)
+target_include_directories(RenderEngine 
+	PUBLIC
+		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+		$<INSTALL_INTERFACE:include>
+		${GENERATED_INCLUDE_DIR})

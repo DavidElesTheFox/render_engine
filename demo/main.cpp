@@ -5,6 +5,7 @@
 
 int main()
 {
+	try
 	{
 		auto window = RenderEngine::RenderContext::context().getEngine(0).createWindow("Main Window");
 		bool quit = false;
@@ -20,8 +21,19 @@ int main()
 				quit = true;
 				break;
 			}
+			window->update();
 		}
+		RenderEngine::RenderContext::context().reset();
+		return 0;
 	}
-	RenderEngine::RenderContext::context().reset();
-	return 0;
+	catch (const std::exception& exception)
+	{
+		std::cerr << "Error occurred: " << exception.what() << std::endl;
+		return -1;
+	}
+	catch (...)
+	{
+		std::cerr << "Unkown error occurred" << std::endl;
+		return -2;
+	}
 }

@@ -1,3 +1,6 @@
 [submodule "3rd_party/eigen"]
 	path = 3rd_party/eigen
 	url = https://github.com/libigl/eigen.git
+[submodule "3rd_party/sdl-src"]
+	path = 3rd_party/sdl-src
+	url = https://github.com/libsdl-org/SDL.git

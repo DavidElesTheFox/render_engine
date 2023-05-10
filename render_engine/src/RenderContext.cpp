@@ -1,11 +1,11 @@
 #include <render_engine/RenderContext.h>
 #include <render_engine/RenderEngine.h>
 
-#include <GLFW/glfw3.h>
-
 #include <stdexcept>
 #include <string>
 #include <optional>
+
+#include <SDL.h>
 namespace
 {
 	VkApplicationInfo createAppInfo() {
@@ -80,7 +80,8 @@ namespace RenderEngine
 	}
 	void RenderContext::init()
 	{
-		glfwInit();
+		SDL_Init(SDL_INIT_VIDEO);
+
 		if (isVulkanInitialized() == false)
 		{
 			initVulkan();
@@ -93,12 +94,11 @@ namespace RenderEngine
 		createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 		createInfo.pApplicationInfo = &appInfo;
 
-		uint32_t glfwExtensionCount = 0;
-		const char** glfwExtensions = nullptr;
-		glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+		uint32_t extensionCount = 0;
+		const char** extensions = nullptr;
 
-		createInfo.enabledExtensionCount = glfwExtensionCount;
-		createInfo.ppEnabledExtensionNames = glfwExtensions;
+		createInfo.enabledExtensionCount = extensionCount;
+		createInfo.ppEnabledExtensionNames = extensions;
 
 		createInfo.enabledLayerCount = 0;
 
@@ -129,7 +129,7 @@ namespace RenderEngine
 			vkDestroyInstance(_instance, nullptr);
 			_instance = nullptr;
 		}
-		glfwTerminate();
+		SDL_Quit();
 
 	}
 }

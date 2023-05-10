@@ -7,45 +7,6 @@
 #include <vector>
 namespace
 {
-	std::optional<uint32_t> findQueueFamilies(VkPhysicalDevice device) {
-
-		uint32_t queueFamilyCount = 0;
-		vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
-
-		std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
-		vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
-
-		for (uint32_t i = 0; i < queueFamilies.size(); ++i) {
-			const auto& queueFamily = queueFamilies[i];
-			if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-				return i;
-			}
-		}
-
-		return std::nullopt;
-	}
-
-	bool isDeviceSuitable(VkPhysicalDevice device) {
-		auto index = findQueueFamilies(device);
-
-		return index != std::nullopt;
-	}
-
-	std::vector<VkPhysicalDevice> findPhysicalDevices(VkInstance instance) {
-		uint32_t deviceCount = 0;
-		vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
-
-		if (deviceCount == 0) {
-			throw std::runtime_error("failed to find GPUs with Vulkan support!");
-		}
-
-		std::vector<VkPhysicalDevice> devices(deviceCount);
-		vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
-
-		devices.erase(std::remove_if(devices.begin(), devices.end(),
-			[](const auto& device) {return isDeviceSuitable(device) == false; }),
-			devices.end());
-	}
 
 	VkDevice createLogicalDevice(size_t queue_count, VkPhysicalDevice physicalDevice, uint32_t queue_family_index) {
 

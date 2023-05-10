@@ -6,17 +6,11 @@ namespace RenderEngine
 	Window::Window(VkQueue render_queue, std::string_view name)
 		: _render_queue{ render_queue }
 	{
-		_window = SDL_CreateWindow(name.data(),
-			SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 640, 480, 0);
-		_sdl_renderer = SDL_CreateRenderer(_window, -1, 0);
-
-		_sdl_image = SDL_LoadBMP(EMPTY_SCREEN_IMAGE_PATH);
-		if (_sdl_image == nullptr)
-		{
-			throw std::runtime_error(std::string("Cannot Load empty screen. Error: ") + SDL_GetError());
-		}
-
-		_sdl_texture = SDL_CreateTextureFromSurface(_sdl_renderer, _sdl_image);
+		constexpr auto width = 600;
+		constexpr auto height = 600;
+		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+		glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+		_window = glfwCreateWindow(width, height, name.data(), nullptr, nullptr);
 	}
 
 	void Window::update()
@@ -26,33 +20,17 @@ namespace RenderEngine
 			return;
 		}
 		handleEvents();
-		present();
 	}
 
 
 	Window::~Window()
 	{
-		SDL_DestroyTexture(_sdl_texture);
-		SDL_FreeSurface(_sdl_image);
-		SDL_DestroyRenderer(_sdl_renderer);
-		SDL_DestroyWindow(_window);
+		glfwDestroyWindow(_window);
 	}
+
 	void Window::handleEvents()
 	{
-		SDL_Event event;
-
-		SDL_WaitEvent(&event);
-
-		switch (event.type)
-		{
-		case SDL_QUIT:
-			_closed = true;
-			break;
-		}
-	}
-	void Window::present()
-	{
-		SDL_RenderCopy(_sdl_renderer, _sdl_texture, NULL, NULL);
-		SDL_RenderPresent(_sdl_renderer);
+		glfwPollEvents();
+		_closed = glfwWindowShouldClose(_window);
 	}
 }

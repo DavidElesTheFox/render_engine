@@ -3,7 +3,8 @@
 #include <vulkan/vulkan.h>
 
 #include <string_view>
-#include <SDL.h>
+
+#include <GLFW/glfw3.h>
 namespace RenderEngine
 {
 	class Window
@@ -17,14 +18,10 @@ namespace RenderEngine
 
 	private:
 		void handleEvents();
-		void present();
 
 		bool _closed = false;
 		VkQueue _render_queue;
-		SDL_Window* _window{ nullptr };
-		SDL_Renderer* _sdl_renderer{ nullptr };
-		SDL_Surface* _sdl_image{ nullptr };
-		SDL_Texture* _sdl_texture{ nullptr };
 
+		GLFWwindow* _window{ nullptr };
 	};
 }

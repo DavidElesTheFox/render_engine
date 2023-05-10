@@ -29,7 +29,7 @@ set_property(TARGET RenderEngine PROPERTY CXX_STANDARD 20)
 
 target_link_libraries(RenderEngine 
 	PUBLIC 
-		SDL2::SDL2
+		glfw
 		Vulkan::Vulkan)
 		
 

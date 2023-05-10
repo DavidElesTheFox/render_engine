@@ -5,7 +5,7 @@
 #include <string>
 #include <optional>
 
-#include <SDL.h>
+#include <GLFW/glfw3.h>
 namespace
 {
 	VkApplicationInfo createAppInfo() {
@@ -80,8 +80,7 @@ namespace RenderEngine
 	}
 	void RenderContext::init()
 	{
-		SDL_Init(SDL_INIT_VIDEO);
-
+		glfwInit();
 		if (isVulkanInitialized() == false)
 		{
 			initVulkan();
@@ -129,7 +128,6 @@ namespace RenderEngine
 			vkDestroyInstance(_instance, nullptr);
 			_instance = nullptr;
 		}
-		SDL_Quit();
-
+		glfwTerminate();
 	}
 }

@@ -1,8 +1,12 @@
 #pragma once
 
+#include <render_engine/SwapChain.h>
+
 #include <vulkan/vulkan.h>
 
 #include <string_view>
+#include <array>
+#include <memory>
 
 #include <GLFW/glfw3.h>
 namespace RenderEngine
@@ -10,7 +14,9 @@ namespace RenderEngine
 	class Window
 	{
 	public:
-		explicit Window(VkQueue render_queue, std::string_view name);
+
+		static constexpr std::array<const char*, 1> kDeviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+		explicit Window(GLFWwindow* window, std::unique_ptr<SwapChain> swap_chain, VkQueue render_queue);
 		~Window();
 
 		void update();
@@ -23,5 +29,6 @@ namespace RenderEngine
 		VkQueue _render_queue;
 
 		GLFWwindow* _window{ nullptr };
+		std::unique_ptr<SwapChain> _swap_chain;
 	};
 }

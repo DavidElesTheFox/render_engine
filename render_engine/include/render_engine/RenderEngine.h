@@ -10,7 +10,11 @@ namespace RenderEngine
 	class RenderEngine
 	{
 	public:
-		explicit RenderEngine(VkInstance instance, VkPhysicalDevice physical_device, uint32_t queue_family_index_graphics, uint32_t queue_family_index_presentation);
+		explicit RenderEngine(VkInstance instance,
+			VkPhysicalDevice physical_device,
+			uint32_t queue_family_index_graphics,
+			uint32_t queue_family_index_presentation,
+			const std::vector<const char*>& device_extensions);
 		RenderEngine(const RenderEngine&) = delete;
 		RenderEngine(RenderEngine&&) = delete;
 

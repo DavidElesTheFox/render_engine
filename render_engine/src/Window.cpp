@@ -1,16 +1,24 @@
 #include <render_engine/Window.h>
+
 #include <data_config.h>
+
 #include <stdexcept>
+#include <vector>
+#include <algorithm>
+#include <limits>
+namespace
+{
+
+}
+
 namespace RenderEngine
 {
-	Window::Window(VkQueue render_queue, std::string_view name)
+	Window::Window(GLFWwindow* window, std::unique_ptr<SwapChain> swap_chain, VkQueue render_queue)
 		: _render_queue{ render_queue }
+		, _window(window)
+		, _swap_chain(std::move(swap_chain))
 	{
-		constexpr auto width = 600;
-		constexpr auto height = 600;
-		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-		glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-		_window = glfwCreateWindow(width, height, name.data(), nullptr, nullptr);
+
 	}
 
 	void Window::update()
@@ -25,6 +33,7 @@ namespace RenderEngine
 
 	Window::~Window()
 	{
+		_swap_chain.reset();
 		glfwDestroyWindow(_window);
 	}
 

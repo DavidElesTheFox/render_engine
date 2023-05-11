@@ -14,6 +14,7 @@ set(RENDER_ENGINE_SRC
 	src/Window.cpp
 	src/Drawer.cpp
 	src/GUIDrawer.cpp
+    src/SwapChain.cpp
 	)
 
 set(RENDER_ENGINE_HEADERS 
@@ -22,6 +23,7 @@ set(RENDER_ENGINE_HEADERS
 	${RENDER_ENGINE_HEADER_LOCATION}/Window.h
 	${RENDER_ENGINE_HEADER_LOCATION}/Drawer.h
 	${RENDER_ENGINE_HEADER_LOCATION}/GUIDrawer.h
+	${RENDER_ENGINE_HEADER_LOCATION}/SwapChain.h
 	)
 
 add_library(RenderEngine STATIC ${RENDER_ENGINE_SRC} ${RENDER_ENGINE_HEADERS})

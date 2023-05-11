@@ -1,6 +1,9 @@
 #include <render_engine/RenderEngine.h>
 
 #include <render_engine/RenderContext.h>
+#include <render_engine/Window.h>
+
+#include <GLFW/glfw3native.h>
 
 #include <stdexcept>
 #include <optional>
@@ -9,7 +12,7 @@
 namespace
 {
 
-	VkDevice createLogicalDevice(size_t queue_count, VkPhysicalDevice physical_device, uint32_t queue_family_index_graphics, uint32_t queue_family_index_presentation) {
+	VkDevice createLogicalDevice(size_t queue_count, VkPhysicalDevice physical_device, uint32_t queue_family_index_graphics, uint32_t queue_family_index_presentation, const std::vector<const char*>& device_extensions) {
 
 		std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
 		std::set<uint32_t> unique_queue_families = { queue_family_index_graphics, queue_family_index_presentation };
@@ -34,7 +37,8 @@ namespace
 
 		create_info.pEnabledFeatures = &device_features;
 
-		create_info.enabledExtensionCount = 0;
+		create_info.enabledExtensionCount = device_extensions.size();
+		create_info.ppEnabledExtensionNames = device_extensions.data();
 
 
 		create_info.enabledLayerCount = 0;
@@ -49,10 +53,10 @@ namespace
 
 namespace RenderEngine
 {
-	RenderEngine::RenderEngine(VkInstance instance, VkPhysicalDevice physical_device, uint32_t queue_family_index_graphics, uint32_t queue_family_index_presentation)
+	RenderEngine::RenderEngine(VkInstance instance, VkPhysicalDevice physical_device, uint32_t queue_family_index_graphics, uint32_t queue_family_index_presentation, const std::vector<const char*>& device_extensions)
 		: _instance(instance)
 		, _physical_device(physical_device)
-		, _logical_device(createLogicalDevice(RenderContext::kSupportedWindowCount, physical_device, queue_family_index_graphics, queue_family_index_presentation))
+		, _logical_device(createLogicalDevice(RenderContext::kSupportedWindowCount, physical_device, queue_family_index_graphics, queue_family_index_presentation, device_extensions))
 		, _queue_family_present(queue_family_index_presentation)
 		, _queue_family_graphics(queue_family_index_graphics)
 	{
@@ -69,6 +73,31 @@ namespace RenderEngine
 		VkQueue render_queue;
 		vkGetDeviceQueue(_logical_device, _queue_family_graphics, _next_queue_index, &render_queue);
 
-		return std::make_unique<Window>(render_queue, name);
+		constexpr auto width = 600;
+		constexpr auto height = 600;
+		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+		glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+		GLFWwindow* window = glfwCreateWindow(width, height, name.data(), nullptr, nullptr);
+
+		VkWin32SurfaceCreateInfoKHR create_info{};
+		create_info.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+		create_info.hwnd = glfwGetWin32Window(window);
+		create_info.hinstance = GetModuleHandle(nullptr);
+		VkSurfaceKHR surface;
+
+		if (vkCreateWin32SurfaceKHR(_instance, &create_info, nullptr, &surface) != VK_SUCCESS) {
+			glfwDestroyWindow(window);
+			throw std::runtime_error("Failed to create window surface!");
+		}
+		try
+		{
+			std::unique_ptr<SwapChain> swap_chain = std::make_unique<SwapChain>(window, _instance, _physical_device, _logical_device, std::move(surface), _queue_family_graphics, _queue_family_present);
+			return std::make_unique<Window>(window, std::move(swap_chain), render_queue);
+		}
+		catch (const std::runtime_error& error)
+		{
+			glfwDestroyWindow(window);
+			throw;
+		}
 	}
 }

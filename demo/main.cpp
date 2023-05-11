@@ -3,17 +3,21 @@
 #include <render_engine/RenderContext.h>
 #include <render_engine/RenderEngine.h>
 
+void run()
+{
+	auto window = RenderEngine::RenderContext::context().getEngine(0).createWindow("Main Window");
+
+	while (window->isClosed() == false)
+	{
+		window->update();
+	}
+}
+
 int main()
 {
 	try
 	{
-		auto window = RenderEngine::RenderContext::context().getEngine(0).createWindow("Main Window");
-
-		while (window->isClosed() == false)
-		{
-			window->update();
-		}
-
+		run();
 		RenderEngine::RenderContext::context().reset();
 		return 0;
 	}

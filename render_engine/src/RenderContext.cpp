@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <string>
 #include <optional>
+#include <set>
 #include <vulkan/vk_enum_string_helper.h>
 
 #include <GLFW/glfw3.h>
@@ -56,11 +57,25 @@ namespace
 
 		return result;
 	}
+	bool checkDeviceExtensionSupport(VkPhysicalDevice physical_device, const std::vector<const char*>& extensions) {
+		uint32_t extension_count = 0;
+		vkEnumerateDeviceExtensionProperties(physical_device, nullptr, &extension_count, nullptr);
 
-	bool isDeviceSuitable(VkInstance instance, VkPhysicalDevice device) {
+		std::vector<VkExtensionProperties> available_extensions(extension_count);
+		vkEnumerateDeviceExtensionProperties(physical_device, nullptr, &extension_count, available_extensions.data());
+
+		std::set<std::string> missing_extensions(extensions.begin(), extensions.end());
+
+		for (const auto& extension : available_extensions) {
+			missing_extensions.erase(extension.extensionName);
+		}
+
+		return missing_extensions.empty();
+	}
+	bool isDeviceSuitable(VkInstance instance, VkPhysicalDevice device, const std::vector<const char*>& extensions) {
 		auto indecies = findQueueFamilies(instance, device);
 
-		return indecies.hasAll();
+		return indecies.hasAll() && checkDeviceExtensionSupport(device, extensions);
 	}
 
 	std::vector<VkPhysicalDevice> findPhysicalDevices(VkInstance instance, std::vector<const char*> extensions) {
@@ -75,7 +90,7 @@ namespace
 		vkEnumeratePhysicalDevices(instance, &device_count, devices.data());
 
 		devices.erase(std::remove_if(devices.begin(), devices.end(),
-			[&](const auto& device) {return isDeviceSuitable(instance, device) == false; }),
+			[&](const auto& device) {return isDeviceSuitable(instance, device, extensions) == false; }),
 			devices.end());
 		return devices;
 	}
@@ -138,7 +153,7 @@ namespace RenderEngine
 
 	void RenderContext::createEngines()
 	{
-		std::vector<const char*> device_extensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+		std::vector<const char*> device_extensions{ Window::kDeviceExtensions.begin(), Window::kDeviceExtensions.end() };
 
 		auto physical_devices = findPhysicalDevices(_instance, device_extensions);
 		if (physical_devices.empty())
@@ -148,7 +163,7 @@ namespace RenderEngine
 		for (auto physical_device : physical_devices)
 		{
 			auto indices = findQueueFamilies(_instance, physical_device);
-			auto engine = std::make_unique<RenderEngine>(_instance, physical_device, *indices.graphics_index, *indices.presentation_index);
+			auto engine = std::make_unique<RenderEngine>(_instance, physical_device, *indices.graphics_index, *indices.presentation_index, device_extensions);
 			_engines.push_back(std::move(engine));
 		}
 	}

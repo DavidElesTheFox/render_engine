@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <string>
 #include <optional>
+#include <vulkan/vk_enum_string_helper.h>
 
 #include <GLFW/glfw3.h>
 namespace
@@ -19,43 +20,62 @@ namespace
 		return appInfo;
 	}
 
-	std::optional<uint32_t> findQueueFamilies(VkPhysicalDevice device) {
+	struct QueueFamilyIndices
+	{
+		std::optional<uint32_t> graphics_index;
+		std::optional<uint32_t> presentation_index;
 
-		uint32_t queueFamilyCount = 0;
-		vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
+		bool hasAll() const { return graphics_index != std::nullopt && presentation_index != std::nullopt; }
+	};
 
-		std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
-		vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
+	QueueFamilyIndices findQueueFamilies(VkInstance instance, VkPhysicalDevice device) {
 
-		for (uint32_t i = 0; i < queueFamilies.size(); ++i) {
-			const auto& queueFamily = queueFamilies[i];
-			if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-				return i;
+		QueueFamilyIndices result;
+		uint32_t queue_family_count = 0;
+		vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, nullptr);
+
+		std::vector<VkQueueFamilyProperties> queue_families(queue_family_count);
+		vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, queue_families.data());
+
+		for (uint32_t i = 0; i < queue_families.size(); ++i) {
+			const auto& queue_family = queue_families[i];
+
+			if (queue_family.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+				result.graphics_index = i;
+			}
+
+			if (glfwGetPhysicalDevicePresentationSupport(instance, device, i))
+			{
+				result.presentation_index = i;
+			}
+			if (result.hasAll())
+			{
+				break;
 			}
 		}
 
-		return std::nullopt;
+		return result;
 	}
 
-	bool isDeviceSuitable(VkPhysicalDevice device) {
-		auto index = findQueueFamilies(device);
+	bool isDeviceSuitable(VkInstance instance, VkPhysicalDevice device) {
+		auto indecies = findQueueFamilies(instance, device);
 
-		return index != std::nullopt;
+		return indecies.hasAll();
 	}
 
-	std::vector<VkPhysicalDevice> findPhysicalDevices(VkInstance instance) {
-		uint32_t deviceCount = 0;
-		vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
+	std::vector<VkPhysicalDevice> findPhysicalDevices(VkInstance instance, std::vector<const char*> extensions) {
+		uint32_t device_count = 0;
+		vkEnumeratePhysicalDevices(instance, &device_count, nullptr);
 
-		if (deviceCount == 0) {
+		if (device_count == 0) {
 			throw std::runtime_error("failed to find GPUs with Vulkan support!");
 		}
 
-		std::vector<VkPhysicalDevice> devices(deviceCount);
-		vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
+		std::vector<VkPhysicalDevice> devices(device_count);
+		vkEnumeratePhysicalDevices(instance, &device_count, devices.data());
 
 		devices.erase(std::remove_if(devices.begin(), devices.end(),
-			[](const auto& device) {return isDeviceSuitable(device) == false; }),
+			[&](const auto& device) {return isDeviceSuitable(instance, device) == false; }),
 			devices.end());
 		return devices;
 	}
@@ -84,38 +104,51 @@ namespace RenderEngine
 		if (isVulkanInitialized() == false)
 		{
 			initVulkan();
+			createEngines();
 		}
 	}
 	void RenderContext::initVulkan()
 	{
-		auto appInfo = createAppInfo();
-		VkInstanceCreateInfo createInfo{};
-		createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-		createInfo.pApplicationInfo = &appInfo;
+		auto app_info = createAppInfo();
+		VkInstanceCreateInfo create_info{};
+		create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+		create_info.pApplicationInfo = &app_info;
 
-		uint32_t extensionCount = 0;
-		const char** extensions = nullptr;
-
-		createInfo.enabledExtensionCount = extensionCount;
-		createInfo.ppEnabledExtensionNames = extensions;
-
-		createInfo.enabledLayerCount = 0;
-
-
-		if (VkResult result = vkCreateInstance(&createInfo, nullptr, &_instance); result != VK_SUCCESS)
+		std::vector<const char*> instance_extensions = {  };
 		{
-			throw std::runtime_error("Cannot initialize vulkan instance: " + std::to_string(result));
+			uint32_t glfw_extension_count = 0;
+			const char** glfw_extensions = glfwGetRequiredInstanceExtensions(&glfw_extension_count);
+			for (uint32_t i = 0; i < glfw_extension_count; ++i)
+			{
+				instance_extensions.push_back(glfw_extensions[i]);
+			}
 		}
 
-		auto physical_devices = findPhysicalDevices(_instance);
+		create_info.enabledExtensionCount = instance_extensions.size();
+		create_info.ppEnabledExtensionNames = instance_extensions.data();
+
+		create_info.enabledLayerCount = 0;
+
+
+		if (VkResult result = vkCreateInstance(&create_info, nullptr, &_instance); result != VK_SUCCESS)
+		{
+			throw std::runtime_error(std::string{ "Cannot initialize vulkan instance: " } + string_VkResult(result));
+		}
+	}
+
+	void RenderContext::createEngines()
+	{
+		std::vector<const char*> device_extensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+
+		auto physical_devices = findPhysicalDevices(_instance, device_extensions);
 		if (physical_devices.empty())
 		{
 			throw std::runtime_error("Cannot find suitable physical devices ");
 		}
 		for (auto physical_device : physical_devices)
 		{
-			uint32_t queue_family_index = findQueueFamilies(physical_device).value();
-			auto engine = std::make_unique<RenderEngine>(physical_device, queue_family_index);
+			auto indices = findQueueFamilies(_instance, physical_device);
+			auto engine = std::make_unique<RenderEngine>(_instance, physical_device, *indices.graphics_index, *indices.presentation_index);
 			_engines.push_back(std::move(engine));
 		}
 	}

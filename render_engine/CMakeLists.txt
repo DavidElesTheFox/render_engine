@@ -32,7 +32,11 @@ target_link_libraries(RenderEngine
 		glfw
 		Vulkan::Vulkan)
 		
-
+target_compile_definitions(RenderEngine 
+	PRIVATE 
+		VK_USE_PLATFORM_WIN32_KHR
+		GLFW_INCLUDE_VULKAN
+		GLFW_EXPOSE_NATIVE_WIN32)
 target_include_directories(RenderEngine 
 	PUBLIC
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

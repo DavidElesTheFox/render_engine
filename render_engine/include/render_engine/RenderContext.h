@@ -29,6 +29,7 @@ namespace RenderEngine
 		}
 		void init();
 		void initVulkan();
+		void createEngines();
 		bool isVulkanInitialized() const { return _instance != nullptr; }
 		VkInstance _instance;
 		std::vector<std::unique_ptr<RenderEngine>> _engines;

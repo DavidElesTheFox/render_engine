@@ -4,17 +4,21 @@
 
 #include <vulkan/vulkan.h>
 #include <memory>
+#include <span>
 
 namespace RenderEngine
 {
 	class RenderEngine
 	{
 	public:
+		static constexpr auto kSupportedWindowCount = 8;
+
 		explicit RenderEngine(VkInstance instance,
 			VkPhysicalDevice physical_device,
 			uint32_t queue_family_index_graphics,
 			uint32_t queue_family_index_presentation,
-			const std::vector<const char*>& device_extensions);
+			const std::vector<const char*>& device_extensions,
+			const std::vector<const char*>& validation_layers);
 		RenderEngine(const RenderEngine&) = delete;
 		RenderEngine(RenderEngine&&) = delete;
 
@@ -22,14 +26,14 @@ namespace RenderEngine
 		RenderEngine& operator=(RenderEngine&&) = delete;
 
 		~RenderEngine();
-		std::unique_ptr<Window> createWindow(std::string_view name) const;
+		std::unique_ptr<Window> createWindow(std::string_view name);
 
 	private:
 		VkInstance _instance;
 		VkPhysicalDevice _physical_device;
 		VkDevice _logical_device;
-		uint32_t _queue_family_present;
-		uint32_t _queue_family_graphics;
+		uint32_t _queue_family_present = 0;
+		uint32_t _queue_family_graphics = 0;
 		uint32_t _next_queue_index = 0;
 	};
 }

@@ -1,15 +1,21 @@
 #include <render_engine/RenderContext.h>
 #include <render_engine/RenderEngine.h>
 
+#include <ranges>
+#include <algorithm>
 #include <stdexcept>
 #include <string>
 #include <optional>
 #include <set>
+#include <vector>
+#include <iostream>
+
 #include <vulkan/vk_enum_string_helper.h>
 
 #include <GLFW/glfw3.h>
 namespace
 {
+
 	VkApplicationInfo createAppInfo() {
 		VkApplicationInfo appInfo{};
 		appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -28,6 +34,7 @@ namespace
 
 		bool hasAll() const { return graphics_index != std::nullopt && presentation_index != std::nullopt; }
 	};
+	constexpr bool g_enable_validation_layers = true;
 
 	QueueFamilyIndices findQueueFamilies(VkInstance instance, VkPhysicalDevice device) {
 
@@ -94,6 +101,57 @@ namespace
 			devices.end());
 		return devices;
 	}
+	bool checkValidationLayerSupport(const std::vector<const char*>& validation_layers) {
+		uint32_t layer_count;
+		vkEnumerateInstanceLayerProperties(&layer_count, nullptr);
+
+		std::vector<VkLayerProperties> available_layers(layer_count);
+		vkEnumerateInstanceLayerProperties(&layer_count, available_layers.data());
+
+		for (std::string_view layer_name : validation_layers) {
+			bool layerFound = false;
+
+			for (const auto& properties : available_layers) {
+				if (layer_name == properties.layerName) {
+					layerFound = true;
+					break;
+				}
+			}
+
+			if (!layerFound) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+	VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* create_info, const VkAllocationCallbacks* alloc, VkDebugUtilsMessengerEXT* debug_messenger) {
+		auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+		if (func != nullptr) {
+			return func(instance, create_info, alloc, debug_messenger);
+		}
+		else {
+			return VK_ERROR_EXTENSION_NOT_PRESENT;
+		}
+	}
+	void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debug_messenger, const VkAllocationCallbacks* alloc) {
+		auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+		if (func != nullptr) {
+			func(instance, debug_messenger, alloc);
+		}
+	}
+	VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
+		VkDebugUtilsMessageTypeFlagsEXT,
+		const VkDebugUtilsMessengerCallbackDataEXT* data,
+		void*) {
+		if (severity < VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
+		{
+			return VK_FALSE;
+		}
+		std::cerr << "validation layer: " << data->pMessage << std::endl;
+
+		return VK_FALSE;
+	}
 
 }
 namespace RenderEngine
@@ -103,7 +161,7 @@ namespace RenderEngine
 		static RenderContext context;
 		if (context.isVulkanInitialized() == false)
 		{
-			context.initVulkan();
+			context.init();
 		}
 		return context;
 	}
@@ -115,15 +173,31 @@ namespace RenderEngine
 	}
 	void RenderContext::init()
 	{
+		const bool enable_validation_layer = true;
+		const std::vector<const char*> validation_layers = [&]()->std::vector<const char*> {
+			if (enable_validation_layer)
+			{
+				return { "VK_LAYER_KHRONOS_validation" };
+			}
+			else
+			{
+				return {};
+			}
+		}();
+
 		glfwInit();
 		if (isVulkanInitialized() == false)
 		{
-			initVulkan();
-			createEngines();
+			initVulkan(validation_layers);
+			createEngines(validation_layers);
 		}
 	}
-	void RenderContext::initVulkan()
+	void RenderContext::initVulkan(const std::vector<const char*>& validation_layers)
 	{
+		if (g_enable_validation_layers && checkValidationLayerSupport(validation_layers) == false)
+		{
+			throw std::runtime_error("Validation layers requested but not available");
+		}
 		auto app_info = createAppInfo();
 		VkInstanceCreateInfo create_info{};
 		create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -137,13 +211,36 @@ namespace RenderEngine
 			{
 				instance_extensions.push_back(glfw_extensions[i]);
 			}
+			if (g_enable_validation_layers) {
+				instance_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+			}
+
 		}
 
 		create_info.enabledExtensionCount = instance_extensions.size();
 		create_info.ppEnabledExtensionNames = instance_extensions.data();
+		VkDebugUtilsMessengerCreateInfoEXT debug_create_info{};
 
-		create_info.enabledLayerCount = 0;
+		if (g_enable_validation_layers)
+		{
+			debug_create_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+			debug_create_info.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
+				| VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT
+				| VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+			debug_create_info.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT
+				| VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
+				| VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+			debug_create_info.pfnUserCallback = debugCallback;
 
+			create_info.enabledLayerCount = validation_layers.size();
+			create_info.ppEnabledLayerNames = validation_layers.data();
+			create_info.pNext = &debug_create_info;
+		}
+		else
+		{
+			create_info.enabledLayerCount = 0;
+			create_info.pNext = nullptr;
+		}
 
 		if (VkResult result = vkCreateInstance(&create_info, nullptr, &_instance); result != VK_SUCCESS)
 		{
@@ -151,7 +248,7 @@ namespace RenderEngine
 		}
 	}
 
-	void RenderContext::createEngines()
+	void RenderContext::createEngines(const std::vector<const char*>& validation_layers)
 	{
 		std::vector<const char*> device_extensions{ Window::kDeviceExtensions.begin(), Window::kDeviceExtensions.end() };
 
@@ -163,7 +260,12 @@ namespace RenderEngine
 		for (auto physical_device : physical_devices)
 		{
 			auto indices = findQueueFamilies(_instance, physical_device);
-			auto engine = std::make_unique<RenderEngine>(_instance, physical_device, *indices.graphics_index, *indices.presentation_index, device_extensions);
+			auto engine = std::make_unique<RenderEngine>(_instance,
+				physical_device,
+				*indices.graphics_index,
+				*indices.presentation_index,
+				device_extensions,
+				validation_layers);
 			_engines.push_back(std::move(engine));
 		}
 	}
@@ -175,6 +277,10 @@ namespace RenderEngine
 			_engines.clear();
 			vkDestroyInstance(_instance, nullptr);
 			_instance = nullptr;
+			if constexpr (g_enable_validation_layers)
+			{
+				DestroyDebugUtilsMessengerEXT(_instance, _debug_messenger, nullptr);
+			}
 		}
 		glfwTerminate();
 	}

@@ -12,7 +12,12 @@
 namespace
 {
 
-	VkDevice createLogicalDevice(size_t queue_count, VkPhysicalDevice physical_device, uint32_t queue_family_index_graphics, uint32_t queue_family_index_presentation, const std::vector<const char*>& device_extensions) {
+	VkDevice createLogicalDevice(size_t queue_count,
+		VkPhysicalDevice physical_device,
+		uint32_t queue_family_index_graphics,
+		uint32_t queue_family_index_presentation,
+		const std::vector<const char*>& device_extensions,
+		const std::vector<const char*>& validation_layers) {
 
 		std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
 		std::set<uint32_t> unique_queue_families = { queue_family_index_graphics, queue_family_index_presentation };
@@ -40,8 +45,15 @@ namespace
 		create_info.enabledExtensionCount = device_extensions.size();
 		create_info.ppEnabledExtensionNames = device_extensions.data();
 
-
-		create_info.enabledLayerCount = 0;
+		if (validation_layers.empty())
+		{
+			create_info.enabledLayerCount = 0;
+		}
+		else
+		{
+			create_info.enabledLayerCount = validation_layers.size();
+			create_info.ppEnabledLayerNames = validation_layers.data();
+		}
 		VkDevice device;
 		if (vkCreateDevice(physical_device, &create_info, nullptr, &device) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create logical device!");
@@ -53,10 +65,15 @@ namespace
 
 namespace RenderEngine
 {
-	RenderEngine::RenderEngine(VkInstance instance, VkPhysicalDevice physical_device, uint32_t queue_family_index_graphics, uint32_t queue_family_index_presentation, const std::vector<const char*>& device_extensions)
+	RenderEngine::RenderEngine(VkInstance instance,
+		VkPhysicalDevice physical_device,
+		uint32_t queue_family_index_graphics,
+		uint32_t queue_family_index_presentation,
+		const std::vector<const char*>& device_extensions,
+		const std::vector<const char*>& validation_layers)
 		: _instance(instance)
 		, _physical_device(physical_device)
-		, _logical_device(createLogicalDevice(RenderContext::kSupportedWindowCount, physical_device, queue_family_index_graphics, queue_family_index_presentation, device_extensions))
+		, _logical_device(createLogicalDevice(kSupportedWindowCount, physical_device, queue_family_index_graphics, queue_family_index_presentation, device_extensions, validation_layers))
 		, _queue_family_present(queue_family_index_presentation)
 		, _queue_family_graphics(queue_family_index_graphics)
 	{
@@ -68,7 +85,7 @@ namespace RenderEngine
 		vkDestroyDevice(_logical_device, nullptr);
 	}
 
-	std::unique_ptr<Window> RenderEngine::createWindow(std::string_view name) const
+	std::unique_ptr<Window> RenderEngine::createWindow(std::string_view name)
 	{
 		VkQueue render_queue;
 		vkGetDeviceQueue(_logical_device, _queue_family_graphics, _next_queue_index, &render_queue);
@@ -92,6 +109,7 @@ namespace RenderEngine
 		try
 		{
 			std::unique_ptr<SwapChain> swap_chain = std::make_unique<SwapChain>(window, _instance, _physical_device, _logical_device, std::move(surface), _queue_family_graphics, _queue_family_present);
+			_next_queue_index = (_next_queue_index + 1) % kSupportedWindowCount;
 			return std::make_unique<Window>(window, std::move(swap_chain), render_queue);
 		}
 		catch (const std::runtime_error& error)

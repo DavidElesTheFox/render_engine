@@ -29,7 +29,6 @@ namespace RenderEngine
 		~SwapChain();
 		const Details& getDetails() const { return _details; }
 
-
 	private:
 		Details _details;
 		VkInstance _instance;

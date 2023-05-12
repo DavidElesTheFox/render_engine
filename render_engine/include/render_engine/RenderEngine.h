@@ -11,7 +11,7 @@ namespace RenderEngine
 	class RenderEngine
 	{
 	public:
-		static constexpr auto kSupportedWindowCount = 8;
+		static constexpr auto kSupportedWindowCount = 1;
 
 		explicit RenderEngine(VkInstance instance,
 			VkPhysicalDevice physical_device,

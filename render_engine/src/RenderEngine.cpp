@@ -22,13 +22,13 @@ namespace
 		std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
 		std::set<uint32_t> unique_queue_families = { queue_family_index_graphics, queue_family_index_presentation };
 
-		float queuePriority = 1.0f;
+		std::vector<float> queuePriority(queue_count, 1.0f);
 		for (uint32_t queueFamily : unique_queue_families) {
 			VkDeviceQueueCreateInfo queue_create_info{};
 			queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
 			queue_create_info.queueFamilyIndex = queueFamily;
-			queue_create_info.queueCount = 1;
-			queue_create_info.pQueuePriorities = &queuePriority;
+			queue_create_info.queueCount = queue_count;
+			queue_create_info.pQueuePriorities = queuePriority.data();
 			queue_create_infos.push_back(queue_create_info);
 		}
 
@@ -88,7 +88,9 @@ namespace RenderEngine
 	std::unique_ptr<Window> RenderEngine::createWindow(std::string_view name)
 	{
 		VkQueue render_queue;
+		VkQueue present_queue;
 		vkGetDeviceQueue(_logical_device, _queue_family_graphics, _next_queue_index, &render_queue);
+		vkGetDeviceQueue(_logical_device, _queue_family_present, _next_queue_index, &present_queue);
 
 		constexpr auto width = 600;
 		constexpr auto height = 600;
@@ -110,7 +112,7 @@ namespace RenderEngine
 		{
 			std::unique_ptr<SwapChain> swap_chain = std::make_unique<SwapChain>(window, _instance, _physical_device, _logical_device, std::move(surface), _queue_family_graphics, _queue_family_present);
 			_next_queue_index = (_next_queue_index + 1) % kSupportedWindowCount;
-			return std::make_unique<Window>(window, std::move(swap_chain), render_queue);
+			return std::make_unique<Window>(_logical_device, window, std::move(swap_chain), render_queue, present_queue, _queue_family_graphics);
 		}
 		catch (const std::runtime_error& error)
 		{

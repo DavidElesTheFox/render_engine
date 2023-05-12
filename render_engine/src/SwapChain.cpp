@@ -100,9 +100,9 @@ namespace
 			create_info.subresourceRange.layerCount = 1;
 
 			if (vkCreateImageView(logical_device, &create_info, nullptr, &image_views[i]) != VK_SUCCESS) {
-				for (VkImageView& image_view : image_views)
+				for (uint32_t j = 0; j < i; ++j)
 				{
-					vkDestroyImageView(logical_device, image_view, nullptr);
+					vkDestroyImageView(logical_device, image_views[j], nullptr);
 				}
 				throw std::runtime_error("failed to create image views!");
 			}

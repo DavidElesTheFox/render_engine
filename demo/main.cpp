@@ -6,7 +6,7 @@
 void run()
 {
 	auto window = RenderEngine::RenderContext::context().getEngine(0).createWindow("Main Window");
-
+	window->registerDrawer();
 	while (window->isClosed() == false)
 	{
 		window->update();

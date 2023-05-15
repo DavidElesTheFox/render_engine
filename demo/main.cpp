@@ -6,7 +6,16 @@
 void run()
 {
 	auto window = RenderEngine::RenderContext::context().getEngine(0).createWindow("Main Window");
-	window->registerDrawer();
+	auto& drawer = window->registerDrawer();
+	{
+		const std::vector<RenderEngine::Drawer::Vertex> vertices = {
+			{{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+			{{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+			{{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+		};
+		drawer.init(vertices);
+
+	}
 	while (window->isClosed() == false)
 	{
 		window->update();

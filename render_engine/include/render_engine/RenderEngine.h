@@ -1,6 +1,7 @@
 #pragma once
 
 #include <render_engine/Window.h>
+#include <render_engine/Buffer.h>
 
 #include <vulkan/vulkan.h>
 #include <memory>
@@ -27,7 +28,9 @@ namespace RenderEngine
 
 		~RenderEngine();
 		std::unique_ptr<Window> createWindow(std::string_view name);
+		std::unique_ptr<Buffer> createBuffer(VkBufferUsageFlags usage, VkDeviceSize size);
 
+		VkDevice getLogicalDevice() { return _logical_device; }
 	private:
 		VkInstance _instance;
 		VkPhysicalDevice _physical_device;

@@ -1,12 +1,18 @@
 #pragma once
 #include <render_engine/SwapChain.h>
+#include <render_engine/Buffer.h>
 
 #include <vulkan/vulkan.h>
 
 #include <vector>
 #include <cassert>
+#include <memory>
+#include <string>
+#include <array>
+
 namespace RenderEngine
 {
+	class Window;
 	class Drawer
 	{
 	public:
@@ -32,13 +38,17 @@ namespace RenderEngine
 			bool _finished = false;
 		};
 		friend class ReinitializationCommand;
-		Drawer(VkDevice logical_device,
-			VkRenderPass render_pass,
-			VkPipeline pipeline,
-			VkPipelineLayout pipeline_layout,
+
+		struct Vertex {
+			std::array<float, 2> pos;
+			std::array<float, 3> color;
+		};
+		Drawer(Window& parent,
 			const SwapChain& swap_chain,
-			uint32_t render_queue_family,
 			uint32_t back_buffer_size);
+
+		void init(std::vector<Vertex> vertices);
+
 		void draw(uint32_t swap_chain_image_index, uint32_t frame_number)
 		{
 			draw(_frame_buffers[swap_chain_image_index], frame_number);
@@ -66,7 +76,7 @@ namespace RenderEngine
 		void draw(const VkFramebuffer& frame_buffer, uint32_t frame_number);
 		void resetFrameBuffers();
 
-		VkDevice _logical_device;
+		Window& _window;
 		VkRenderPass _render_pass;
 		VkPipelineLayout _pipeline_layout;
 		VkPipeline _pipeline;
@@ -74,5 +84,7 @@ namespace RenderEngine
 		VkCommandPool _command_pool;
 		std::vector<FrameData> _back_buffer;
 		VkRect2D _render_area;
+
+		std::unique_ptr<Buffer> _vertex_buffer;
 	};
 }

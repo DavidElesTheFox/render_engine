@@ -95,7 +95,6 @@ namespace RenderEngine
 		constexpr auto width = 600;
 		constexpr auto height = 600;
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-		//glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 		GLFWwindow* window = glfwCreateWindow(width, height, name.data(), nullptr, nullptr);
 
 		VkWin32SurfaceCreateInfoKHR create_info{};
@@ -112,12 +111,16 @@ namespace RenderEngine
 		{
 			std::unique_ptr<SwapChain> swap_chain = std::make_unique<SwapChain>(SwapChain::CreateInfo{ window, _instance, _physical_device, _logical_device, std::move(surface), _queue_family_graphics, _queue_family_present });
 			_next_queue_index = (_next_queue_index + 1) % kSupportedWindowCount;
-			return std::make_unique<Window>(_logical_device, window, std::move(swap_chain), render_queue, present_queue, _queue_family_graphics);
+			return std::make_unique<Window>(*this, window, std::move(swap_chain), render_queue, present_queue, _queue_family_graphics);
 		}
 		catch (const std::runtime_error& error)
 		{
 			glfwDestroyWindow(window);
 			throw;
 		}
+	}
+	std::unique_ptr<Buffer> RenderEngine::createBuffer(VkBufferUsageFlags usage, VkDeviceSize size)
+	{
+		return std::make_unique<Buffer>(_physical_device, _logical_device, usage, size);
 	}
 }

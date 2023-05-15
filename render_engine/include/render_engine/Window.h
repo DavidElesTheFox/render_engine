@@ -12,12 +12,13 @@
 #include <GLFW/glfw3.h>
 namespace RenderEngine
 {
+	class RenderEngine;
 	class Window
 	{
 	public:
 
 		static constexpr std::array<const char*, 1> kDeviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
-		explicit Window(VkDevice logical_device,
+		explicit Window(RenderEngine& engine,
 			GLFWwindow* window,
 			std::unique_ptr<SwapChain> swap_chain,
 			VkQueue render_queue,
@@ -28,8 +29,10 @@ namespace RenderEngine
 		void update();
 		bool isClosed() const { return _closed; }
 
-		void registerDrawer();
-
+		Drawer& registerDrawer();
+		RenderEngine& getRenderEngine() { return _engine; }
+		uint32_t getRenderQueueFamily() { return _render_queue_family; }
+		VkQueue& getRenderQueue() { return _render_queue; }
 	private:
 		struct FrameData
 		{
@@ -50,7 +53,7 @@ namespace RenderEngine
 		GLFWwindow* _window{ nullptr };
 		std::unique_ptr<SwapChain> _swap_chain;
 
-		VkDevice _logical_device;
+		RenderEngine& _engine;
 		std::array<FrameData, kBackBufferSize> _back_buffer;
 		uint32_t _render_queue_family{ 0 };
 

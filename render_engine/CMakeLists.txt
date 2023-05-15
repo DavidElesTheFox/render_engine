@@ -11,6 +11,7 @@ configure_file(config/data_config_in.h ${GENERATED_INCLUDE_DIR}/data_config.h)
 set(RENDER_ENGINE_SRC 
 	src/RenderEngine.cpp
 	src/RenderContext.cpp
+	src/Buffer.cpp
 	src/Window.cpp
 	src/Drawer.cpp
 	src/GUIDrawer.cpp
@@ -20,6 +21,7 @@ set(RENDER_ENGINE_SRC
 set(RENDER_ENGINE_HEADERS 
 	${RENDER_ENGINE_HEADER_LOCATION}/RenderEngine.h
 	${RENDER_ENGINE_HEADER_LOCATION}/RenderContext.h
+	${RENDER_ENGINE_HEADER_LOCATION}/Buffer.h
 	${RENDER_ENGINE_HEADER_LOCATION}/Window.h
 	${RENDER_ENGINE_HEADER_LOCATION}/Drawer.h
 	${RENDER_ENGINE_HEADER_LOCATION}/GUIDrawer.h

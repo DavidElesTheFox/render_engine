@@ -14,21 +14,30 @@ namespace RenderEngine
 			VkPipeline pipeline,
 			VkPipelineLayout pipeline_layout,
 			const SwapChain& swap_chain,
-			uint32_t render_queue_family);
-		void draw(uint32_t back_buffer_index)
+			uint32_t render_queue_family,
+			uint32_t back_buffer_size);
+		void draw(uint32_t swap_chain_image_index, uint32_t frame_number)
 		{
-			draw(_frame_buffers[back_buffer_index]);
+			draw(_frame_buffers[swap_chain_image_index], frame_number);
 		}
-		std::vector<VkCommandBuffer> getCommandBuffers()
+		std::vector<VkCommandBuffer> getCommandBuffers(uint32_t frame_number)
 		{
-			return { _command_buffer };
+			return { getFrameData(frame_number).command_buffer };
 		}
 		~Drawer();
 	private:
+		struct FrameData
+		{
+			VkCommandBuffer command_buffer;
+		};
 		void createFrameBuffers(const SwapChain& swap_chain);
 		void createCommandPool(uint32_t render_queue_family);
 		void createCommandBuffer();
-		void draw(const VkFramebuffer& frame_buffer);
+		FrameData& getFrameData(uint32_t frame_number)
+		{
+			return _back_buffer[frame_number % _back_buffer.size()];
+		}
+		void draw(const VkFramebuffer& frame_buffer, uint32_t frame_number);
 
 		VkDevice _logical_device;
 		VkRenderPass _render_pass;
@@ -36,7 +45,7 @@ namespace RenderEngine
 		VkPipeline _pipeline;
 		std::vector<VkFramebuffer> _frame_buffers;
 		VkCommandPool _command_pool;
-		VkCommandBuffer _command_buffer;
+		std::vector<FrameData> _back_buffer;
 		VkRect2D _render_area;
 	};
 }

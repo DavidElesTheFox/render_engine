@@ -9,13 +9,14 @@ namespace RenderEngine
 		VkPipeline pipeline,
 		VkPipelineLayout pipeline_layout,
 		const SwapChain& swap_chain,
-		uint32_t render_queue_family)
+		uint32_t render_queue_family,
+		uint32_t back_buffer_size)
 		try : _logical_device(logical_device)
 		, _render_pass(render_pass)
 		, _pipeline_layout(pipeline_layout)
 		, _pipeline(pipeline)
-
 	{
+		_back_buffer.resize(back_buffer_size);
 		_render_area.offset = { 0, 0 };
 		_render_area.extent = swap_chain.getDetails().extent;
 		createFrameBuffers(swap_chain);
@@ -36,13 +37,14 @@ namespace RenderEngine
 		throw;
 	}
 
-	void Drawer::draw(const VkFramebuffer& frame_buffer)
+	void Drawer::draw(const VkFramebuffer& frame_buffer, uint32_t frame_number)
 	{
-		vkResetCommandBuffer(_command_buffer, /*VkCommandBufferResetFlagBits*/ 0);
+		FrameData& frame_data = getFrameData(frame_number);
+		vkResetCommandBuffer(frame_data.command_buffer, /*VkCommandBufferResetFlagBits*/ 0);
 		VkCommandBufferBeginInfo begin_info{};
 		begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-		if (vkBeginCommandBuffer(_command_buffer, &begin_info) != VK_SUCCESS) {
+		if (vkBeginCommandBuffer(frame_data.command_buffer, &begin_info) != VK_SUCCESS) {
 			throw std::runtime_error("failed to begin recording command buffer!");
 		}
 
@@ -56,9 +58,9 @@ namespace RenderEngine
 		render_pass_info.clearValueCount = 1;
 		render_pass_info.pClearValues = &clearColor;
 
-		vkCmdBeginRenderPass(_command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
+		vkCmdBeginRenderPass(frame_data.command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
 
-		vkCmdBindPipeline(_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipeline);
+		vkCmdBindPipeline(frame_data.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipeline);
 
 		VkViewport viewport{};
 		viewport.x = 0.0f;
@@ -67,18 +69,18 @@ namespace RenderEngine
 		viewport.height = (float)_render_area.extent.height;
 		viewport.minDepth = 0.0f;
 		viewport.maxDepth = 1.0f;
-		vkCmdSetViewport(_command_buffer, 0, 1, &viewport);
+		vkCmdSetViewport(frame_data.command_buffer, 0, 1, &viewport);
 
 		VkRect2D scissor{};
 		scissor.offset = { 0, 0 };
 		scissor.extent = _render_area.extent;
-		vkCmdSetScissor(_command_buffer, 0, 1, &scissor);
+		vkCmdSetScissor(frame_data.command_buffer, 0, 1, &scissor);
 
-		vkCmdDraw(_command_buffer, 3, 1, 0, 0);
+		vkCmdDraw(frame_data.command_buffer, 3, 1, 0, 0);
 
-		vkCmdEndRenderPass(_command_buffer);
+		vkCmdEndRenderPass(frame_data.command_buffer);
 
-		if (vkEndCommandBuffer(_command_buffer) != VK_SUCCESS) {
+		if (vkEndCommandBuffer(frame_data.command_buffer) != VK_SUCCESS) {
 			throw std::runtime_error("failed to record command buffer!");
 		}
 	}
@@ -134,14 +136,17 @@ namespace RenderEngine
 	}
 	void Drawer::createCommandBuffer()
 	{
-		VkCommandBufferAllocateInfo allocInfo{};
-		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		allocInfo.commandPool = _command_pool;
-		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		allocInfo.commandBufferCount = 1;
+		for (FrameData& frame_data : _back_buffer)
+		{
+			VkCommandBufferAllocateInfo allocInfo{};
+			allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+			allocInfo.commandPool = _command_pool;
+			allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+			allocInfo.commandBufferCount = 1;
 
-		if (vkAllocateCommandBuffers(_logical_device, &allocInfo, &_command_buffer) != VK_SUCCESS) {
-			throw std::runtime_error("failed to allocate command buffers!");
+			if (vkAllocateCommandBuffers(_logical_device, &allocInfo, &frame_data.command_buffer) != VK_SUCCESS) {
+				throw std::runtime_error("failed to allocate command buffers!");
+			}
 		}
 	}
 }

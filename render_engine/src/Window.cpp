@@ -244,7 +244,8 @@ namespace RenderEngine
 				pipeline,
 				pipeline_layout,
 				*_swap_chain,
-				_render_queue_family));
+				_render_queue_family,
+				kBackBufferSize));
 		}
 		catch (const std::runtime_error&)
 		{
@@ -258,30 +259,37 @@ namespace RenderEngine
 	Window::~Window()
 	{
 		vkDeviceWaitIdle(_logical_device);
-		vkDestroySemaphore(_logical_device, _image_available_semaphore, nullptr);
-		vkDestroySemaphore(_logical_device, _render_finished_semaphore, nullptr);
-		vkDestroyFence(_logical_device, _in_flight_fence, nullptr);
+		for (FrameData& frame_data : _back_buffer)
+		{
+			vkDestroySemaphore(_logical_device, frame_data.image_available_semaphore, nullptr);
+			vkDestroySemaphore(_logical_device, frame_data.render_finished_semaphore, nullptr);
+			vkDestroyFence(_logical_device, frame_data.in_flight_fence, nullptr);
+		}
 		_swap_chain.reset();
 		glfwDestroyWindow(_window);
 	}
 
 	void Window::initSynchronizationObjects()
 	{
-		VkSemaphoreCreateInfo semaphore_info{};
-		semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
-		VkFenceCreateInfo fence_info{};
-		fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-		fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-
-		if (vkCreateSemaphore(_logical_device, &semaphore_info, nullptr, &_image_available_semaphore) != VK_SUCCESS ||
-			vkCreateSemaphore(_logical_device, &semaphore_info, nullptr, &_render_finished_semaphore) != VK_SUCCESS ||
-			vkCreateFence(_logical_device, &fence_info, nullptr, &_in_flight_fence) != VK_SUCCESS)
+		for (FrameData& frame_data : _back_buffer)
 		{
-			vkDestroySemaphore(_logical_device, _image_available_semaphore, nullptr);
-			vkDestroySemaphore(_logical_device, _render_finished_semaphore, nullptr);
-			vkDestroyFence(_logical_device, _in_flight_fence, nullptr);
-			throw std::runtime_error("failed to create synchronization objects for a frame!");
+
+			VkSemaphoreCreateInfo semaphore_info{};
+			semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+			VkFenceCreateInfo fence_info{};
+			fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+			fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+			if (vkCreateSemaphore(_logical_device, &semaphore_info, nullptr, &frame_data.image_available_semaphore) != VK_SUCCESS ||
+				vkCreateSemaphore(_logical_device, &semaphore_info, nullptr, &frame_data.render_finished_semaphore) != VK_SUCCESS ||
+				vkCreateFence(_logical_device, &fence_info, nullptr, &frame_data.in_flight_fence) != VK_SUCCESS)
+			{
+				vkDestroySemaphore(_logical_device, frame_data.image_available_semaphore, nullptr);
+				vkDestroySemaphore(_logical_device, frame_data.render_finished_semaphore, nullptr);
+				vkDestroyFence(_logical_device, frame_data.in_flight_fence, nullptr);
+				throw std::runtime_error("failed to create synchronization objects for a frame!");
+			}
 		}
 	}
 
@@ -293,21 +301,31 @@ namespace RenderEngine
 
 	void Window::present()
 	{
-		vkWaitForFences(_logical_device, 1, &_in_flight_fence, VK_TRUE, UINT64_MAX);
-		vkResetFences(_logical_device, 1, &_in_flight_fence);
+		present(_back_buffer[_frame_counter % _back_buffer.size()]);
+		_frame_counter++;
+	}
+
+	void Window::present(FrameData& frame_data)
+	{
+		if (_drawers.empty())
+		{
+			return;
+		}
+		vkWaitForFences(_logical_device, 1, &frame_data.in_flight_fence, VK_TRUE, UINT64_MAX);
+		vkResetFences(_logical_device, 1, &frame_data.in_flight_fence);
 
 		uint32_t image_index = 0;
 		vkAcquireNextImageKHR(_logical_device,
 			_swap_chain->getDetails().swap_chain,
 			UINT64_MAX,
-			_image_available_semaphore,
+			frame_data.image_available_semaphore,
 			VK_NULL_HANDLE, &image_index);
 
 		std::vector<VkCommandBuffer> command_buffers;
 		for (auto& drawer : _drawers)
 		{
-			drawer->draw(image_index);
-			auto current_command_buffers = drawer->getCommandBuffers();
+			drawer->draw(image_index, _frame_counter);
+			auto current_command_buffers = drawer->getCommandBuffers(_frame_counter);
 			std::copy(current_command_buffers.begin(), current_command_buffers.end(),
 				std::back_inserter(command_buffers));
 		}
@@ -316,7 +334,7 @@ namespace RenderEngine
 		VkSubmitInfo submitInfo{};
 		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-		VkSemaphore waitSemaphores[] = { _image_available_semaphore };
+		VkSemaphore waitSemaphores[] = { frame_data.image_available_semaphore };
 		VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 		submitInfo.waitSemaphoreCount = 1;
 		submitInfo.pWaitSemaphores = waitSemaphores;
@@ -325,11 +343,11 @@ namespace RenderEngine
 		submitInfo.commandBufferCount = command_buffers.size();
 		submitInfo.pCommandBuffers = command_buffers.data();
 
-		VkSemaphore signalSemaphores[] = { _render_finished_semaphore };
+		VkSemaphore signalSemaphores[] = { frame_data.render_finished_semaphore };
 		submitInfo.signalSemaphoreCount = 1;
 		submitInfo.pSignalSemaphores = signalSemaphores;
 
-		if (vkQueueSubmit(_render_queue, 1, &submitInfo, _in_flight_fence) != VK_SUCCESS) {
+		if (vkQueueSubmit(_render_queue, 1, &submitInfo, frame_data.in_flight_fence) != VK_SUCCESS) {
 			throw std::runtime_error("failed to submit draw command buffer!");
 		}
 

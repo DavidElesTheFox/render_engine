@@ -31,22 +31,29 @@ namespace RenderEngine
 		void registerDrawer();
 
 	private:
+		struct FrameData
+		{
+			VkSemaphore image_available_semaphore;
+			VkSemaphore render_finished_semaphore;
+			VkFence in_flight_fence;
+		};
 		void initSynchronizationObjects();
 		void handleEvents();
 		void present();
-
+		void present(FrameData& current_frame_data);
+		static constexpr uint32_t kBackBufferSize = 2u;
 		bool _closed = false;
 		VkQueue _render_queue;
 		VkQueue _present_queue;
 
 		GLFWwindow* _window{ nullptr };
 		std::unique_ptr<SwapChain> _swap_chain;
+
 		VkDevice _logical_device;
-		VkSemaphore _image_available_semaphore;
-		VkSemaphore _render_finished_semaphore;
-		VkFence _in_flight_fence;
+		std::array<FrameData, kBackBufferSize> _back_buffer;
 		uint32_t _render_queue_family{ 0 };
 
 		std::vector<std::unique_ptr<Drawer>> _drawers;
+		uint32_t _frame_counter{ 0 };
 	};
 }

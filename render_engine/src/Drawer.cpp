@@ -284,11 +284,18 @@ namespace RenderEngine
 	}
 
 
-	void Drawer::init(std::vector<Vertex> vertices)
+	void Drawer::init(const std::vector<Vertex>& vertices, const std::vector<uint16_t>& indicies)
 	{
-		VkDeviceSize size = sizeof(Vertex) * vertices.size();
-		_vertex_buffer = _window.getRenderEngine().createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, size);
-		_vertex_buffer->upload(std::span<Vertex>{vertices.data(), vertices.size()}, _window.getRenderQueue(), _command_pool);
+		{
+			VkDeviceSize size = sizeof(Vertex) * vertices.size();
+			_vertex_buffer = _window.getRenderEngine().createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, size);
+			_vertex_buffer->upload(std::span<const Vertex>{vertices.data(), vertices.size()}, _window.getRenderQueue(), _command_pool);
+		}
+		{
+			VkDeviceSize size = sizeof(uint16_t) * indicies.size();
+			_index_buffer = _window.getRenderEngine().createBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, size);
+			_index_buffer->upload(std::span<const uint16_t>{indicies.data(), indicies.size()}, _window.getRenderQueue(), _command_pool);
+		}
 	}
 
 	void Drawer::draw(const VkFramebuffer& frame_buffer, uint32_t frame_number)
@@ -333,8 +340,10 @@ namespace RenderEngine
 		VkBuffer vertexBuffers[] = { _vertex_buffer->getBuffer() };
 		VkDeviceSize offsets[] = { 0 };
 		vkCmdBindVertexBuffers(frame_data.command_buffer, 0, 1, vertexBuffers, offsets);
+		vkCmdBindIndexBuffer(frame_data.command_buffer, _index_buffer->getBuffer(), 0, VK_INDEX_TYPE_UINT16);
 
-		vkCmdDraw(frame_data.command_buffer, 3, 1, 0, 0);
+		vkCmdDrawIndexed(frame_data.command_buffer, static_cast<uint32_t>(_index_buffer->getDeviceSize() / sizeof(uint16_t)), 1, 0, 0, 0);
+
 
 		vkCmdEndRenderPass(frame_data.command_buffer);
 

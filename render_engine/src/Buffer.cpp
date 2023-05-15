@@ -119,7 +119,7 @@ namespace RenderEngine
 		vkFreeMemory(_logical_device, _buffer_memory, nullptr);
 	}
 
-	void Buffer::upload(std::span<uint8_t> data_view, VkQueue upload_queue, VkCommandPool command_pool)
+	void Buffer::upload(std::span<const uint8_t> data_view, VkQueue upload_queue, VkCommandPool command_pool)
 	{
 		if (_size != data_view.size())
 		{

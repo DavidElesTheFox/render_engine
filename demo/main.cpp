@@ -9,11 +9,15 @@ void run()
 	auto& drawer = window->registerDrawer();
 	{
 		const std::vector<RenderEngine::Drawer::Vertex> vertices = {
-			{{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-			{{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-			{{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+			{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+			{{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+			{{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+			{{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
 		};
-		drawer.init(vertices);
+		const std::vector<uint16_t> indices = {
+			0, 1, 2, 2, 3, 0
+		};
+		drawer.init(vertices, indices);
 
 	}
 	while (window->isClosed() == false)

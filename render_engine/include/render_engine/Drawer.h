@@ -47,7 +47,7 @@ namespace RenderEngine
 			const SwapChain& swap_chain,
 			uint32_t back_buffer_size);
 
-		void init(std::vector<Vertex> vertices);
+		void init(const std::vector<Vertex>& vertices, const std::vector<uint16_t>& indicies);
 
 		void draw(uint32_t swap_chain_image_index, uint32_t frame_number)
 		{
@@ -86,5 +86,6 @@ namespace RenderEngine
 		VkRect2D _render_area;
 
 		std::unique_ptr<Buffer> _vertex_buffer;
+		std::unique_ptr<Buffer> _index_buffer;
 	};
 }

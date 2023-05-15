@@ -18,20 +18,26 @@ namespace RenderEngine
 			VkExtent2D extent;
 			VkSurfaceKHR surface;
 		};
-		SwapChain(GLFWwindow* window,
-			VkInstance instance,
-			VkPhysicalDevice physical_device,
-			VkDevice logical_device,
-			VkSurfaceKHR&& surface,
-			uint32_t graphics_family_index,
-			uint32_t present_family_index);
+
+		struct CreateInfo
+		{
+			GLFWwindow* window;
+			VkInstance instance;
+			VkPhysicalDevice physical_device;
+			VkDevice logical_device;
+			VkSurfaceKHR surface;
+			uint32_t graphics_family_index;
+			uint32_t present_family_index;
+		};
+		SwapChain(CreateInfo create_info);
 
 		~SwapChain();
 		const Details& getDetails() const { return _details; }
 
+		void reinit();
 	private:
+		void resetSwapChain();
 		Details _details;
-		VkInstance _instance;
-		VkDevice _logical_device;
+		CreateInfo _create_info;
 	};
 }

@@ -85,37 +85,34 @@ namespace RenderEngine
 		}
 	}
 
+	Drawer::ReinitializationCommand Drawer::reinit()
+	{
+		return ReinitializationCommand(*this);
+	}
+
 	Drawer::~Drawer()
 	{
 		vkDestroyCommandPool(_logical_device, _command_pool, nullptr);
 
-		for (auto framebuffer : _frame_buffers) {
-			vkDestroyFramebuffer(_logical_device, framebuffer, nullptr);
-		}
+		resetFrameBuffers();
 
 		vkDestroyPipelineLayout(_logical_device, _pipeline_layout, nullptr);
 		vkDestroyRenderPass(_logical_device, _render_pass, nullptr);
 		vkDestroyPipeline(_logical_device, _pipeline, nullptr);
+	}
+	void Drawer::resetFrameBuffers()
+	{
+		for (auto framebuffer : _frame_buffers) {
+			vkDestroyFramebuffer(_logical_device, framebuffer, nullptr);
+		}
 	}
 	void Drawer::createFrameBuffers(const SwapChain& swap_chain)
 	{
 		_frame_buffers.resize(swap_chain.getDetails().image_views.size());
 		for (uint32_t i = 0; i < swap_chain.getDetails().image_views.size(); ++i)
 		{
-
-			VkImageView attachments[] = {
-				swap_chain.getDetails().image_views[i]
-			};
-			VkFramebufferCreateInfo framebuffer_info{};
-			framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-			framebuffer_info.renderPass = _render_pass;
-			framebuffer_info.attachmentCount = 1;
-			framebuffer_info.pAttachments = attachments;
-			framebuffer_info.width = swap_chain.getDetails().extent.width;
-			framebuffer_info.height = swap_chain.getDetails().extent.height;
-			framebuffer_info.layers = 1;
-
-			if (vkCreateFramebuffer(_logical_device, &framebuffer_info, nullptr, &_frame_buffers[i]) != VK_SUCCESS) {
+			if (createFrameBuffer(swap_chain, i) == false)
+			{
 				for (uint32_t j = 0; j < i; ++j) {
 					vkDestroyFramebuffer(_logical_device, _frame_buffers[j], nullptr);
 				}
@@ -123,6 +120,22 @@ namespace RenderEngine
 				throw std::runtime_error("failed to create framebuffer!");
 			}
 		}
+	}
+	bool Drawer::createFrameBuffer(const SwapChain& swap_chain, uint32_t frame_buffer_index)
+	{
+		VkImageView attachments[] = {
+				swap_chain.getDetails().image_views[frame_buffer_index]
+		};
+		VkFramebufferCreateInfo framebuffer_info{};
+		framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+		framebuffer_info.renderPass = _render_pass;
+		framebuffer_info.attachmentCount = 1;
+		framebuffer_info.pAttachments = attachments;
+		framebuffer_info.width = swap_chain.getDetails().extent.width;
+		framebuffer_info.height = swap_chain.getDetails().extent.height;
+		framebuffer_info.layers = 1;
+
+		return vkCreateFramebuffer(_logical_device, &framebuffer_info, nullptr, &_frame_buffers[frame_buffer_index]) == VK_SUCCESS;
 	}
 	void Drawer::createCommandPool(uint32_t render_queue_family)
 	{

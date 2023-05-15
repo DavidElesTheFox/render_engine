@@ -4,11 +4,34 @@
 #include <vulkan/vulkan.h>
 
 #include <vector>
+#include <cassert>
 namespace RenderEngine
 {
 	class Drawer
 	{
 	public:
+		class ReinitializationCommand
+		{
+		public:
+			explicit ReinitializationCommand(Drawer& drawer)
+				:_drawer(drawer)
+			{
+				_drawer.resetFrameBuffers();
+			}
+
+			void finish(const SwapChain& swap_chain)
+			{
+				_drawer.createFrameBuffers(swap_chain);
+			}
+			~ReinitializationCommand()
+			{
+				assert(_finished);
+			}
+		private:
+			Drawer& _drawer;
+			bool _finished = false;
+		};
+		friend class ReinitializationCommand;
 		Drawer(VkDevice logical_device,
 			VkRenderPass render_pass,
 			VkPipeline pipeline,
@@ -24,6 +47,8 @@ namespace RenderEngine
 		{
 			return { getFrameData(frame_number).command_buffer };
 		}
+		[[nodiscard]]
+		ReinitializationCommand reinit();
 		~Drawer();
 	private:
 		struct FrameData
@@ -31,6 +56,7 @@ namespace RenderEngine
 			VkCommandBuffer command_buffer;
 		};
 		void createFrameBuffers(const SwapChain& swap_chain);
+		bool createFrameBuffer(const SwapChain& swap_chain, uint32_t frame_buffer_index);
 		void createCommandPool(uint32_t render_queue_family);
 		void createCommandBuffer();
 		FrameData& getFrameData(uint32_t frame_number)
@@ -38,6 +64,7 @@ namespace RenderEngine
 			return _back_buffer[frame_number % _back_buffer.size()];
 		}
 		void draw(const VkFramebuffer& frame_buffer, uint32_t frame_number);
+		void resetFrameBuffers();
 
 		VkDevice _logical_device;
 		VkRenderPass _render_pass;

@@ -304,7 +304,22 @@ namespace RenderEngine
 		present(_back_buffer[_frame_counter % _back_buffer.size()]);
 		_frame_counter++;
 	}
+	void Window::reinitSwapChain()
+	{
+		vkDeviceWaitIdle(_logical_device);
+		std::vector<Drawer::ReinitializationCommand> commands;
+		for (auto& drawer : _drawers)
+		{
+			commands.emplace_back(drawer->reinit());
+		}
+		_swap_chain->reinit();
+		for (auto& command : commands)
+		{
+			command.finish(*_swap_chain);
+		}
 
+
+	}
 	void Window::present(FrameData& frame_data)
 	{
 		if (_drawers.empty())
@@ -312,14 +327,26 @@ namespace RenderEngine
 			return;
 		}
 		vkWaitForFences(_logical_device, 1, &frame_data.in_flight_fence, VK_TRUE, UINT64_MAX);
-		vkResetFences(_logical_device, 1, &frame_data.in_flight_fence);
-
 		uint32_t image_index = 0;
-		vkAcquireNextImageKHR(_logical_device,
-			_swap_chain->getDetails().swap_chain,
-			UINT64_MAX,
-			frame_data.image_available_semaphore,
-			VK_NULL_HANDLE, &image_index);
+		{
+			auto call_result = vkAcquireNextImageKHR(_logical_device,
+				_swap_chain->getDetails().swap_chain,
+				UINT64_MAX,
+				frame_data.image_available_semaphore,
+				VK_NULL_HANDLE, &image_index);
+			switch (call_result)
+			{
+			case VK_ERROR_OUT_OF_DATE_KHR:
+			case VK_SUBOPTIMAL_KHR:
+				reinitSwapChain();
+				return;
+			case VK_SUCCESS:
+				break;
+			default:
+				throw std::runtime_error("Failed to query swap chain image");
+			}
+		}
+		vkResetFences(_logical_device, 1, &frame_data.in_flight_fence);
 
 		std::vector<VkCommandBuffer> command_buffers;
 		for (auto& drawer : _drawers)

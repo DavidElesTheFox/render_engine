@@ -3,6 +3,7 @@
 #include <map>
 #include <stdexcept>
 #include <string>
+#include <cassert>
 namespace
 {
 
@@ -102,7 +103,37 @@ namespace
 
 namespace RenderEngine
 {
-	Buffer::Buffer(VkPhysicalDevice physical_device, VkDevice logical_device, VkBufferUsageFlags usage, VkDeviceSize size)
+	std::unique_ptr<Buffer> Buffer::CreateAttributeBuffer(VkPhysicalDevice physical_device,
+		VkDevice logical_device,
+		VkBufferUsageFlags usage,
+		VkDeviceSize size)
+	{
+		return std::unique_ptr<Buffer>(new Buffer(physical_device,
+			logical_device,
+			usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			size,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT));
+	}
+
+	std::unique_ptr<Buffer> Buffer::CreateUniformBuffer(VkPhysicalDevice physical_device,
+		VkDevice logical_device,
+		VkDeviceSize size)
+	{
+		auto result = std::unique_ptr<Buffer>(new Buffer(physical_device,
+			logical_device,
+			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+			size,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT));
+		vkMapMemory(logical_device, result->_buffer_memory, 0, size, 0, &result->_mapped_memory);
+		return result;
+	}
+
+
+	Buffer::Buffer(VkPhysicalDevice physical_device,
+		VkDevice logical_device,
+		VkBufferUsageFlags usage,
+		VkDeviceSize size,
+		VkMemoryPropertyFlags properties)
 		: _physical_device(physical_device)
 		, _logical_device(logical_device)
 		, _size(size)
@@ -110,8 +141,8 @@ namespace RenderEngine
 		std::tie(_buffer, _buffer_memory) = createBuffer(physical_device,
 			logical_device,
 			size,
-			usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+			usage,
+			properties);
 	}
 	Buffer::~Buffer()
 	{
@@ -119,8 +150,9 @@ namespace RenderEngine
 		vkFreeMemory(_logical_device, _buffer_memory, nullptr);
 	}
 
-	void Buffer::upload(std::span<const uint8_t> data_view, VkQueue upload_queue, VkCommandPool command_pool)
+	void Buffer::uploadUnmapped(std::span<const uint8_t> data_view, VkQueue upload_queue, VkCommandPool command_pool)
 	{
+		assert(isMapped() == false);
 		if (_size != data_view.size())
 		{
 			throw std::runtime_error("Invalid size during upload. Buffer size: " + std::to_string(_size) + " data to upload: " + std::to_string(data_view.size()));
@@ -140,4 +172,11 @@ namespace RenderEngine
 		vkDestroyBuffer(_logical_device, staging_buffer, nullptr);
 		vkFreeMemory(_logical_device, staging_memory, nullptr);
 	}
+
+	void Buffer::uploadMapped(std::span<const uint8_t> data_view)
+	{
+		assert(isMapped());
+		memcpy(_mapped_memory, data_view.data(), data_view.size());
+	}
+
 }

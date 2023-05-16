@@ -6,7 +6,9 @@
 void run()
 {
 	auto window = RenderEngine::RenderContext::context().getEngine(0).createWindow("Main Window");
+	auto window_2 = RenderEngine::RenderContext::context().getEngine(0).createWindow("Secondary Window");
 	auto& drawer = window->registerDrawer();
+	auto& drawer_2 = window_2->registerDrawer();
 	{
 		const std::vector<RenderEngine::Drawer::Vertex> vertices = {
 			{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
@@ -18,11 +20,13 @@ void run()
 			0, 1, 2, 2, 3, 0
 		};
 		drawer.init(vertices, indices);
-
+		drawer_2.init(vertices, indices);
+		drawer_2.getColorOffset().r = 150.f;
 	}
 	while (window->isClosed() == false)
 	{
 		window->update();
+		window_2->update();
 	}
 }
 

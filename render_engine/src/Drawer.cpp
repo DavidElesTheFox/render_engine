@@ -120,12 +120,97 @@ namespace
 		return { vert_shader_module, frag_shader_module };
 	}
 
-	VkPipelineLayout createPipelineLayout(VkDevice logical_device, VkShaderModule vertShaderModule, VkShaderModule fragShaderModule)
+	VkDescriptorSetLayout createDescriptorSetLayout(VkDevice logical_device)
+	{
+		VkDescriptorSetLayout result;
+		VkDescriptorSetLayoutBinding uboLayoutBinding{};
+		uboLayoutBinding.binding = 0;
+		uboLayoutBinding.descriptorCount = 1;
+		uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		uboLayoutBinding.pImmutableSamplers = nullptr;
+		uboLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+		VkDescriptorSetLayoutCreateInfo layoutInfo{};
+		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+		layoutInfo.bindingCount = 1;
+		layoutInfo.pBindings = &uboLayoutBinding;
+
+		if (vkCreateDescriptorSetLayout(logical_device, &layoutInfo, nullptr, &result) != VK_SUCCESS) {
+			throw std::runtime_error("failed to create descriptor set layout!");
+		}
+		return result;
+	}
+
+	VkDescriptorPool createDescriptorPool(VkDevice logical_device, uint32_t backbuffer_size) {
+		VkDescriptorPoolSize poolSize{};
+		poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		poolSize.descriptorCount = backbuffer_size;
+
+		VkDescriptorPoolCreateInfo poolInfo{};
+		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+		poolInfo.poolSizeCount = 1;
+		poolInfo.pPoolSizes = &poolSize;
+		poolInfo.maxSets = backbuffer_size;
+
+		VkDescriptorPool result;
+
+		if (vkCreateDescriptorPool(logical_device, &poolInfo, nullptr, &result) != VK_SUCCESS) {
+			throw std::runtime_error("failed to create descriptor pool!");
+		}
+		return result;
+	}
+
+	std::vector<VkDescriptorSet> createDescriptorSets(VkDevice logical_device,
+		VkDescriptorPool pool,
+		VkDescriptorSetLayout layout,
+		uint32_t backbuffer_size,
+		std::vector<Buffer*> uniform_buffers) {
+		std::vector<VkDescriptorSetLayout> layouts(backbuffer_size, layout);
+		VkDescriptorSetAllocateInfo allocInfo{};
+		VkDescriptorSet result;
+		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		allocInfo.descriptorPool = pool;
+		allocInfo.descriptorSetCount = static_cast<uint32_t>(backbuffer_size);
+		allocInfo.pSetLayouts = layouts.data();
+
+		std::vector<VkDescriptorSet> descriptor_sets;
+		descriptor_sets.resize(backbuffer_size);
+		if (vkAllocateDescriptorSets(logical_device, &allocInfo, descriptor_sets.data()) != VK_SUCCESS) {
+			throw std::runtime_error("failed to allocate descriptor sets!");
+		}
+
+		for (size_t i = 0; i < backbuffer_size; i++) {
+			VkDescriptorBufferInfo bufferInfo{};
+			bufferInfo.buffer = uniform_buffers[i]->getBuffer();
+			bufferInfo.offset = 0;
+			bufferInfo.range = sizeof(Drawer::ColorOffset);
+
+			VkWriteDescriptorSet descriptorWrite{};
+			descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			descriptorWrite.dstSet = descriptor_sets[i];
+			descriptorWrite.dstBinding = 0;
+			descriptorWrite.dstArrayElement = 0;
+			descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			descriptorWrite.descriptorCount = 1;
+			descriptorWrite.pBufferInfo = &bufferInfo;
+
+			vkUpdateDescriptorSets(logical_device, 1, &descriptorWrite, 0, nullptr);
+		}
+		return descriptor_sets;
+	}
+
+	VkPipelineLayout createPipelineLayout(VkDevice logical_device,
+		VkDescriptorSetLayout descriptor_set_layout,
+		VkShaderModule vertShaderModule,
+		VkShaderModule fragShaderModule)
 	{
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 		pipelineLayoutInfo.setLayoutCount = 0;
 		pipelineLayoutInfo.pushConstantRangeCount = 0;
+		pipelineLayoutInfo.setLayoutCount = 1;
+		pipelineLayoutInfo.pSetLayouts = &descriptor_set_layout;
+
 		VkPipelineLayout pipeline_layout;
 		if (vkCreatePipelineLayout(logical_device, &pipelineLayoutInfo, nullptr, &pipeline_layout) != VK_SUCCESS) {
 			vkDestroyShaderModule(logical_device, fragShaderModule, nullptr);
@@ -251,7 +336,9 @@ namespace RenderEngine
 
 		try
 		{
-			_pipeline_layout = createPipelineLayout(logical_device, vert_shader, frag_shader);
+			_descriptor_set_layout = createDescriptorSetLayout(logical_device);
+			_descriptor_pool = createDescriptorPool(logical_device, back_buffer_size);
+			_pipeline_layout = createPipelineLayout(logical_device, _descriptor_set_layout, vert_shader, frag_shader);
 			_render_pass = createRenderPass(swap_chain, logical_device);
 			_pipeline = createGraphicsPipeline(logical_device, _render_pass, _pipeline_layout, vert_shader, frag_shader);
 
@@ -272,7 +359,7 @@ namespace RenderEngine
 			for (auto framebuffer : _frame_buffers) {
 				vkDestroyFramebuffer(logical_device, framebuffer, nullptr);
 			}
-
+			vkDestroyDescriptorSetLayout(logical_device, _descriptor_set_layout, nullptr);
 			vkDestroyPipelineLayout(logical_device, _pipeline_layout, nullptr);
 			vkDestroyRenderPass(logical_device, _render_pass, nullptr);
 			vkDestroyPipeline(logical_device, _pipeline, nullptr);
@@ -288,19 +375,40 @@ namespace RenderEngine
 	{
 		{
 			VkDeviceSize size = sizeof(Vertex) * vertices.size();
-			_vertex_buffer = _window.getRenderEngine().createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, size);
-			_vertex_buffer->upload(std::span<const Vertex>{vertices.data(), vertices.size()}, _window.getRenderQueue(), _command_pool);
+			_vertex_buffer = _window.getRenderEngine().createAttributeBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, size);
+			_vertex_buffer->uploadUnmapped(std::span<const Vertex>{vertices.data(), vertices.size()}, _window.getRenderQueue(), _command_pool);
 		}
 		{
 			VkDeviceSize size = sizeof(uint16_t) * indicies.size();
-			_index_buffer = _window.getRenderEngine().createBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, size);
-			_index_buffer->upload(std::span<const uint16_t>{indicies.data(), indicies.size()}, _window.getRenderQueue(), _command_pool);
+			_index_buffer = _window.getRenderEngine().createAttributeBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, size);
+			_index_buffer->uploadUnmapped(std::span<const uint16_t>{indicies.data(), indicies.size()}, _window.getRenderQueue(), _command_pool);
+		}
+
+		std::vector<Buffer*> created_buffers;
+		for (auto& frame_data : _back_buffer)
+		{
+			frame_data.color_offset = _window.getRenderEngine().createUniformBuffer(sizeof(ColorOffset));
+			created_buffers.push_back(frame_data.color_offset.get());
+		}
+
+		auto descriptor_sets = createDescriptorSets(_window.getRenderEngine().getLogicalDevice(),
+			_descriptor_pool,
+			_descriptor_set_layout,
+			_back_buffer.size(),
+			created_buffers);
+
+		for (size_t i = 0; i < descriptor_sets.size(); ++i)
+		{
+			_back_buffer[i].descriptor_set = descriptor_sets[i];
 		}
 	}
 
 	void Drawer::draw(const VkFramebuffer& frame_buffer, uint32_t frame_number)
 	{
 		FrameData& frame_data = getFrameData(frame_number);
+
+		frame_data.color_offset->uploadMapped(std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(&_color_offset), sizeof(ColorOffset)));
+
 		vkResetCommandBuffer(frame_data.command_buffer, /*VkCommandBufferResetFlagBits*/ 0);
 		VkCommandBufferBeginInfo begin_info{};
 		begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -341,9 +449,9 @@ namespace RenderEngine
 		VkDeviceSize offsets[] = { 0 };
 		vkCmdBindVertexBuffers(frame_data.command_buffer, 0, 1, vertexBuffers, offsets);
 		vkCmdBindIndexBuffer(frame_data.command_buffer, _index_buffer->getBuffer(), 0, VK_INDEX_TYPE_UINT16);
+		vkCmdBindDescriptorSets(frame_data.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipeline_layout, 0, 1, &frame_data.descriptor_set, 0, nullptr);
 
 		vkCmdDrawIndexed(frame_data.command_buffer, static_cast<uint32_t>(_index_buffer->getDeviceSize() / sizeof(uint16_t)), 1, 0, 0, 0);
-
 
 		vkCmdEndRenderPass(frame_data.command_buffer);
 
@@ -363,6 +471,9 @@ namespace RenderEngine
 		vkDestroyCommandPool(logical_device, _command_pool, nullptr);
 
 		resetFrameBuffers();
+
+		vkDestroyDescriptorPool(logical_device, _descriptor_pool, nullptr);
+		vkDestroyDescriptorSetLayout(logical_device, _descriptor_set_layout, nullptr);
 
 		vkDestroyPipelineLayout(logical_device, _pipeline_layout, nullptr);
 		vkDestroyRenderPass(logical_device, _render_pass, nullptr);

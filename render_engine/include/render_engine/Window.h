@@ -45,6 +45,7 @@ namespace RenderEngine
 		void present();
 		void present(FrameData& current_frame_data);
 		void reinitSwapChain();
+		void destroy();
 		static constexpr uint32_t kBackBufferSize = 2u;
 		bool _closed = false;
 		VkQueue _render_queue;

@@ -28,11 +28,12 @@ namespace RenderEngine
 	{
 		if (_closed)
 		{
+
+			destroy();
 			return;
 		}
 		handleEvents();
 		present();
-
 	}
 
 	Drawer& Window::registerDrawer()
@@ -47,16 +48,7 @@ namespace RenderEngine
 
 	Window::~Window()
 	{
-		auto logical_device = _engine.getLogicalDevice();
-		vkDeviceWaitIdle(logical_device);
-		for (FrameData& frame_data : _back_buffer)
-		{
-			vkDestroySemaphore(logical_device, frame_data.image_available_semaphore, nullptr);
-			vkDestroySemaphore(logical_device, frame_data.render_finished_semaphore, nullptr);
-			vkDestroyFence(logical_device, frame_data.in_flight_fence, nullptr);
-		}
-		_swap_chain.reset();
-		glfwDestroyWindow(_window);
+		destroy();
 	}
 
 	void Window::initSynchronizationObjects()
@@ -109,6 +101,24 @@ namespace RenderEngine
 		}
 
 
+	}
+	void Window::destroy()
+	{
+		if (_window == nullptr)
+		{
+			return;
+		}
+		auto logical_device = _engine.getLogicalDevice();
+		vkDeviceWaitIdle(logical_device);
+		for (FrameData& frame_data : _back_buffer)
+		{
+			vkDestroySemaphore(logical_device, frame_data.image_available_semaphore, nullptr);
+			vkDestroySemaphore(logical_device, frame_data.render_finished_semaphore, nullptr);
+			vkDestroyFence(logical_device, frame_data.in_flight_fence, nullptr);
+		}
+		_swap_chain.reset();
+		glfwDestroyWindow(_window);
+		_window = nullptr;
 	}
 	void Window::present(FrameData& frame_data)
 	{

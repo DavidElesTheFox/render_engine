@@ -28,7 +28,8 @@ namespace RenderEngine
 
 		~RenderEngine();
 		std::unique_ptr<Window> createWindow(std::string_view name);
-		std::unique_ptr<Buffer> createBuffer(VkBufferUsageFlags usage, VkDeviceSize size);
+		std::unique_ptr<Buffer> createAttributeBuffer(VkBufferUsageFlags usage, VkDeviceSize size);
+		std::unique_ptr<Buffer> createUniformBuffer(VkDeviceSize size);
 
 		VkDevice getLogicalDevice() { return _logical_device; }
 	private:

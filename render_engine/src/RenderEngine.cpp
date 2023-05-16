@@ -119,8 +119,12 @@ namespace RenderEngine
 			throw;
 		}
 	}
-	std::unique_ptr<Buffer> RenderEngine::createBuffer(VkBufferUsageFlags usage, VkDeviceSize size)
+	std::unique_ptr<Buffer> RenderEngine::createAttributeBuffer(VkBufferUsageFlags usage, VkDeviceSize size)
 	{
-		return std::make_unique<Buffer>(_physical_device, _logical_device, usage, size);
+		return Buffer::CreateAttributeBuffer(_physical_device, _logical_device, usage, size);
+	}
+	std::unique_ptr<Buffer> RenderEngine::createUniformBuffer(VkDeviceSize size)
+	{
+		return Buffer::CreateUniformBuffer(_physical_device, _logical_device, size);
 	}
 }

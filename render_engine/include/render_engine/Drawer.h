@@ -43,6 +43,12 @@ namespace RenderEngine
 			std::array<float, 2> pos;
 			std::array<float, 3> color;
 		};
+
+		struct ColorOffset
+		{
+			float r;
+		};
+
 		Drawer(Window& parent,
 			const SwapChain& swap_chain,
 			uint32_t back_buffer_size);
@@ -57,6 +63,9 @@ namespace RenderEngine
 		{
 			return { getFrameData(frame_number).command_buffer };
 		}
+
+		ColorOffset& getColorOffset() { return _color_offset; }
+
 		[[nodiscard]]
 		ReinitializationCommand reinit();
 		~Drawer();
@@ -64,6 +73,8 @@ namespace RenderEngine
 		struct FrameData
 		{
 			VkCommandBuffer command_buffer;
+			std::unique_ptr<Buffer> color_offset;
+			VkDescriptorSet descriptor_set;
 		};
 		void createFrameBuffers(const SwapChain& swap_chain);
 		bool createFrameBuffer(const SwapChain& swap_chain, uint32_t frame_buffer_index);
@@ -80,6 +91,8 @@ namespace RenderEngine
 		VkRenderPass _render_pass;
 		VkPipelineLayout _pipeline_layout;
 		VkPipeline _pipeline;
+		VkDescriptorSetLayout _descriptor_set_layout;
+		VkDescriptorPool _descriptor_pool;
 		std::vector<VkFramebuffer> _frame_buffers;
 		VkCommandPool _command_pool;
 		std::vector<FrameData> _back_buffer;
@@ -87,5 +100,6 @@ namespace RenderEngine
 
 		std::unique_ptr<Buffer> _vertex_buffer;
 		std::unique_ptr<Buffer> _index_buffer;
+		ColorOffset _color_offset;
 	};
 }

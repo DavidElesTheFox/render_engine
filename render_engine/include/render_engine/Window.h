@@ -31,7 +31,7 @@ namespace RenderEngine
 		void update();
 		bool isClosed() const { return _closed; }
 
-		Drawer& registerDrawer();
+		Drawer& registerDrawer(bool as_last_drawer);
 		GUIDrawer& registerGUIDrawer();
 		RenderEngine& getRenderEngine() { return _engine; }
 		uint32_t getRenderQueueFamily() { return _render_queue_family; }

@@ -40,12 +40,13 @@ namespace RenderEngine
 		present();
 	}
 
-	Drawer& Window::registerDrawer()
+	Drawer& Window::registerDrawer(bool as_last_drawer)
 	{
 
 		_drawers.push_back(std::make_unique<Drawer>(*this,
 			*_swap_chain,
-			kBackBufferSize));
+			kBackBufferSize,
+			as_last_drawer));
 		return *_drawers.back();
 	}
 	GUIDrawer& Window::registerGUIDrawer()
@@ -140,6 +141,7 @@ namespace RenderEngine
 		{
 			return;
 		}
+		bool has_ui = _gui_drawers.empty() == false;
 		auto logical_device = _engine.getLogicalDevice();
 		vkDeviceWaitIdle(logical_device);
 		for (FrameData& frame_data : _back_buffer)
@@ -149,7 +151,12 @@ namespace RenderEngine
 			vkDestroyFence(logical_device, frame_data.in_flight_fence, nullptr);
 		}
 		_swap_chain.reset();
-
+		_drawers.clear();
+		_gui_drawers.clear();
+		if (has_ui)
+		{
+			ImGui_ImplGlfw_Shutdown();
+		}
 		glfwDestroyWindow(_window);
 		if (_imgui_context != nullptr)
 		{

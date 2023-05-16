@@ -51,7 +51,8 @@ namespace RenderEngine
 
 		Drawer(Window& parent,
 			const SwapChain& swap_chain,
-			uint32_t back_buffer_size);
+			uint32_t back_buffer_size,
+			bool last_drawer);
 
 		void init(const std::vector<Vertex>& vertices, const std::vector<uint16_t>& indicies);
 

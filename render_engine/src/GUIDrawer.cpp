@@ -14,11 +14,11 @@ namespace
 		VkAttachmentDescription color_attachment{};
 		color_attachment.format = swap_chain.getDetails().image_format;
 		color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-		color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
 		color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		color_attachment.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 		color_attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
 		VkAttachmentReference colorAttachmentRef{};
@@ -177,6 +177,7 @@ namespace RenderEngine
 		vkDestroyDescriptorPool(logical_device, _descriptor_pool, nullptr);
 
 		vkDestroyRenderPass(logical_device, _render_pass, nullptr);
+		ImGui_ImplVulkan_Shutdown();
 	}
 	void GUIDrawer::resetFrameBuffers()
 	{
@@ -209,7 +210,7 @@ namespace RenderEngine
 		render_pass_info.framebuffer = frame_buffer;
 		render_pass_info.renderArea = _render_area;
 
-		VkClearValue clearColor = { {{0.0f, 0.0f, 0.0f, 1.0f}} };
+		VkClearValue clearColor = { {{1.0f, 1.0f, 1.0f, 0.0f}} };
 		render_pass_info.clearValueCount = 1;
 		render_pass_info.pClearValues = &clearColor;
 

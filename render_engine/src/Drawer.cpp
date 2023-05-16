@@ -52,7 +52,7 @@ namespace
 		return buffer;
 	}
 
-	VkRenderPass createRenderPass(const SwapChain& swap_chain, VkDevice logical_device) {
+	VkRenderPass createRenderPass(const SwapChain& swap_chain, VkDevice logical_device, bool last_drawer) {
 		VkAttachmentDescription color_attachment{};
 		color_attachment.format = swap_chain.getDetails().image_format;
 		color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -61,7 +61,7 @@ namespace
 		color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		color_attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		color_attachment.finalLayout = last_drawer ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 		VkAttachmentReference colorAttachmentRef{};
 		colorAttachmentRef.attachment = 0;
@@ -328,7 +328,8 @@ namespace RenderEngine
 {
 	Drawer::Drawer(Window& window,
 		const SwapChain& swap_chain,
-		uint32_t back_buffer_size)
+		uint32_t back_buffer_size,
+		bool last_drawer)
 		: _window(window)
 	{
 		auto logical_device = window.getRenderEngine().getLogicalDevice();
@@ -339,7 +340,7 @@ namespace RenderEngine
 			_descriptor_set_layout = createDescriptorSetLayout(logical_device);
 			_descriptor_pool = createDescriptorPool(logical_device, back_buffer_size);
 			_pipeline_layout = createPipelineLayout(logical_device, _descriptor_set_layout, vert_shader, frag_shader);
-			_render_pass = createRenderPass(swap_chain, logical_device);
+			_render_pass = createRenderPass(swap_chain, logical_device, last_drawer);
 			_pipeline = createGraphicsPipeline(logical_device, _render_pass, _pipeline_layout, vert_shader, frag_shader);
 
 			_back_buffer.resize(back_buffer_size);

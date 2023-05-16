@@ -13,6 +13,12 @@
 #include <vulkan/vk_enum_string_helper.h>
 
 #include <GLFW/glfw3.h>
+
+#include <imgui.h>
+#ifdef ENABLE_RENDERDOC
+#include <data_config.h>
+#include <renderdoc_app.h>
+#endif
 namespace
 {
 
@@ -173,6 +179,20 @@ namespace RenderEngine
 	}
 	void RenderContext::init()
 	{
+#ifdef ENABLE_RENDERDOC
+
+		if (HMODULE mod = GetModuleHandleA(RENDERDOC_DLL))
+		{
+			pRENDERDOC_GetAPI RENDERDOC_GetAPI =
+				(pRENDERDOC_GetAPI)GetProcAddress(mod, "RENDERDOC_GetAPI");
+			int ret = RENDERDOC_GetAPI(eRENDERDOC_API_Version_1_1_2, (void**)&_renderdoc_api);
+			if (ret != 1)
+			{
+				throw std::runtime_error("Cannot open renderdoc dll");
+			}
+		}
+#endif
+
 		const bool enable_validation_layer = true;
 		const std::vector<const char*> validation_layers = [&]()->std::vector<const char*> {
 			if (enable_validation_layer)
@@ -267,6 +287,9 @@ namespace RenderEngine
 				device_extensions,
 				validation_layers);
 			_engines.push_back(std::move(engine));
+#ifdef ENABLED_RENDERDOC
+			break; // Renderdoc supports only one logical device
+#endif
 		}
 	}
 
@@ -283,5 +306,13 @@ namespace RenderEngine
 			}
 		}
 		glfwTerminate();
+	}
+	void* RenderContext::getRenderdocApi()
+	{
+#ifdef ENABLE_RENDERDOC
+		return _renderdoc_api;
+#else
+		throw std::runtime_error("Cannot enable renderdoc, feature is disabled in this build");
+#endif
 	}
 }

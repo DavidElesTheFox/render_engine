@@ -1,6 +1,7 @@
 #include <render_engine/Window.h>
 
 #include <render_engine/RenderEngine.h>
+#include <render_engine/RenderContext.h>
 
 #include <data_config.h>
 
@@ -10,6 +11,9 @@
 #include <limits>
 #include <fstream>
 
+#include <backends/imgui_impl_glfw.h>
+#include <backends/imgui_impl_vulkan.h>
+#include <renderdoc_app.h>
 
 namespace RenderEngine
 {
@@ -22,13 +26,13 @@ namespace RenderEngine
 		, _render_queue_family(render_queue_family)
 	{
 		initSynchronizationObjects();
+
 	}
 
 	void Window::update()
 	{
 		if (_closed)
 		{
-
 			destroy();
 			return;
 		}
@@ -44,10 +48,34 @@ namespace RenderEngine
 			kBackBufferSize));
 		return *_drawers.back();
 	}
+	GUIDrawer& Window::registerGUIDrawer()
+	{
+		_imgui_context = ImGui::CreateContext();
+		ImGui_ImplGlfw_InitForVulkan(_window, true);
+		_gui_drawers.push_back(std::make_unique<GUIDrawer>(*this,
+			*_swap_chain,
+			kBackBufferSize));
+		return *_gui_drawers.back();
+	}
+
+	void Window::enableRenderdocCapture()
+	{
+		if (_renderdoc_api != nullptr)
+		{
+			return;
+		}
+		_renderdoc_api = RenderContext::context().getRenderdocApi();
+	}
+
+	void Window::disableRenderdocCapture()
+	{
+		_renderdoc_api = nullptr;
+	}
 
 
 	Window::~Window()
 	{
+
 		destroy();
 	}
 
@@ -82,7 +110,11 @@ namespace RenderEngine
 
 	void Window::present()
 	{
+		if (_renderdoc_api) ((RENDERDOC_API_1_1_2*)_renderdoc_api)->StartFrameCapture(NULL, NULL);
+
 		present(_back_buffer[_frame_counter % _back_buffer.size()]);
+		if (_renderdoc_api) ((RENDERDOC_API_1_1_2*)_renderdoc_api)->EndFrameCapture(NULL, NULL);
+
 		_frame_counter++;
 	}
 	void Window::reinitSwapChain()
@@ -117,12 +149,17 @@ namespace RenderEngine
 			vkDestroyFence(logical_device, frame_data.in_flight_fence, nullptr);
 		}
 		_swap_chain.reset();
+
 		glfwDestroyWindow(_window);
+		if (_imgui_context != nullptr)
+		{
+			ImGui::DestroyContext(_imgui_context);
+		}
 		_window = nullptr;
 	}
 	void Window::present(FrameData& frame_data)
 	{
-		if (_drawers.empty())
+		if (_drawers.empty() && _gui_drawers.empty())
 		{
 			return;
 		}
@@ -148,7 +185,12 @@ namespace RenderEngine
 			}
 		}
 		vkResetFences(logical_device, 1, &frame_data.in_flight_fence);
-
+		if (_imgui_context != nullptr)
+		{
+			ImGui_ImplVulkan_NewFrame();
+			ImGui_ImplGlfw_NewFrame();
+			ImGui::NewFrame();
+		}
 		std::vector<VkCommandBuffer> command_buffers;
 		for (auto& drawer : _drawers)
 		{
@@ -157,7 +199,13 @@ namespace RenderEngine
 			std::copy(current_command_buffers.begin(), current_command_buffers.end(),
 				std::back_inserter(command_buffers));
 		}
-
+		for (auto& drawer : _gui_drawers)
+		{
+			drawer->draw(image_index, _frame_counter);
+			auto current_command_buffers = drawer->getCommandBuffers(_frame_counter);
+			std::copy(current_command_buffers.begin(), current_command_buffers.end(),
+				std::back_inserter(command_buffers));
+		}
 
 		VkSubmitInfo submitInfo{};
 		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;

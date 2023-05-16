@@ -20,6 +20,7 @@ namespace RenderEngine
 			return *_engines[index];
 		}
 		void reset();
+		void* getRenderdocApi();
 	private:
 		RenderContext();
 		~RenderContext()
@@ -33,5 +34,6 @@ namespace RenderEngine
 		VkInstance _instance;
 		std::vector<std::unique_ptr<RenderEngine>> _engines;
 		VkDebugUtilsMessengerEXT _debug_messenger;
+		void* _renderdoc_api{ nullptr };
 	};
 }

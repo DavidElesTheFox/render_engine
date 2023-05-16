@@ -92,8 +92,8 @@ namespace RenderEngine
 		vkGetDeviceQueue(_logical_device, _queue_family_graphics, _next_queue_index, &render_queue);
 		vkGetDeviceQueue(_logical_device, _queue_family_present, _next_queue_index, &present_queue);
 
-		constexpr auto width = 600;
-		constexpr auto height = 600;
+		constexpr auto width = 1024;
+		constexpr auto height = 764;
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 		GLFWwindow* window = glfwCreateWindow(width, height, name.data(), nullptr, nullptr);
 

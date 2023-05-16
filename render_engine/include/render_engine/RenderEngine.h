@@ -32,6 +32,8 @@ namespace RenderEngine
 		std::unique_ptr<Buffer> createUniformBuffer(VkDeviceSize size);
 
 		VkDevice getLogicalDevice() { return _logical_device; }
+		VkPhysicalDevice getPhysicalDevice() { return _physical_device; }
+		VkInstance getVulkanInstance() { return _instance; }
 	private:
 		VkInstance _instance;
 		VkPhysicalDevice _physical_device;

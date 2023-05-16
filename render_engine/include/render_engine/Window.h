@@ -2,6 +2,7 @@
 
 #include <render_engine/SwapChain.h>
 #include <render_engine/Drawer.h>
+#include <render_engine/GUIDrawer.h>
 
 #include <vulkan/vulkan.h>
 
@@ -10,6 +11,7 @@
 #include <memory>
 
 #include <GLFW/glfw3.h>
+struct ImGuiContext;
 namespace RenderEngine
 {
 	class RenderEngine;
@@ -30,9 +32,12 @@ namespace RenderEngine
 		bool isClosed() const { return _closed; }
 
 		Drawer& registerDrawer();
+		GUIDrawer& registerGUIDrawer();
 		RenderEngine& getRenderEngine() { return _engine; }
 		uint32_t getRenderQueueFamily() { return _render_queue_family; }
 		VkQueue& getRenderQueue() { return _render_queue; }
+		void enableRenderdocCapture();
+		void disableRenderdocCapture();
 	private:
 		struct FrameData
 		{
@@ -59,6 +64,9 @@ namespace RenderEngine
 		uint32_t _render_queue_family{ 0 };
 
 		std::vector<std::unique_ptr<Drawer>> _drawers;
+		std::vector<std::unique_ptr<GUIDrawer>> _gui_drawers;
 		uint32_t _frame_counter{ 0 };
+		ImGuiContext* _imgui_context{ nullptr };
+		void* _renderdoc_api{ nullptr };
 	};
 }

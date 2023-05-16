@@ -7,12 +7,16 @@ void run()
 {
 
 	auto window = RenderEngine::RenderContext::context().getEngine(0).createWindow("Main Window");
+	window->registerRenderers({ RenderEngine::ExampleRenderer::kRendererId });
+
 	auto window_2 = RenderEngine::RenderContext::context().getEngine(0).createWindow("Secondary Window");
-	auto& drawer = window->registerDrawer(true);
-	auto& drawer_3 = window_2->registerGUIDrawer();
-	auto& drawer_2 = window_2->registerDrawer(false);
+	window_2->registerRenderers({ RenderEngine::ExampleRenderer::kRendererId, RenderEngine::UIRenderer::kRendererId });
+
+	auto& drawer = window->getRendererAs<RenderEngine::ExampleRenderer>(RenderEngine::ExampleRenderer::kRendererId);
+	auto& drawer_3 = window_2->getRendererAs<RenderEngine::UIRenderer>(RenderEngine::UIRenderer::kRendererId);
+	auto& drawer_2 = window_2->getRendererAs<RenderEngine::ExampleRenderer>(RenderEngine::ExampleRenderer::kRendererId);
 	{
-		const std::vector<RenderEngine::Drawer::Vertex> vertices = {
+		const std::vector<RenderEngine::ExampleRenderer::Vertex> vertices = {
 			{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
 			{{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
 			{{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
@@ -41,6 +45,18 @@ void run()
 
 int main()
 {
+	{
+		using namespace RenderEngine;
+		std::unique_ptr<RendererFeactory> renderers = std::make_unique<RendererFeactory>();
+		renderers->registerRenderer(UIRenderer::kRendererId,
+			[](auto& window, const auto& swap_chain, uint32_t back_buffer_count, bool) -> std::unique_ptr<AbstractRenderer>
+			{return std::make_unique<UIRenderer>(window, swap_chain, back_buffer_count); });
+
+		renderers->registerRenderer(ExampleRenderer::kRendererId,
+			[](auto& window, const auto& swap_chain, uint32_t back_buffer_count, bool last_renderer) -> std::unique_ptr<AbstractRenderer>
+			{return std::make_unique<ExampleRenderer>(window, swap_chain, back_buffer_count, last_renderer); });
+		RenderContext::initialize({ "VK_LAYER_KHRONOS_validation" }, std::move(renderers));
+	}
 
 	try
 	{

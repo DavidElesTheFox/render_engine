@@ -1,4 +1,4 @@
-#include <render_engine/Drawer.h>
+#include <render_engine/ExampleRenderer.h>
 #include <render_engine/Window.h>
 #include <render_engine/RenderEngine.h>
 
@@ -13,7 +13,7 @@ namespace
 	VkVertexInputBindingDescription createBindingDescription() {
 		VkVertexInputBindingDescription bindingDescription{};
 		bindingDescription.binding = 0;
-		bindingDescription.stride = sizeof(Drawer::Vertex);
+		bindingDescription.stride = sizeof(ExampleRenderer::Vertex);
 		bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
 		return bindingDescription;
@@ -25,12 +25,12 @@ namespace
 		attributeDescriptions[0].binding = 0;
 		attributeDescriptions[0].location = 0;
 		attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
-		attributeDescriptions[0].offset = offsetof(Drawer::Vertex, pos);
+		attributeDescriptions[0].offset = offsetof(ExampleRenderer::Vertex, pos);
 
 		attributeDescriptions[1].binding = 0;
 		attributeDescriptions[1].location = 1;
 		attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attributeDescriptions[1].offset = offsetof(Drawer::Vertex, color);
+		attributeDescriptions[1].offset = offsetof(ExampleRenderer::Vertex, color);
 
 		return attributeDescriptions;
 	}
@@ -52,7 +52,7 @@ namespace
 		return buffer;
 	}
 
-	VkRenderPass createRenderPass(const SwapChain& swap_chain, VkDevice logical_device, bool last_drawer) {
+	VkRenderPass createRenderPass(const SwapChain& swap_chain, VkDevice logical_device, bool last_ExampleRenderer) {
 		VkAttachmentDescription color_attachment{};
 		color_attachment.format = swap_chain.getDetails().image_format;
 		color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -61,7 +61,7 @@ namespace
 		color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		color_attachment.finalLayout = last_drawer ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		color_attachment.finalLayout = last_ExampleRenderer ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 		VkAttachmentReference colorAttachmentRef{};
 		colorAttachmentRef.attachment = 0;
@@ -183,7 +183,7 @@ namespace
 			VkDescriptorBufferInfo bufferInfo{};
 			bufferInfo.buffer = uniform_buffers[i]->getBuffer();
 			bufferInfo.offset = 0;
-			bufferInfo.range = sizeof(Drawer::ColorOffset);
+			bufferInfo.range = sizeof(ExampleRenderer::ColorOffset);
 
 			VkWriteDescriptorSet descriptorWrite{};
 			descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -326,10 +326,10 @@ namespace
 
 namespace RenderEngine
 {
-	Drawer::Drawer(Window& window,
+	ExampleRenderer::ExampleRenderer(Window& window,
 		const SwapChain& swap_chain,
 		uint32_t back_buffer_size,
-		bool last_drawer)
+		bool last_ExampleRenderer)
 		: _window(window)
 	{
 		auto logical_device = window.getRenderEngine().getLogicalDevice();
@@ -340,7 +340,7 @@ namespace RenderEngine
 			_descriptor_set_layout = createDescriptorSetLayout(logical_device);
 			_descriptor_pool = createDescriptorPool(logical_device, back_buffer_size);
 			_pipeline_layout = createPipelineLayout(logical_device, _descriptor_set_layout, vert_shader, frag_shader);
-			_render_pass = createRenderPass(swap_chain, logical_device, last_drawer);
+			_render_pass = createRenderPass(swap_chain, logical_device, last_ExampleRenderer);
 			_pipeline = createGraphicsPipeline(logical_device, _render_pass, _pipeline_layout, vert_shader, frag_shader);
 
 			_back_buffer.resize(back_buffer_size);
@@ -372,7 +372,7 @@ namespace RenderEngine
 	}
 
 
-	void Drawer::init(const std::vector<Vertex>& vertices, const std::vector<uint16_t>& indicies)
+	void ExampleRenderer::init(const std::vector<Vertex>& vertices, const std::vector<uint16_t>& indicies)
 	{
 		{
 			VkDeviceSize size = sizeof(Vertex) * vertices.size();
@@ -404,7 +404,7 @@ namespace RenderEngine
 		}
 	}
 
-	void Drawer::draw(const VkFramebuffer& frame_buffer, uint32_t frame_number)
+	void ExampleRenderer::draw(const VkFramebuffer& frame_buffer, uint32_t frame_number)
 	{
 		FrameData& frame_data = getFrameData(frame_number);
 
@@ -461,12 +461,7 @@ namespace RenderEngine
 		}
 	}
 
-	Drawer::ReinitializationCommand Drawer::reinit()
-	{
-		return ReinitializationCommand(*this);
-	}
-
-	Drawer::~Drawer()
+	ExampleRenderer::~ExampleRenderer()
 	{
 		auto logical_device = _window.getRenderEngine().getLogicalDevice();
 		vkDestroyCommandPool(logical_device, _command_pool, nullptr);
@@ -480,7 +475,7 @@ namespace RenderEngine
 		vkDestroyRenderPass(logical_device, _render_pass, nullptr);
 		vkDestroyPipeline(logical_device, _pipeline, nullptr);
 	}
-	void Drawer::resetFrameBuffers()
+	void ExampleRenderer::resetFrameBuffers()
 	{
 		auto logical_device = _window.getRenderEngine().getLogicalDevice();
 
@@ -488,7 +483,15 @@ namespace RenderEngine
 			vkDestroyFramebuffer(logical_device, framebuffer, nullptr);
 		}
 	}
-	void Drawer::createFrameBuffers(const SwapChain& swap_chain)
+	void ExampleRenderer::beforeReinit()
+	{
+		resetFrameBuffers();
+	}
+	void ExampleRenderer::finalizeReinit(const SwapChain& swap_chain)
+	{
+		createFrameBuffers(swap_chain);
+	}
+	void ExampleRenderer::createFrameBuffers(const SwapChain& swap_chain)
 	{
 		auto logical_device = _window.getRenderEngine().getLogicalDevice();
 
@@ -505,7 +508,7 @@ namespace RenderEngine
 			}
 		}
 	}
-	bool Drawer::createFrameBuffer(const SwapChain& swap_chain, uint32_t frame_buffer_index)
+	bool ExampleRenderer::createFrameBuffer(const SwapChain& swap_chain, uint32_t frame_buffer_index)
 	{
 		auto logical_device = _window.getRenderEngine().getLogicalDevice();
 
@@ -523,7 +526,7 @@ namespace RenderEngine
 
 		return vkCreateFramebuffer(logical_device, &framebuffer_info, nullptr, &_frame_buffers[frame_buffer_index]) == VK_SUCCESS;
 	}
-	void Drawer::createCommandPool(uint32_t render_queue_family)
+	void ExampleRenderer::createCommandPool(uint32_t render_queue_family)
 	{
 		auto logical_device = _window.getRenderEngine().getLogicalDevice();
 
@@ -535,7 +538,7 @@ namespace RenderEngine
 			throw std::runtime_error("failed to create command pool!");
 		}
 	}
-	void Drawer::createCommandBuffer()
+	void ExampleRenderer::createCommandBuffer()
 	{
 		auto logical_device = _window.getRenderEngine().getLogicalDevice();
 

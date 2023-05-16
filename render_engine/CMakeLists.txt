@@ -8,23 +8,27 @@ set(RENDER_ENGINE_HEADER_LOCATION include/render_engine)
 
 configure_file(config/data_config_in.h "${GENERATED_INCLUDE_DIR}/data_config.h")
 
-set(RENDER_ENGINE_SRC 
+set(RENDER_ENGINE_SRC
+    src/AbstractRenderer.cpp
 	src/RenderEngine.cpp
 	src/RenderContext.cpp
+    src/RendererFactory.cpp
 	src/Buffer.cpp
 	src/Window.cpp
-	src/Drawer.cpp
-	src/GUIDrawer.cpp
+	src/ExampleRenderer.cpp
+	src/UIRenderer.cpp
     src/SwapChain.cpp
 	)
 
 set(RENDER_ENGINE_HEADERS 
+	${RENDER_ENGINE_HEADER_LOCATION}/AbstractRenderer.h
 	${RENDER_ENGINE_HEADER_LOCATION}/RenderEngine.h
 	${RENDER_ENGINE_HEADER_LOCATION}/RenderContext.h
+	${RENDER_ENGINE_HEADER_LOCATION}/RendererFactory.h
 	${RENDER_ENGINE_HEADER_LOCATION}/Buffer.h
 	${RENDER_ENGINE_HEADER_LOCATION}/Window.h
-	${RENDER_ENGINE_HEADER_LOCATION}/Drawer.h
-	${RENDER_ENGINE_HEADER_LOCATION}/GUIDrawer.h
+	${RENDER_ENGINE_HEADER_LOCATION}/ExampleRenderer.h
+	${RENDER_ENGINE_HEADER_LOCATION}/UIRenderer.h
 	${RENDER_ENGINE_HEADER_LOCATION}/SwapChain.h
 	)
 

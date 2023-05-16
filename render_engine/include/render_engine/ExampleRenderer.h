@@ -1,6 +1,7 @@
 #pragma once
 #include <render_engine/SwapChain.h>
 #include <render_engine/Buffer.h>
+#include <render_engine/AbstractRenderer.h>
 
 #include <vulkan/vulkan.h>
 
@@ -13,32 +14,10 @@
 namespace RenderEngine
 {
 	class Window;
-	class Drawer
+	class ExampleRenderer : public AbstractRenderer
 	{
 	public:
-		class ReinitializationCommand
-		{
-		public:
-			explicit ReinitializationCommand(Drawer& drawer)
-				:_drawer(drawer)
-			{
-				_drawer.resetFrameBuffers();
-			}
-
-			void finish(const SwapChain& swap_chain)
-			{
-				_drawer.createFrameBuffers(swap_chain);
-			}
-			~ReinitializationCommand()
-			{
-				assert(_finished);
-			}
-		private:
-			Drawer& _drawer;
-			bool _finished = false;
-		};
-		friend class ReinitializationCommand;
-
+		static constexpr uint32_t kRendererId = 0u;
 		struct Vertex {
 			std::array<float, 2> pos;
 			std::array<float, 3> color;
@@ -49,27 +28,25 @@ namespace RenderEngine
 			float r;
 		};
 
-		Drawer(Window& parent,
+		ExampleRenderer(Window& parent,
 			const SwapChain& swap_chain,
 			uint32_t back_buffer_size,
-			bool last_drawer);
+			bool last_ExampleRenderer);
 
 		void init(const std::vector<Vertex>& vertices, const std::vector<uint16_t>& indicies);
 
-		void draw(uint32_t swap_chain_image_index, uint32_t frame_number)
+		void draw(uint32_t swap_chain_image_index, uint32_t frame_number) override
 		{
 			draw(_frame_buffers[swap_chain_image_index], frame_number);
 		}
-		std::vector<VkCommandBuffer> getCommandBuffers(uint32_t frame_number)
+		std::vector<VkCommandBuffer> getCommandBuffers(uint32_t frame_number) override
 		{
 			return { getFrameData(frame_number).command_buffer };
 		}
 
 		ColorOffset& getColorOffset() { return _color_offset; }
 
-		[[nodiscard]]
-		ReinitializationCommand reinit();
-		~Drawer();
+		~ExampleRenderer() override;
 	private:
 		struct FrameData
 		{
@@ -87,7 +64,8 @@ namespace RenderEngine
 		}
 		void draw(const VkFramebuffer& frame_buffer, uint32_t frame_number);
 		void resetFrameBuffers();
-
+		void beforeReinit() override;
+		void finalizeReinit(const SwapChain& swap_chain) override;
 		Window& _window;
 		VkRenderPass _render_pass;
 		VkPipelineLayout _pipeline_layout;

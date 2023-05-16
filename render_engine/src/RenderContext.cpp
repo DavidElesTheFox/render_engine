@@ -165,20 +165,26 @@ namespace RenderEngine
 {
 	RenderContext& RenderContext::context()
 	{
+		RenderContext& result = context_impl();
+		assert(result._initialized);
+		return result;
+	}
+	void RenderContext::initialize(const std::vector<const char*>& validation_layers, std::unique_ptr<RendererFeactory> renderer_factory)
+	{
+		auto& context = context_impl();
+		context.init(validation_layers, std::move(renderer_factory));
+	}
+	RenderContext& RenderContext::context_impl()
+	{
 		static RenderContext context;
-		if (context.isVulkanInitialized() == false)
-		{
-			context.init();
-		}
 		return context;
 	}
 
 
 	RenderContext::RenderContext()
 	{
-		init();
 	}
-	void RenderContext::init()
+	void RenderContext::init(const std::vector<const char*>& validation_layers, std::unique_ptr<RendererFeactory> renderer_factory)
 	{
 #ifdef ENABLE_RENDERDOC
 
@@ -190,21 +196,11 @@ namespace RenderEngine
 			if (ret != 1)
 			{
 				throw std::runtime_error("Cannot open renderdoc dll");
-			}
+}
 		}
 #endif
-
-		const bool enable_validation_layer = true;
-		const std::vector<const char*> validation_layers = [&]()->std::vector<const char*> {
-			if (enable_validation_layer)
-			{
-				return { "VK_LAYER_KHRONOS_validation" };
-			}
-			else
-			{
-				return {};
-			}
-		}();
+		_renderer_factory = std::move(renderer_factory);
+		const bool enable_validation_layer = validation_layers.empty() == false;
 
 		glfwInit();
 		if (isVulkanInitialized() == false)

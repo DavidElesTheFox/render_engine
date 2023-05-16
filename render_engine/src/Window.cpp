@@ -11,7 +11,6 @@
 #include <limits>
 #include <fstream>
 
-#include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_vulkan.h>
 #include <renderdoc_app.h>
 
@@ -40,23 +39,13 @@ namespace RenderEngine
 		present();
 	}
 
-	Drawer& Window::registerDrawer(bool as_last_drawer)
+	void Window::registerRenderers(const std::vector<uint32_t>& renderer_ids)
 	{
-
-		_drawers.push_back(std::make_unique<Drawer>(*this,
-			*_swap_chain,
-			kBackBufferSize,
-			as_last_drawer));
-		return *_drawers.back();
-	}
-	GUIDrawer& Window::registerGUIDrawer()
-	{
-		_imgui_context = ImGui::CreateContext();
-		ImGui_ImplGlfw_InitForVulkan(_window, true);
-		_gui_drawers.push_back(std::make_unique<GUIDrawer>(*this,
-			*_swap_chain,
-			kBackBufferSize));
-		return *_gui_drawers.back();
+		_renderers = RenderContext::context().getRendererFactory().generateRenderers(renderer_ids, *this, *_swap_chain, _back_buffer.size());
+		for (size_t i = 0; i < renderer_ids.size(); ++i)
+		{
+			_renderer_map[renderer_ids[i]] = _renderers[i].get();
+		}
 	}
 
 	void Window::enableRenderdocCapture()
@@ -122,8 +111,8 @@ namespace RenderEngine
 	{
 		auto logical_device = _engine.getLogicalDevice();
 		vkDeviceWaitIdle(logical_device);
-		std::vector<Drawer::ReinitializationCommand> commands;
-		for (auto& drawer : _drawers)
+		std::vector<ExampleRenderer::ReinitializationCommand> commands;
+		for (auto& drawer : _renderers)
 		{
 			commands.emplace_back(drawer->reinit());
 		}
@@ -141,7 +130,6 @@ namespace RenderEngine
 		{
 			return;
 		}
-		bool has_ui = _gui_drawers.empty() == false;
 		auto logical_device = _engine.getLogicalDevice();
 		vkDeviceWaitIdle(logical_device);
 		for (FrameData& frame_data : _back_buffer)
@@ -151,22 +139,15 @@ namespace RenderEngine
 			vkDestroyFence(logical_device, frame_data.in_flight_fence, nullptr);
 		}
 		_swap_chain.reset();
-		_drawers.clear();
-		_gui_drawers.clear();
-		if (has_ui)
-		{
-			ImGui_ImplGlfw_Shutdown();
-		}
+		_renderers.clear();
+
 		glfwDestroyWindow(_window);
-		if (_imgui_context != nullptr)
-		{
-			ImGui::DestroyContext(_imgui_context);
-		}
+
 		_window = nullptr;
 	}
 	void Window::present(FrameData& frame_data)
 	{
-		if (_drawers.empty() && _gui_drawers.empty())
+		if (_renderers.empty())
 		{
 			return;
 		}
@@ -192,28 +173,15 @@ namespace RenderEngine
 			}
 		}
 		vkResetFences(logical_device, 1, &frame_data.in_flight_fence);
-		if (_imgui_context != nullptr)
-		{
-			ImGui_ImplVulkan_NewFrame();
-			ImGui_ImplGlfw_NewFrame();
-			ImGui::NewFrame();
-		}
-		std::vector<VkCommandBuffer> command_buffers;
-		for (auto& drawer : _drawers)
-		{
-			drawer->draw(image_index, _frame_counter);
-			auto current_command_buffers = drawer->getCommandBuffers(_frame_counter);
-			std::copy(current_command_buffers.begin(), current_command_buffers.end(),
-				std::back_inserter(command_buffers));
-		}
-		for (auto& drawer : _gui_drawers)
-		{
-			drawer->draw(image_index, _frame_counter);
-			auto current_command_buffers = drawer->getCommandBuffers(_frame_counter);
-			std::copy(current_command_buffers.begin(), current_command_buffers.end(),
-				std::back_inserter(command_buffers));
-		}
 
+		std::vector<VkCommandBuffer> command_buffers;
+		for (auto& drawer : _renderers)
+		{
+			drawer->draw(image_index, _frame_counter);
+			auto current_command_buffers = drawer->getCommandBuffers(_frame_counter);
+			std::copy(current_command_buffers.begin(), current_command_buffers.end(),
+				std::back_inserter(command_buffers));
+		}
 		VkSubmitInfo submitInfo{};
 		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 

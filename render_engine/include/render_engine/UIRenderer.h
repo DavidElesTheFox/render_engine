@@ -1,6 +1,7 @@
 #pragma once
 #include <render_engine/SwapChain.h>
 #include <render_engine/Buffer.h>
+#include <render_engine/AbstractRenderer.h>
 
 #include <vulkan/vulkan.h>
 
@@ -10,31 +11,33 @@
 #include <string>
 #include <array>
 #include <functional>
-
+struct ImGuiContext;
 namespace RenderEngine
 {
 	class Window;
 
-	class GUIDrawer
+	class UIRenderer : public AbstractRenderer
 	{
 	public:
-		GUIDrawer(Window& parent,
+		static constexpr uint32_t kRendererId = 1u;
+
+		UIRenderer(Window& parent,
 			const SwapChain& swap_chain,
 			uint32_t back_buffer_size);
 
-		void draw(uint32_t swap_chain_image_index, uint32_t frame_number)
+		void draw(uint32_t swap_chain_image_index, uint32_t frame_number) override
 		{
 			draw(_frame_buffers[swap_chain_image_index], frame_number);
 		}
 
-		std::vector<VkCommandBuffer> getCommandBuffers(uint32_t frame_number)
+		std::vector<VkCommandBuffer> getCommandBuffers(uint32_t frame_number) override
 		{
 			return { getFrameData(frame_number).command_buffer };
 		}
 
 		void setOnGui(std::function<void()> on_gui) { _on_gui = on_gui; }
 
-		~GUIDrawer();
+		~UIRenderer();
 	private:
 		struct FrameData
 		{
@@ -52,8 +55,11 @@ namespace RenderEngine
 		void createCommandBuffer();
 		void draw(const VkFramebuffer& frame_buffer, uint32_t frame_number);
 		void resetFrameBuffers();
-
+		void beforeReinit() override;
+		void finalizeReinit(const SwapChain& swap_chain) override;
 		Window& _window;
+		ImGuiContext* _imgui_context{ nullptr };
+
 		VkRenderPass _render_pass;
 		VkDescriptorPool _descriptor_pool;
 		std::vector<VkFramebuffer> _frame_buffers;

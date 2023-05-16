@@ -1,10 +1,11 @@
-#include <render_engine/GUIDrawer.h>
+#include <render_engine/UIRenderer.h>
 #include <render_engine/Window.h>
 #include <render_engine/RenderEngine.h>
 
 #include <stdexcept>
 #include <fstream>
 #include <backends/imgui_impl_vulkan.h>
+#include <backends/imgui_impl_glfw.h>
 
 namespace
 {
@@ -90,11 +91,13 @@ namespace
 
 namespace RenderEngine
 {
-	GUIDrawer::GUIDrawer(Window& window,
+	UIRenderer::UIRenderer(Window& window,
 		const SwapChain& swap_chain,
 		uint32_t back_buffer_size)
 		: _window(window)
 	{
+		_imgui_context = ImGui::CreateContext();
+		ImGui_ImplGlfw_InitForVulkan(_window.getWindowHandle(), true);
 		auto logical_device = window.getRenderEngine().getLogicalDevice();
 
 		try
@@ -166,8 +169,7 @@ namespace RenderEngine
 		}
 	}
 
-
-	GUIDrawer::~GUIDrawer()
+	UIRenderer::~UIRenderer()
 	{
 		auto logical_device = _window.getRenderEngine().getLogicalDevice();
 		vkDestroyCommandPool(logical_device, _command_pool, nullptr);
@@ -178,8 +180,12 @@ namespace RenderEngine
 
 		vkDestroyRenderPass(logical_device, _render_pass, nullptr);
 		ImGui_ImplVulkan_Shutdown();
+		ImGui_ImplGlfw_Shutdown();
+
+		ImGui::DestroyContext(_imgui_context);
+
 	}
-	void GUIDrawer::resetFrameBuffers()
+	void UIRenderer::resetFrameBuffers()
 	{
 		auto logical_device = _window.getRenderEngine().getLogicalDevice();
 
@@ -187,12 +193,24 @@ namespace RenderEngine
 			vkDestroyFramebuffer(logical_device, framebuffer, nullptr);
 		}
 	}
-	void GUIDrawer::draw(const VkFramebuffer& frame_buffer, uint32_t frame_number)
+	void UIRenderer::beforeReinit()
+	{
+		resetFrameBuffers();
+	}
+	void UIRenderer::finalizeReinit(const SwapChain& swap_chain)
+	{
+		createFrameBuffers(swap_chain);
+	}
+	void UIRenderer::draw(const VkFramebuffer& frame_buffer, uint32_t frame_number)
 	{
 		if (_on_gui == nullptr)
 		{
 			return;
 		}
+		ImGui_ImplVulkan_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+
 		FrameData& frame_data = getFrameData(frame_number);
 
 
@@ -227,7 +245,7 @@ namespace RenderEngine
 		}
 	}
 
-	void GUIDrawer::createFrameBuffers(const SwapChain& swap_chain)
+	void UIRenderer::createFrameBuffers(const SwapChain& swap_chain)
 	{
 		auto logical_device = _window.getRenderEngine().getLogicalDevice();
 
@@ -244,7 +262,7 @@ namespace RenderEngine
 			}
 		}
 	}
-	bool GUIDrawer::createFrameBuffer(const SwapChain& swap_chain, uint32_t frame_buffer_index)
+	bool UIRenderer::createFrameBuffer(const SwapChain& swap_chain, uint32_t frame_buffer_index)
 	{
 		auto logical_device = _window.getRenderEngine().getLogicalDevice();
 
@@ -262,7 +280,7 @@ namespace RenderEngine
 
 		return vkCreateFramebuffer(logical_device, &framebuffer_info, nullptr, &_frame_buffers[frame_buffer_index]) == VK_SUCCESS;
 	}
-	void GUIDrawer::createCommandPool(uint32_t render_queue_family)
+	void UIRenderer::createCommandPool(uint32_t render_queue_family)
 	{
 		auto logical_device = _window.getRenderEngine().getLogicalDevice();
 
@@ -274,7 +292,7 @@ namespace RenderEngine
 			throw std::runtime_error("failed to create command pool!");
 		}
 	}
-	void GUIDrawer::createCommandBuffer()
+	void UIRenderer::createCommandBuffer()
 	{
 		auto logical_device = _window.getRenderEngine().getLogicalDevice();
 

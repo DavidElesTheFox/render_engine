@@ -4,7 +4,7 @@
 #include <string>
 namespace RenderEngine
 {
-	void RendererFeactory::registerRenderer(uint32_t id, std::function<std::unique_ptr<AbstractRenderer>(Window&, SwapChain&, uint32_t, bool)> factory_method)
+	void RendererFeactory::registerRenderer(uint32_t id, std::function<std::unique_ptr<AbstractRenderer>(Window&, SwapChain&, uint32_t, AbstractRenderer*, bool)> factory_method)
 	{
 		bool inserted = _factory_methods.insert({ id, factory_method }).second;
 		if (inserted == false)
@@ -18,14 +18,16 @@ namespace RenderEngine
 		uint32_t back_buffer_count)
 	{
 		std::vector<std::unique_ptr<AbstractRenderer>> result;
-		for (uint32_t renderer_id : renderer_ids)
+		for (size_t i = 0; i < renderer_ids.size(); ++i)
 		{
+			uint32_t renderer_id = renderer_ids[i];
 			auto it = _factory_methods.find(renderer_id);
 			if (it == _factory_methods.end())
 			{
 				throw std::runtime_error("Renderer id is not registered: " + std::to_string(renderer_id));
 			}
-			result.emplace_back(it->second(window, swap_chain, back_buffer_count, renderer_id == renderer_ids.back()));
+			AbstractRenderer* prev_renderer = i == 0 ? nullptr : result[0].get();
+			result.emplace_back(it->second(window, swap_chain, back_buffer_count, prev_renderer, i == (renderer_ids.size() - 1)));
 		}
 		return result;
 	}

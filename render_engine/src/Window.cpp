@@ -35,8 +35,8 @@ namespace RenderEngine
 			destroy();
 			return;
 		}
-		handleEvents();
 		present();
+		handleEvents();
 	}
 
 	void Window::registerRenderers(const std::vector<uint32_t>& renderer_ids)
@@ -95,7 +95,12 @@ namespace RenderEngine
 	void Window::handleEvents()
 	{
 		glfwPollEvents();
-		_closed = glfwWindowShouldClose(_window);
+		bool should_be_closed = glfwWindowShouldClose(_window);
+		if (should_be_closed)
+		{
+			glfwHideWindow(_window);
+			_closed = true;
+		}
 	}
 
 	void Window::present()
@@ -144,6 +149,7 @@ namespace RenderEngine
 		glfwDestroyWindow(_window);
 
 		_window = nullptr;
+		_closed = true;
 	}
 	void Window::present(FrameData& frame_data)
 	{

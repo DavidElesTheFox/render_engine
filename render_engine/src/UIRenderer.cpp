@@ -11,15 +11,15 @@ namespace
 {
 	using namespace RenderEngine;
 
-	VkRenderPass createRenderPass(const SwapChain& swap_chain, VkDevice logical_device) {
+	VkRenderPass createRenderPass(const SwapChain& swap_chain, VkDevice logical_device, bool first_renderer) {
 		VkAttachmentDescription color_attachment{};
 		color_attachment.format = swap_chain.getDetails().image_format;
 		color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-		color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+		color_attachment.loadOp = first_renderer ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
 		color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		color_attachment.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		color_attachment.initialLayout = first_renderer ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 		color_attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
 		VkAttachmentReference colorAttachmentRef{};
@@ -91,19 +91,24 @@ namespace
 
 namespace RenderEngine
 {
+	std::set<ImGuiContext*> UIRenderer::kInvalidContexts;
+
 	UIRenderer::UIRenderer(Window& window,
 		const SwapChain& swap_chain,
-		uint32_t back_buffer_size)
+		uint32_t back_buffer_size,
+		bool first_renderer)
 		: _window(window)
 	{
+		_imgui_context_during_init = ImGui::GetCurrentContext();
 		_imgui_context = ImGui::CreateContext();
+		ImGui::SetCurrentContext(_imgui_context);
 		ImGui_ImplGlfw_InitForVulkan(_window.getWindowHandle(), true);
 		auto logical_device = window.getRenderEngine().getLogicalDevice();
 
 		try
 		{
 			_descriptor_pool = createDescriptorPool(logical_device);
-			_render_pass = createRenderPass(swap_chain, logical_device);
+			_render_pass = createRenderPass(swap_chain, logical_device, first_renderer);
 
 			_back_buffer.resize(back_buffer_size);
 			_render_area.offset = { 0, 0 };
@@ -171,6 +176,7 @@ namespace RenderEngine
 
 	UIRenderer::~UIRenderer()
 	{
+		ImGui::SetCurrentContext(_imgui_context);
 		auto logical_device = _window.getRenderEngine().getLogicalDevice();
 		vkDestroyCommandPool(logical_device, _command_pool, nullptr);
 
@@ -182,7 +188,12 @@ namespace RenderEngine
 		ImGui_ImplVulkan_Shutdown();
 		ImGui_ImplGlfw_Shutdown();
 
+		registerDeletedContext(_imgui_context);
 		ImGui::DestroyContext(_imgui_context);
+		if (isValidContext(_imgui_context_during_init))
+		{
+			ImGui::SetCurrentContext(_imgui_context_during_init);
+		}
 
 	}
 	void UIRenderer::resetFrameBuffers()
@@ -207,12 +218,20 @@ namespace RenderEngine
 		{
 			return;
 		}
-		ImGui_ImplVulkan_NewFrame();
-		ImGui_ImplGlfw_NewFrame();
-		ImGui::NewFrame();
+		int focused = glfwGetWindowAttrib(_window.getWindowHandle(), GLFW_FOCUSED);
 
+
+		if (focused)
+		{
+			if (ImGui::GetCurrentContext() != _imgui_context)
+			{
+				ImGui::SetCurrentContext(_imgui_context);
+			}
+			ImGui_ImplVulkan_NewFrame();
+			ImGui_ImplGlfw_NewFrame();
+			ImGui::NewFrame();
+		}
 		FrameData& frame_data = getFrameData(frame_number);
-
 
 		vkResetCommandBuffer(frame_data.command_buffer, /*VkCommandBufferResetFlagBits*/ 0);
 		VkCommandBufferBeginInfo begin_info{};
@@ -228,21 +247,32 @@ namespace RenderEngine
 		render_pass_info.framebuffer = frame_buffer;
 		render_pass_info.renderArea = _render_area;
 
-		VkClearValue clearColor = { {{1.0f, 1.0f, 1.0f, 0.0f}} };
+		VkClearValue clearColor = { {{0.0f, 0.0f, 0.0f, 1.0f}} };
 		render_pass_info.clearValueCount = 1;
 		render_pass_info.pClearValues = &clearColor;
 
 		vkCmdBeginRenderPass(frame_data.command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
-
-		_on_gui();
-		ImGui::Render();
-		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), frame_data.command_buffer);
-
+		if (focused)
+		{
+			_on_gui();
+			ImGui::Render();
+			ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), frame_data.command_buffer);
+		}
 		vkCmdEndRenderPass(frame_data.command_buffer);
 
 		if (vkEndCommandBuffer(frame_data.command_buffer) != VK_SUCCESS) {
 			throw std::runtime_error("failed to record command buffer!");
 		}
+	}
+
+	void UIRenderer::registerDeletedContext(ImGuiContext* context)
+	{
+		kInvalidContexts.insert(context);
+	}
+
+	bool UIRenderer::isValidContext(ImGuiContext* context)
+	{
+		return kInvalidContexts.contains(context) == false;
 	}
 
 	void UIRenderer::createFrameBuffers(const SwapChain& swap_chain)

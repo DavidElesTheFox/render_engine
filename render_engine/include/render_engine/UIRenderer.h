@@ -11,6 +11,7 @@
 #include <string>
 #include <array>
 #include <functional>
+#include <set>
 struct ImGuiContext;
 namespace RenderEngine
 {
@@ -18,12 +19,14 @@ namespace RenderEngine
 
 	class UIRenderer : public AbstractRenderer
 	{
+		static std::set<ImGuiContext*> kInvalidContexts;
 	public:
 		static constexpr uint32_t kRendererId = 1u;
 
 		UIRenderer(Window& parent,
 			const SwapChain& swap_chain,
-			uint32_t back_buffer_size);
+			uint32_t back_buffer_size,
+			bool first_renderer);
 
 		void draw(uint32_t swap_chain_image_index, uint32_t frame_number) override
 		{
@@ -49,6 +52,10 @@ namespace RenderEngine
 		{
 			return _back_buffer[frame_number % _back_buffer.size()];
 		}
+
+		static void registerDeletedContext(ImGuiContext* context);
+		static bool isValidContext(ImGuiContext* context);
+
 		void createFrameBuffers(const SwapChain& swap_chain);
 		bool createFrameBuffer(const SwapChain& swap_chain, uint32_t frame_buffer_index);
 		void createCommandPool(uint32_t render_queue_family);
@@ -59,6 +66,7 @@ namespace RenderEngine
 		void finalizeReinit(const SwapChain& swap_chain) override;
 		Window& _window;
 		ImGuiContext* _imgui_context{ nullptr };
+		ImGuiContext* _imgui_context_during_init{ nullptr };
 
 		VkRenderPass _render_pass;
 		VkDescriptorPool _descriptor_pool;

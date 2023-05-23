@@ -3,7 +3,7 @@
 #include <vector>
 #include <memory>
 
-#include <vulkan/vulkan.h>
+#include <volk.h>
 #include <render_engine/RendererFactory.h>
 
 namespace RenderEngine

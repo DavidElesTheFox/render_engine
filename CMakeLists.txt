@@ -9,7 +9,12 @@ set(DATA_DIRECTORY ${CMAKE_SOURCE_DIR}/data_dir)
 set(IMGUI_SRC "${CMAKE_SOURCE_DIR}/3rd_party/imgui")
 set(RENDERDOC_PATH "C:/Program Files/RenderDoc" CACHE STRING "Renderdoc path to api and include files")
 
+set(VOLK_STATIC_DEFINES VK_USE_PLATFORM_WIN32_KHR VK_KHR_SURFACE)
+
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/3rd_party/glfw/cmake", "${CMAKE_SOURCE_DIR}/3rd_party/eigen/cmake")
+
 add_subdirectory(3rd_party/glfw-src)
+add_subdirectory(3rd_party/volk-src)
+
 add_subdirectory(render_engine)
 add_subdirectory(demo)

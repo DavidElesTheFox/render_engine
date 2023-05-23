@@ -53,11 +53,12 @@ target_sources(RenderEngine
 target_link_libraries(RenderEngine 
 	PUBLIC 
 		glfw
-		Vulkan::Vulkan)
+		volk::volk)
 		
 target_compile_definitions(RenderEngine 
 	PRIVATE 
 		VK_USE_PLATFORM_WIN32_KHR
+		VK_NO_PROTOTYPES
 		GLFW_INCLUDE_VULKAN
 		GLFW_EXPOSE_NATIVE_WIN32)
 target_include_directories(RenderEngine 

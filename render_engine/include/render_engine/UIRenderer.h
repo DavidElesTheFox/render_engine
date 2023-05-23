@@ -3,7 +3,7 @@
 #include <render_engine/Buffer.h>
 #include <render_engine/AbstractRenderer.h>
 
-#include <vulkan/vulkan.h>
+#include <volk.h>
 
 #include <vector>
 #include <cassert>

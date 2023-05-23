@@ -4,7 +4,7 @@
 #include <render_engine/ExampleRenderer.h>
 #include <render_engine/UIRenderer.h>
 
-#include <vulkan/vulkan.h>
+#include <volk.h>
 
 #include <string_view>
 #include <array>

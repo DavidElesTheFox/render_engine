@@ -7,3 +7,6 @@
 [submodule "3rd_party/imgui"]
 	path = 3rd_party/imgui
 	url = https://github.com/ocornut/imgui.git
+[submodule "3rd_party/volk-src"]
+	path = 3rd_party/volk-src
+	url = https://github.com/zeux/volk.git

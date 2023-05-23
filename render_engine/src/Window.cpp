@@ -94,13 +94,14 @@ namespace RenderEngine
 
 	void Window::handleEvents()
 	{
-		glfwPollEvents();
 		bool should_be_closed = glfwWindowShouldClose(_window);
 		if (should_be_closed)
 		{
 			glfwHideWindow(_window);
 			_closed = true;
+			return;
 		}
+		glfwPollEvents();
 	}
 
 	void Window::present()

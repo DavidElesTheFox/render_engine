@@ -3,7 +3,7 @@
 #include <render_engine/Window.h>
 #include <render_engine/Buffer.h>
 
-#include <vulkan/vulkan.h>
+#include <volk.h>
 #include <memory>
 #include <span>
 
@@ -33,7 +33,7 @@ namespace RenderEngine
 
 		VkDevice getLogicalDevice() { return _logical_device; }
 		VkPhysicalDevice getPhysicalDevice() { return _physical_device; }
-		VkInstance getVulkanInstance() { return _instance; }
+		VkInstance& getVulkanInstance() { return _instance; }
 	private:
 		VkInstance _instance;
 		VkPhysicalDevice _physical_device;

@@ -102,7 +102,14 @@ namespace RenderEngine
 		_imgui_context_during_init = ImGui::GetCurrentContext();
 		_imgui_context = ImGui::CreateContext();
 		ImGui::SetCurrentContext(_imgui_context);
+
+		ImGui_ImplVulkan_LoadFunctions([](const char* function_name, void* vulkan_instance) {
+			return vkGetInstanceProcAddr(*(reinterpret_cast<VkInstance*>(vulkan_instance)), function_name);
+			}, &window.getRenderEngine().getVulkanInstance());
+
 		ImGui_ImplGlfw_InitForVulkan(_window.getWindowHandle(), true);
+
+
 		auto logical_device = window.getRenderEngine().getLogicalDevice();
 
 		try
@@ -211,6 +218,8 @@ namespace RenderEngine
 	void UIRenderer::finalizeReinit(const SwapChain& swap_chain)
 	{
 		createFrameBuffers(swap_chain);
+		_render_area.offset = { 0, 0 };
+		_render_area.extent = swap_chain.getDetails().extent;
 	}
 	void UIRenderer::draw(const VkFramebuffer& frame_buffer, uint32_t frame_number)
 	{

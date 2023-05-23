@@ -132,21 +132,6 @@ namespace
 
 		return true;
 	}
-	VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* create_info, const VkAllocationCallbacks* alloc, VkDebugUtilsMessengerEXT* debug_messenger) {
-		auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
-		if (func != nullptr) {
-			return func(instance, create_info, alloc, debug_messenger);
-		}
-		else {
-			return VK_ERROR_EXTENSION_NOT_PRESENT;
-		}
-	}
-	void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debug_messenger, const VkAllocationCallbacks* alloc) {
-		auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
-		if (func != nullptr) {
-			func(instance, debug_messenger, alloc);
-		}
-	}
 	VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
 		VkDebugUtilsMessageTypeFlagsEXT,
 		const VkDebugUtilsMessengerCallbackDataEXT* data,
@@ -196,7 +181,7 @@ namespace RenderEngine
 			if (ret != 1)
 			{
 				throw std::runtime_error("Cannot open renderdoc dll");
-}
+			}
 		}
 #endif
 		_renderer_factory = std::move(renderer_factory);
@@ -211,6 +196,7 @@ namespace RenderEngine
 	}
 	void RenderContext::initVulkan(const std::vector<const char*>& validation_layers)
 	{
+		volkInitialize();
 		if (g_enable_validation_layers && checkValidationLayerSupport(validation_layers) == false)
 		{
 			throw std::runtime_error("Validation layers requested but not available");
@@ -263,6 +249,7 @@ namespace RenderEngine
 		{
 			throw std::runtime_error(std::string{ "Cannot initialize vulkan instance: " } + string_VkResult(result));
 		}
+		volkLoadInstance(_instance);
 	}
 
 	void RenderContext::createEngines(const std::vector<const char*>& validation_layers)
@@ -297,10 +284,6 @@ namespace RenderEngine
 			_engines.clear();
 			vkDestroyInstance(_instance, nullptr);
 			_instance = nullptr;
-			if constexpr (g_enable_validation_layers)
-			{
-				DestroyDebugUtilsMessengerEXT(_instance, _debug_messenger, nullptr);
-			}
 		}
 		glfwTerminate();
 	}
@@ -312,4 +295,4 @@ namespace RenderEngine
 		throw std::runtime_error("Cannot enable renderdoc, feature is disabled in this build");
 #endif
 	}
-}
+	}

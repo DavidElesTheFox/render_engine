@@ -490,6 +490,8 @@ namespace RenderEngine
 	void ExampleRenderer::finalizeReinit(const SwapChain& swap_chain)
 	{
 		createFrameBuffers(swap_chain);
+		_render_area.offset = { 0, 0 };
+		_render_area.extent = swap_chain.getDetails().extent;
 	}
 	void ExampleRenderer::createFrameBuffers(const SwapChain& swap_chain)
 	{

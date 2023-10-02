@@ -10,3 +10,6 @@
 [submodule "3rd_party/volk-src"]
 	path = 3rd_party/volk-src
 	url = https://github.com/zeux/volk.git
+[submodule "3rd_party/glfw-src"]
+	path = 3rd_party/glfw-src
+	url = https://github.com/glfw/glfw.git

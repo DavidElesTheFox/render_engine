@@ -1,5 +1,5 @@
-#include <render_engine/ExampleRenderer.h>
-#include <render_engine/Window.h>
+#include <render_engine/renderers/ExampleRenderer.h>
+#include <render_engine/window/Window.h>
 #include <render_engine/RenderEngine.h>
 
 #include <data_config.h>

@@ -1,5 +1,5 @@
-#include <render_engine/UIRenderer.h>
-#include <render_engine/Window.h>
+#include <render_engine/renderers/UIRenderer.h>
+#include <render_engine/window/Window.h>
 #include <render_engine/RenderEngine.h>
 
 #include <stdexcept>

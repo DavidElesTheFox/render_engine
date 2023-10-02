@@ -3,6 +3,7 @@
 #include <render_engine/RenderContext.h>
 #include <render_engine/RenderEngine.h>
 #include <imgui.h>
+#include <render_engine/renderers/ExampleRenderer.h>
 
 #define ENABLE_WINDOW_0 true
 #define ENABLE_WINDOW_1 true

@@ -1,7 +1,7 @@
 #include <render_engine/RenderEngine.h>
 
 #include <render_engine/RenderContext.h>
-#include <render_engine/Window.h>
+#include <render_engine/window/Window.h>
 
 #include <GLFW/glfw3native.h>
 #include <vulkan/vulkan_win32.h>

@@ -1,7 +1,7 @@
 #pragma once
 
-#include <render_engine/Window.h>
-#include <render_engine/Buffer.h>
+#include <render_engine/window/Window.h>
+#include <render_engine/memory//Buffer.h>
 
 #include <volk.h>
 #include <memory>

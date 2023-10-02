@@ -1,8 +1,8 @@
 #pragma once
 
-#include <render_engine/SwapChain.h>
-#include <render_engine/ExampleRenderer.h>
-#include <render_engine/UIRenderer.h>
+#include <render_engine/window/SwapChain.h>
+#include <render_engine/renderers/AbstractRenderer.h>
+#include <render_engine/renderers/UIRenderer.h>
 
 #include <volk.h>
 

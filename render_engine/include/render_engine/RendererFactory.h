@@ -5,7 +5,7 @@
 #include <unordered_map>
 #include <functional>
 
-#include <render_engine/AbstractRenderer.h>
+#include <render_engine/renderers/AbstractRenderer.h>
 
 namespace RenderEngine
 {

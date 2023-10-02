@@ -1,4 +1,4 @@
-#include <render_engine/Window.h>
+#include <render_engine/window/Window.h>
 
 #include <render_engine/RenderEngine.h>
 #include <render_engine/RenderContext.h>
@@ -117,7 +117,7 @@ namespace RenderEngine
 	{
 		auto logical_device = _engine.getLogicalDevice();
 		vkDeviceWaitIdle(logical_device);
-		std::vector<ExampleRenderer::ReinitializationCommand> commands;
+		std::vector<AbstractRenderer::ReinitializationCommand> commands;
 		for (auto& drawer : _renderers)
 		{
 			commands.emplace_back(drawer->reinit());

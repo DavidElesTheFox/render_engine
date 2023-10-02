@@ -11,6 +11,7 @@ set(RENDERDOC_PATH "C:/Program Files/RenderDoc" CACHE STRING "Renderdoc path to 
 
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/3rd_party/glfw/cmake", "${CMAKE_SOURCE_DIR}/3rd_party/eigen/cmake")
+set(VOLK_STATIC_DEFINES VK_NO_PROTOTYPES VK_USE_PLATFORM_WIN32_KHR)
 
 add_subdirectory(3rd_party/glfw-src)
 add_subdirectory(3rd_party/volk-src)

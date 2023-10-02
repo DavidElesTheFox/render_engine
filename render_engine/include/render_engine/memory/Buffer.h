@@ -35,7 +35,7 @@ namespace RenderEngine
 			VkBufferUsageFlags usage,
 			VkDeviceSize size,
 			VkMemoryPropertyFlags properties);
-		bool isMapped() const { return _mapped_memory == nullptr; }
+		bool isMapped() const { return _mapped_memory != nullptr; }
 
 		VkPhysicalDevice _physical_device;
 		VkDevice _logical_device;

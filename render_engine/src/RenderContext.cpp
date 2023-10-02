@@ -20,6 +20,8 @@
 #include <data_config.h>
 #include <renderdoc_app.h>
 #endif
+
+#include <vulkan/vulkan_win32.h>
 namespace
 {
 
@@ -193,6 +195,7 @@ namespace RenderEngine
 			initVulkan(validation_layers);
 			createEngines(validation_layers);
 		}
+		_initialized = true;
 	}
 	void RenderContext::initVulkan(const std::vector<const char*>& validation_layers)
 	{
@@ -206,7 +209,7 @@ namespace RenderEngine
 		create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 		create_info.pApplicationInfo = &app_info;
 
-		std::vector<const char*> instance_extensions = {  };
+		std::vector<const char*> instance_extensions = { };
 		{
 			uint32_t glfw_extension_count = 0;
 			const char** glfw_extensions = glfwGetRequiredInstanceExtensions(&glfw_extension_count);
@@ -295,4 +298,4 @@ namespace RenderEngine
 		throw std::runtime_error("Cannot enable renderdoc, feature is disabled in this build");
 #endif
 	}
-	}
+}

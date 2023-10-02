@@ -102,6 +102,7 @@ target_compile_definitions(RenderEngine
 		VK_NO_PROTOTYPES
 		GLFW_INCLUDE_VULKAN
 		GLFW_EXPOSE_NATIVE_WIN32)
+
 target_include_directories(RenderEngine 
 	PUBLIC
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

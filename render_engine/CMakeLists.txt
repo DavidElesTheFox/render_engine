@@ -11,11 +11,13 @@ configure_file(config/data_config_in.h "${GENERATED_INCLUDE_DIR}/data_config.h")
 set(RENDER_ENGINE_RENDERS_SRC
     src/renderers/AbstractRenderer.cpp
 	src/renderers/ExampleRenderer.cpp
+	src/renderers/MainCameraRenderer.cpp
 	src/renderers/UIRenderer.cpp
     )
 set(RENDER_ENGINE_RENDERERS_HEADERS 
 	${RENDER_ENGINE_HEADER_LOCATION}/renderers/AbstractRenderer.h
 	${RENDER_ENGINE_HEADER_LOCATION}/renderers/ExampleRenderer.h
+	${RENDER_ENGINE_HEADER_LOCATION}/renderers/MainCameraRenderer.h
 	${RENDER_ENGINE_HEADER_LOCATION}/renderers/UIRenderer.h
 	)
 source_group("src\\renderers" FILES ${RENDER_ENGINE_RENDERS_SRC})
@@ -94,7 +96,8 @@ target_sources(RenderEngine
 target_link_libraries(RenderEngine 
 	PUBLIC 
 		glfw
-		volk::volk)
+		volk::volk
+        glm::glm)
 		
 target_compile_definitions(RenderEngine 
 	PRIVATE 

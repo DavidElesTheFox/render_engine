@@ -14,15 +14,27 @@
 #include <backends/imgui_impl_vulkan.h>
 #include <renderdoc_app.h>
 
+namespace
+{
+	constexpr uint32_t kMaxNumOfResources = 10;
+}
 namespace RenderEngine
 {
-	Window::Window(RenderEngine& engine, GLFWwindow* window, std::unique_ptr<SwapChain> swap_chain, VkQueue render_queue, VkQueue present_queue, uint32_t render_queue_family)
+	Window::Window(RenderEngine& engine,
+		GLFWwindow* window,
+		std::unique_ptr<SwapChain> swap_chain,
+		VkQueue render_queue,
+		VkQueue present_queue,
+		uint32_t render_queue_family,
+		uint32_t back_buffer_size)
 		: _render_queue{ render_queue }
 		, _present_queue{ present_queue }
 		, _window(window)
 		, _swap_chain(std::move(swap_chain))
 		, _engine(engine)
+		, _gpuResourceManager(std::make_unique<GpuResourceManager>(engine.getPhysicalDevice(), engine.getLogicalDevice(), back_buffer_size, kMaxNumOfResources))
 		, _render_queue_family(render_queue_family)
+		, _back_buffer_size(back_buffer_size)
 	{
 		initSynchronizationObjects();
 
@@ -147,6 +159,7 @@ namespace RenderEngine
 		_swap_chain.reset();
 		_renderers.clear();
 
+		_gpuResourceManager.reset();
 		glfwDestroyWindow(_window);
 
 		_window = nullptr;

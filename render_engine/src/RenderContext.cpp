@@ -16,11 +16,13 @@
 #include <GLFW/glfw3.h>
 
 #include <imgui.h>
-#ifdef ENABLE_RENDERDOC
 #include <data_config.h>
+
+#ifdef ENABLE_RENDERDOC
 #include <renderdoc_app.h>
 #endif
 
+#include <render_engine/window/Window.h>
 #include <vulkan/vulkan_win32.h>
 namespace
 {
@@ -174,8 +176,9 @@ namespace RenderEngine
 	void RenderContext::init(const std::vector<const char*>& validation_layers, std::unique_ptr<RendererFeactory> renderer_factory)
 	{
 #ifdef ENABLE_RENDERDOC
+		LoadLibraryA(RENDERDOC_DLL);
 
-		if (HMODULE mod = GetModuleHandleA(RENDERDOC_DLL))
+		if (HMODULE mod = GetModuleHandleA("renderdoc.dll"))
 		{
 			pRENDERDOC_GetAPI RENDERDOC_GetAPI =
 				(pRENDERDOC_GetAPI)GetProcAddress(mod, "RENDERDOC_GetAPI");
@@ -184,6 +187,10 @@ namespace RenderEngine
 			{
 				throw std::runtime_error("Cannot open renderdoc dll");
 			}
+		}
+		else
+		{
+			throw std::runtime_error("Cannot open the file handle: " + std::string{ RENDERDOC_DLL });
 		}
 #endif
 		_renderer_factory = std::move(renderer_factory);
@@ -274,7 +281,7 @@ namespace RenderEngine
 				device_extensions,
 				validation_layers);
 			_engines.push_back(std::move(engine));
-#ifdef ENABLED_RENDERDOC
+#ifdef ENABLE_RENDERDOC
 			break; // Renderdoc supports only one logical device
 #endif
 		}

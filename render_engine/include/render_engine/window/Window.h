@@ -1,20 +1,21 @@
 #pragma once
 
+#include <volk.h>
+
 #include <render_engine/window/SwapChain.h>
 #include <render_engine/renderers/AbstractRenderer.h>
 #include <render_engine/renderers/UIRenderer.h>
 
-#include <volk.h>
-
-#include <string_view>
 #include <array>
 #include <memory>
 
 #include <GLFW/glfw3.h>
+#include <render_engine/RenderEngine.h>
 struct ImGuiContext;
 namespace RenderEngine
 {
 	class RenderEngine;
+	class GpuResourceManager;
 	class Window
 	{
 	public:
@@ -25,7 +26,8 @@ namespace RenderEngine
 			std::unique_ptr<SwapChain> swap_chain,
 			VkQueue render_queue,
 			VkQueue present_queue,
-			uint32_t render_queue_family);
+			uint32_t render_queue_family,
+			uint32_t back_buffer_size);
 		~Window();
 
 		void update();
@@ -43,6 +45,8 @@ namespace RenderEngine
 		void enableRenderdocCapture();
 		void disableRenderdocCapture();
 		GLFWwindow* getWindowHandle() { return _window; }
+		GpuResourceManager& getGpuResourceManager() { return *_gpuResourceManager; }
+
 	private:
 		struct FrameData
 		{
@@ -65,12 +69,14 @@ namespace RenderEngine
 		std::unique_ptr<SwapChain> _swap_chain;
 
 		RenderEngine& _engine;
+		std::unique_ptr<GpuResourceManager> _gpuResourceManager;
 		std::array<FrameData, kBackBufferSize> _back_buffer;
 		uint32_t _render_queue_family{ 0 };
 
 		std::vector<std::unique_ptr<AbstractRenderer>> _renderers;
 		std::unordered_map<uint32_t, AbstractRenderer*> _renderer_map;
 		uint32_t _frame_counter{ 0 };
+		uint32_t _back_buffer_size{ 1 };
 		void* _renderdoc_api{ nullptr };
 	};
 }

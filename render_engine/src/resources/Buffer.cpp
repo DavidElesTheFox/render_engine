@@ -1,4 +1,4 @@
-#include <render_engine/memory/Buffer.h>
+#include <render_engine/resources/Buffer.h>
 
 #include <map>
 #include <stdexcept>

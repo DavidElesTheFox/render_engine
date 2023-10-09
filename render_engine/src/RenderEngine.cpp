@@ -2,6 +2,7 @@
 #include <volk.h>
 
 #include <render_engine/RenderContext.h>
+#include <render_engine/GpuResourceManager.h>
 #include <render_engine/window/Window.h>
 
 #include <GLFW/glfw3native.h>
@@ -86,7 +87,7 @@ namespace RenderEngine
 		vkDestroyDevice(_logical_device, nullptr);
 	}
 
-	std::unique_ptr<Window> RenderEngine::createWindow(std::string_view name)
+	std::unique_ptr<Window> RenderEngine::createWindow(std::string_view name, size_t back_buffer_size)
 	{
 		VkQueue render_queue;
 		VkQueue present_queue;
@@ -112,7 +113,7 @@ namespace RenderEngine
 		{
 			std::unique_ptr<SwapChain> swap_chain = std::make_unique<SwapChain>(SwapChain::CreateInfo{ window, _instance, _physical_device, _logical_device, std::move(surface), _queue_family_graphics, _queue_family_present });
 			_next_queue_index = (_next_queue_index + 1) % kSupportedWindowCount;
-			return std::make_unique<Window>(*this, window, std::move(swap_chain), render_queue, present_queue, _queue_family_graphics);
+			return std::make_unique<Window>(*this, window, std::move(swap_chain), render_queue, present_queue, _queue_family_graphics, back_buffer_size);
 		}
 		catch (const std::runtime_error& error)
 		{
@@ -120,12 +121,5 @@ namespace RenderEngine
 			throw;
 		}
 	}
-	std::unique_ptr<Buffer> RenderEngine::createAttributeBuffer(VkBufferUsageFlags usage, VkDeviceSize size)
-	{
-		return Buffer::CreateAttributeBuffer(_physical_device, _logical_device, usage, size);
-	}
-	std::unique_ptr<Buffer> RenderEngine::createUniformBuffer(VkDeviceSize size)
-	{
-		return Buffer::CreateUniformBuffer(_physical_device, _logical_device, size);
-	}
+
 }

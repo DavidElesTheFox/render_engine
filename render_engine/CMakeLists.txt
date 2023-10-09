@@ -2,33 +2,79 @@ cmake_minimum_required(VERSION 3.18)
 
 find_package(Vulkan REQUIRED)
 
+
 set(EMPTY_SCREEN_IMAGE_PATH "${DATA_DIRECTORY}/empty_screen.bmp")
 
 set(RENDER_ENGINE_HEADER_LOCATION include/render_engine)
 
 configure_file(config/data_config_in.h "${GENERATED_INCLUDE_DIR}/data_config.h")
 
+###############################################################################
+
+#############
+# Renderers #
+#############
 set(RENDER_ENGINE_RENDERS_SRC
     src/renderers/AbstractRenderer.cpp
 	src/renderers/ExampleRenderer.cpp
+	src/renderers/ForwardRenderer.cpp
 	src/renderers/UIRenderer.cpp
     )
 set(RENDER_ENGINE_RENDERERS_HEADERS 
 	${RENDER_ENGINE_HEADER_LOCATION}/renderers/AbstractRenderer.h
 	${RENDER_ENGINE_HEADER_LOCATION}/renderers/ExampleRenderer.h
+	${RENDER_ENGINE_HEADER_LOCATION}/renderers/ForwardRenderer.h
 	${RENDER_ENGINE_HEADER_LOCATION}/renderers/UIRenderer.h
 	)
 source_group("src\\renderers" FILES ${RENDER_ENGINE_RENDERS_SRC})
 source_group("include\\renderers" FILES ${RENDER_ENGINE_RENDERERS_HEADERS})
+
+#############
+# resources #
+#############
+
+set(RENDER_ENGINE_RESOURCES_SRC
+	src/resources/ShaderModule.cpp
+	src/resources/Technique.cpp
+	src/resources/Buffer.cpp
+	src/resources/UniformBinding.cpp
+    )
+set(RENDER_ENGINE_RESOURCES_HEADERS 
+	${RENDER_ENGINE_HEADER_LOCATION}/resources/Buffer.h
+	${RENDER_ENGINE_HEADER_LOCATION}/resources/ShaderModule.h
+	${RENDER_ENGINE_HEADER_LOCATION}/resources/Technique.h
+	${RENDER_ENGINE_HEADER_LOCATION}/resources/UniformBinding.h
 	
-set(RENDER_ENGINE_MEMORY_SRC
-    src/memory/Buffer.cpp
 	)
-set(RENDER_ENGINE_MEMORY_HEADERS 
-	${RENDER_ENGINE_HEADER_LOCATION}/memory/Buffer.h
+source_group("src\\resources" FILES ${RENDER_ENGINE_RESOURCES_SRC})
+source_group("include\\resources" FILES ${RENDER_ENGINE_RESOURCES_HEADERS})
+
+##########
+# Assets #
+##########
+
+set(RENDER_ENGINE_ASSETS_SRC
+	src/assets/Material.cpp
+	src/assets/Shader.cpp
+    )
+set(RENDER_ENGINE_ASSETS_HEADERS 
+	${RENDER_ENGINE_HEADER_LOCATION}/assets/Geometry.h
+	${RENDER_ENGINE_HEADER_LOCATION}/assets/Material.h
+	${RENDER_ENGINE_HEADER_LOCATION}/assets/Mesh.h
+	${RENDER_ENGINE_HEADER_LOCATION}/assets/Shader.h
 	)
-source_group("src\\memory" FILES ${RENDER_ENGINE_MEMORY_SRC})
-source_group("include\\memory" FILES ${RENDER_ENGINE_MEMORY_HEADERS})
+source_group("src\\assets" FILES ${RENDER_ENGINE_ASSETS_SRC})
+source_group("include\\assets" FILES ${RENDER_ENGINE_ASSETS_HEADERS})
+
+##############
+# containers #
+##############
+
+set(RENDER_ENGINE_CONTAINERS_HEADERS 
+	${RENDER_ENGINE_HEADER_LOCATION}/containers/BackBuffer.h
+	)
+source_group("include\\containers" FILES ${RENDER_ENGINE_CONTAINERS_HEADERS})
+
 
 set(RENDER_ENGINE_WINDOW_SRC
 	src/window/Window.cpp
@@ -42,21 +88,31 @@ set(RENDER_ENGINE_WINDOW_HEADERS
 source_group("src\\window" FILES ${RENDER_ENGINE_WINDOW_SRC})
 source_group("include\\window" FILES ${RENDER_ENGINE_WINDOW_HEADERS})
 
+########
+# root #
+########
+
 set(RENDER_ENGINE_ROOT_SRC 
 		src/RenderEngine.cpp
 		src/RenderContext.cpp
 		src/RendererFactory.cpp
+		src/GpuResourceManager.cpp
 )
 set(RENDER_ENGINE_ROOT_HEADERS
 	${RENDER_ENGINE_HEADER_LOCATION}/RenderEngine.h
 	${RENDER_ENGINE_HEADER_LOCATION}/RenderContext.h
 	${RENDER_ENGINE_HEADER_LOCATION}/RendererFactory.h
+	${RENDER_ENGINE_HEADER_LOCATION}/GpuResourceManager.h
 )
 source_group("src" FILES ${RENDER_ENGINE_ROOT_SRC})
 source_group("include" FILES ${RENDER_ENGINE_ROOT_HEADERS})
 
+###############################################################################
+
 set(RENDER_ENGINE_SRC
     ${RENDER_ENGINE_RENDERS_SRC}
+    ${RENDER_ENGINE_RESOURCES_SRC}
+    ${RENDER_ENGINE_ASSETS_SRC}
 	${RENDER_ENGINE_WINDOW_SRC}
 	${RENDER_ENGINE_MEMORY_SRC}
 	${RENDER_ENGINE_ROOT_SRC}
@@ -64,10 +120,21 @@ set(RENDER_ENGINE_SRC
 
 set(RENDER_ENGINE_HEADERS 
     ${RENDER_ENGINE_RENDERERS_HEADERS}
+    ${RENDER_ENGINE_RESOURCES_HEADERS}
+    ${RENDER_ENGINE_ASSETS_HEADERS}
+    ${RENDER_ENGINE_CONTAINERS_HEADERS}
 	${RENDER_ENGINE_WINDOW_HEADERS}
 	${RENDER_ENGINE_MEMORY_HEADERS}
 	${RENDER_ENGINE_ROOT_HEADERS}
 	)
+
+add_library(RenderEngine STATIC ${RENDER_ENGINE_SRC} ${RENDER_ENGINE_HEADERS})
+set_property(TARGET RenderEngine PROPERTY CXX_STANDARD 20)
+
+
+#####################
+# Imgui integration #
+#####################
 
 set(RENDER_ENGINE_IMGUI_SOURCES 
 "${IMGUI_SRC}/imgui.cpp"
@@ -82,19 +149,21 @@ set(RENDER_ENGINE_IMGUI_SOURCES
 		"${IMGUI_SRC}/backends/imgui_impl_glfw.cpp")
 
 source_group(imgui_src FILES ${RENDER_ENGINE_IMGUI_SOURCES})
-
-add_library(RenderEngine STATIC ${RENDER_ENGINE_SRC} ${RENDER_ENGINE_HEADERS})
-set_property(TARGET RenderEngine PROPERTY CXX_STANDARD 20)
-
 target_sources(RenderEngine 
 	PRIVATE
 		${RENDER_ENGINE_IMGUI_SOURCES}
 )
 
+
+########################
+# Library dependencies #
+########################
+
 target_link_libraries(RenderEngine 
 	PUBLIC 
 		glfw
-		volk::volk)
+		volk::volk
+        glm::glm)
 		
 target_compile_definitions(RenderEngine 
 	PRIVATE 

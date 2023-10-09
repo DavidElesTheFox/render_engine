@@ -1,14 +1,18 @@
 #pragma once
 
-#include <render_engine/window/Window.h>
-#include <render_engine/memory//Buffer.h>
+#include <render_engine/resources/Buffer.h>
 
 #include <volk.h>
 #include <memory>
 #include <span>
+#include <stdexcept>
+#include <vector>
 
 namespace RenderEngine
 {
+	class Window;
+
+
 	class RenderEngine
 	{
 	public:
@@ -27,9 +31,8 @@ namespace RenderEngine
 		RenderEngine& operator=(RenderEngine&&) = delete;
 
 		~RenderEngine();
-		std::unique_ptr<Window> createWindow(std::string_view name);
-		std::unique_ptr<Buffer> createAttributeBuffer(VkBufferUsageFlags usage, VkDeviceSize size);
-		std::unique_ptr<Buffer> createUniformBuffer(VkDeviceSize size);
+		std::unique_ptr<Window> createWindow(std::string_view name, size_t back_buffer_size);
+
 
 		VkDevice getLogicalDevice() { return _logical_device; }
 		VkPhysicalDevice getPhysicalDevice() { return _physical_device; }

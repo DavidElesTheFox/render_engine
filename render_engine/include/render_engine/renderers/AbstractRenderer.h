@@ -6,6 +6,7 @@
 
 namespace RenderEngine
 {
+
 	class SwapChain;
 	class AbstractRenderer
 	{

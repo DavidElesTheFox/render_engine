@@ -6,6 +6,7 @@
 
 #include <fstream>
 #include <stdexcept>
+#include <render_engine/GpuResourceManager.h>
 
 namespace
 {
@@ -376,19 +377,19 @@ namespace RenderEngine
 	{
 		{
 			VkDeviceSize size = sizeof(Vertex) * vertices.size();
-			_vertex_buffer = _window.getRenderEngine().createAttributeBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, size);
+			_vertex_buffer = _window.getGpuResourceManager().createAttributeBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, size);
 			_vertex_buffer->uploadUnmapped(std::span<const Vertex>{vertices.data(), vertices.size()}, _window.getRenderQueue(), _command_pool);
 		}
 		{
 			VkDeviceSize size = sizeof(uint16_t) * indicies.size();
-			_index_buffer = _window.getRenderEngine().createAttributeBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, size);
+			_index_buffer = _window.getGpuResourceManager().createAttributeBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, size);
 			_index_buffer->uploadUnmapped(std::span<const uint16_t>{indicies.data(), indicies.size()}, _window.getRenderQueue(), _command_pool);
 		}
 
 		std::vector<Buffer*> created_buffers;
 		for (auto& frame_data : _back_buffer)
 		{
-			frame_data.color_offset = _window.getRenderEngine().createUniformBuffer(sizeof(ColorOffset));
+			frame_data.color_offset = _window.getGpuResourceManager().createUniformBuffer(sizeof(ColorOffset));
 			created_buffers.push_back(frame_data.color_offset.get());
 		}
 

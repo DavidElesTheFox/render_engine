@@ -2,6 +2,7 @@
 #include <volk.h>
 
 #include <render_engine/RenderContext.h>
+#include <render_engine/GpuResourceManager.h>
 #include <render_engine/window/Window.h>
 
 #include <GLFW/glfw3native.h>
@@ -121,17 +122,4 @@ namespace RenderEngine
 		}
 	}
 
-	GpuResourceManager::~GpuResourceManager()
-	{
-		vkDestroyDescriptorPool(_logical_device, _descriptor_pool, nullptr);
-	}
-
-	std::unique_ptr<Buffer> GpuResourceManager::createAttributeBuffer(VkBufferUsageFlags usage, VkDeviceSize size)
-	{
-		return Buffer::CreateAttributeBuffer(_physical_device, _logical_device, usage, size);
-	}
-	std::unique_ptr<Buffer> GpuResourceManager::createUniformBuffer(VkDeviceSize size)
-	{
-		return Buffer::CreateUniformBuffer(_physical_device, _logical_device, size);
-	}
 }

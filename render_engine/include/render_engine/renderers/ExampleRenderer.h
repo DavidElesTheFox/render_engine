@@ -1,6 +1,6 @@
 #pragma once
 #include <render_engine/window/SwapChain.h>
-#include <render_engine/memory/Buffer.h>
+#include <render_engine/resources/Buffer.h>
 #include <render_engine/renderers/AbstractRenderer.h>
 
 #include <volk.h>

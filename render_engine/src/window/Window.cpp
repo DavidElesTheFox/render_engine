@@ -1,6 +1,7 @@
 #include <render_engine/window/Window.h>
 
 #include <render_engine/RenderEngine.h>
+#include <render_engine/GpuResourceManager.h>
 #include <render_engine/RenderContext.h>
 
 #include <data_config.h>

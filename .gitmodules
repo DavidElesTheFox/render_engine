@@ -16,3 +16,6 @@
 [submodule "3rd_party/glm-src"]
 	path = 3rd_party/glm-src
 	url = https://github.com/g-truc/glm.git
+[submodule "3rd_party/adr-template"]
+	path = 3rd_party/adr-template
+	url = https://github.com/joelparkerhenderson/architecture-decision-record.git

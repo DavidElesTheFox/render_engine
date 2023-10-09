@@ -176,7 +176,10 @@ namespace RenderEngine
 	void RenderContext::init(const std::vector<const char*>& validation_layers, std::unique_ptr<RendererFeactory> renderer_factory)
 	{
 #ifdef ENABLE_RENDERDOC
-		LoadLibraryA(RENDERDOC_DLL);
+		if (HMODULE mod = LoadLibraryA(RENDERDOC_DLL); mod == nullptr)
+		{
+			throw std::runtime_error("Cannot load module: " + std::string{ RENDERDOC_DLL });
+		}
 
 		if (HMODULE mod = GetModuleHandleA("renderdoc.dll"))
 		{
@@ -305,4 +308,4 @@ namespace RenderEngine
 		throw std::runtime_error("Cannot enable renderdoc, feature is disabled in this build");
 #endif
 	}
-}
+	}

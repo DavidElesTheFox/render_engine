@@ -1,12 +1,11 @@
 #pragma once
 
+#include <volk.h>
+
 #include <render_engine/window/SwapChain.h>
 #include <render_engine/renderers/AbstractRenderer.h>
 #include <render_engine/renderers/UIRenderer.h>
 
-#include <volk.h>
-
-#include <string_view>
 #include <array>
 #include <memory>
 
@@ -46,7 +45,7 @@ namespace RenderEngine
 		void enableRenderdocCapture();
 		void disableRenderdocCapture();
 		GLFWwindow* getWindowHandle() { return _window; }
-		GpuResourceManager& gpuResourceManager() { return *_gpuResourceManager; }
+		GpuResourceManager& getGpuResourceManager() { return *_gpuResourceManager; }
 
 	private:
 		struct FrameData

@@ -4,8 +4,11 @@
 #include <cstdint>
 #include <unordered_map>
 #include <functional>
+#include <memory>
 
 #include <render_engine/renderers/AbstractRenderer.h>
+
+
 
 namespace RenderEngine
 {

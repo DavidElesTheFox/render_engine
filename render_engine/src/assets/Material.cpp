@@ -14,15 +14,17 @@ namespace RenderEngine
 {
 	Material::Material(Shader verted_shader,
 		Shader fragment_shader,
-		std::function<void(std::vector<UniformBinding>& ubo_container, uint32_t frame_number)> buffer_update_callback,
-		std::function<std::vector<uint8_t>(const Geometry& geometry, const Material& material)> vertex_buffer_create_callback,
+		CallbackContainer callbacks,
 		uint32_t id)
 		: _vertex_shader(verted_shader)
 		, _fragment_shader(fragment_shader)
 		, _id{ id }
-		, _buffer_update_callback(buffer_update_callback)
-		, _vertex_buffer_create_callback(vertex_buffer_create_callback)
+		, _callbacks(std::move(callbacks))
 	{
+		if (checkPushConstantsConsistency() == false)
+		{
+			throw std::runtime_error("Materials push constants are not consistant across the shaders.");
+		}
 	}
 
 	std::unique_ptr<Technique> Material::createTechnique(VkDevice logical_device,
@@ -30,18 +32,18 @@ namespace RenderEngine
 		VkRenderPass render_pass) const
 	{
 		std::unordered_map<int32_t, VkShaderStageFlags> binding_usage;
-		for (const auto& binding : _vertex_shader.metaData().global_uniform_buffers | std::views::keys)
+		for (const auto& binding : _vertex_shader.getMetaData().global_uniform_buffers | std::views::keys)
 		{
 			binding_usage[binding] |= VK_SHADER_STAGE_VERTEX_BIT;
 		}
-		for (const auto& binding : _fragment_shader.metaData().global_uniform_buffers | std::views::keys)
+		for (const auto& binding : _fragment_shader.getMetaData().global_uniform_buffers | std::views::keys)
 		{
 			binding_usage[binding] |= VK_SHADER_STAGE_FRAGMENT_BIT;
 		}
 
 		auto&& [bindings, layout] = createUniformBindings(gpu_resource_manager,
-			std::vector{ _vertex_shader.metaData().global_uniform_buffers
-				| std::views::values, _fragment_shader.metaData().global_uniform_buffers | std::views::values } | std::views::join,
+			std::vector{ _vertex_shader.getMetaData().global_uniform_buffers
+				| std::views::values, _fragment_shader.getMetaData().global_uniform_buffers | std::views::values } | std::views::join,
 			binding_usage,
 			VK_SHADER_STAGE_VERTEX_BIT);
 
@@ -50,6 +52,16 @@ namespace RenderEngine
 			std::move(bindings),
 			layout,
 			render_pass);
+	}
+
+	bool Material::checkPushConstantsConsistency() const
+	{
+		if (_vertex_shader.getMetaData().push_constants.has_value()
+			&& _fragment_shader.getMetaData().push_constants.has_value())
+		{
+			return _vertex_shader.getMetaData().push_constants->size == _fragment_shader.getMetaData().push_constants->size;
+		}
+		return true;
 	}
 
 	std::pair<std::vector<UniformBinding>, VkDescriptorSetLayout> Material::createUniformBindings(GpuResourceManager& gpu_resource_manager,

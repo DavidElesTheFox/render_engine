@@ -11,6 +11,7 @@
 #include <render_engine/assets/Shader.h>
 #include <render_engine/resources/Buffer.h>
 #include <render_engine/resources/Technique.h>
+#include <render_engine/resources/PushConstantsUpdater.h>
 
 namespace RenderEngine
 {
@@ -117,7 +118,7 @@ namespace RenderEngine
 	{
 		const Geometry& geometry = mesh->getGeometry();
 
-		const Shader::MetaData& vertex_shader_meta_data = mesh->getMaterial().vertexShader().metaData();
+		const Shader::MetaData& vertex_shader_meta_data = mesh->getMaterial().getVertexShader().getMetaData();
 		MeshBuffers mesh_buffers;
 		if (geometry.positions.empty() == false)
 		{
@@ -141,7 +142,6 @@ namespace RenderEngine
 	{
 		FrameData& frame_data = _back_buffer[frame_number];
 
-		//frame_data.color_offset->uploadMapped(std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(&_color_offset), sizeof(ColorOffset)));
 
 		vkResetCommandBuffer(frame_data.command_buffer, /*VkCommandBufferResetFlagBits*/ 0);
 		VkCommandBufferBeginInfo begin_info{};
@@ -192,8 +192,11 @@ namespace RenderEngine
 					descriptor_sets.size(),
 					descriptor_sets.data(), 0, nullptr);
 
+				auto push_constants_updater = mesh_group.technique->createPushConstantsUpdater(frame_data.command_buffer);
+				
 				for (auto& [mesh, mesh_buffers] : mesh_group.mesh_buffers)
 				{
+					mesh_group.technique->updateConstants(mesh, push_constants_updater);
 
 					VkBuffer vertexBuffers[] = { mesh_buffers.vertex_buffer->getBuffer() };
 					VkDeviceSize offsets[] = { 0 };

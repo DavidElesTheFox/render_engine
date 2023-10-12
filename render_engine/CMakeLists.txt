@@ -38,13 +38,14 @@ set(RENDER_ENGINE_RESOURCES_SRC
 	src/resources/Technique.cpp
 	src/resources/Buffer.cpp
 	src/resources/UniformBinding.cpp
+	src/resources/PushConstantsUpdater.cpp
     )
 set(RENDER_ENGINE_RESOURCES_HEADERS 
 	${RENDER_ENGINE_HEADER_LOCATION}/resources/Buffer.h
 	${RENDER_ENGINE_HEADER_LOCATION}/resources/ShaderModule.h
 	${RENDER_ENGINE_HEADER_LOCATION}/resources/Technique.h
 	${RENDER_ENGINE_HEADER_LOCATION}/resources/UniformBinding.h
-	
+	${RENDER_ENGINE_HEADER_LOCATION}/resources/PushConstantsUpdater.h
 	)
 source_group("src\\resources" FILES ${RENDER_ENGINE_RESOURCES_SRC})
 source_group("include\\resources" FILES ${RENDER_ENGINE_RESOURCES_HEADERS})

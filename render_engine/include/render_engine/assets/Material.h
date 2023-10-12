@@ -14,18 +14,25 @@ namespace RenderEngine
 	class GpuResourceManager;
 	class Technique;
 	class UniformBinding;
+	class PushConstantsUpdater;
+	class Mesh;
 	struct Geometry;
 
 	class Material
 	{
 	public:
+		struct CallbackContainer
+		{
+			std::function<void(std::vector<UniformBinding>& ubo_container, uint32_t frame_number)> buffer_update_callback;
+			std::function<std::vector<uint8_t>(const Geometry& geometry, const Material& material)> vertex_buffer_create_callback;
+			std::function<void(Mesh* mesh, PushConstantsUpdater& updater)> push_constants_updater;
+		};
 		Material(Shader verted_shader,
 			Shader fragment_shader,
-			std::function<void(std::vector<UniformBinding>& ubo_container, uint32_t frame_number)> buffer_update_callback,
-			std::function<std::vector<uint8_t>(const Geometry& geometry, const Material& material)> vertex_buffer_create_callback,
+			CallbackContainer callbacks,
 			uint32_t id);
-		const Shader& vertexShader() const { return _vertex_shader; }
-		const Shader& fragmentShader() const { return _fragment_shader; }
+		const Shader& getVertexShader() const { return _vertex_shader; }
+		const Shader& getFragmentShader() const { return _fragment_shader; }
 
 		std::unique_ptr<Technique> createTechnique(VkDevice logical_device,
 			GpuResourceManager& gpu_resource_manager,
@@ -35,13 +42,27 @@ namespace RenderEngine
 
 		std::vector<uint8_t> createVertexBufferFromGeometry(const Geometry& geometry) const
 		{
-			return _vertex_buffer_create_callback(geometry, *this);
+			return _callbacks.vertex_buffer_create_callback(geometry, *this);
 		}
 		void updateUniformBuffers(std::vector<UniformBinding>& ubo_container, uint32_t frame_number) const
 		{
-			_buffer_update_callback(ubo_container, frame_number);
+			_callbacks.buffer_update_callback(ubo_container, frame_number);
+		}
+
+		void updatePushConstants(Mesh* mesh, PushConstantsUpdater& updater) const
+		{
+			_callbacks.push_constants_updater(mesh, updater);
+		}
+
+		const std::optional<Shader::MetaData::PushConstants>& getPushConstants() const
+		{
+			return _vertex_shader.getMetaData().push_constants != std::nullopt
+				? _vertex_shader.getMetaData().push_constants
+				: _fragment_shader.getMetaData().push_constants;
 		}
 	private:
+
+		bool checkPushConstantsConsistency() const;
 		std::pair<std::vector<UniformBinding>, VkDescriptorSetLayout> createUniformBindings(GpuResourceManager& gpu_resource_manager,
 			std::ranges::input_range auto&& uniforms_data,
 			std::unordered_map<int32_t, VkShaderStageFlags> binding_stage_map,
@@ -49,7 +70,6 @@ namespace RenderEngine
 		Shader _vertex_shader;
 		Shader _fragment_shader;
 		uint32_t _id;
-		std::function<void(std::vector<UniformBinding>& ubo_container, uint32_t frame_number)> _buffer_update_callback;
-		std::function<std::vector<uint8_t>(const Geometry& geometry, const Material& material)> _vertex_buffer_create_callback;
+		CallbackContainer _callbacks;
 	};
 }

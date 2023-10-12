@@ -6,9 +6,11 @@
 
 #include <render_engine/assets/Material.h>
 #include <render_engine/resources/UniformBinding.h>
+#include <render_engine/resources/PushConstantsUpdater.h>
 
 namespace RenderEngine
 {
+	class Mesh;
 	class Technique
 	{
 	public:
@@ -36,13 +38,22 @@ namespace RenderEngine
 			return result;
 		}
 		VkDescriptorSetLayout getDescriptorSetLayout() const { return _uniforms_layout; }
-
+		PushConstantsUpdater createPushConstantsUpdater(VkCommandBuffer command_buffer)
+		{
+			return PushConstantsUpdater{ command_buffer, _pipeline_layout, getPushConstantsUsageFlag() };
+		}
 		void update(uint32_t frame_number)
 		{
 			_material->updateUniformBuffers(_uniform_buffers, frame_number);
 		}
+
+		void updateConstants(Mesh* mesh, PushConstantsUpdater& updater)
+		{
+			_material->updatePushConstants(mesh, updater);
+		}
 	private:
 		void destroy();
+		VkShaderStageFlags getPushConstantsUsageFlag() const;
 
 		const Material* _material;
 

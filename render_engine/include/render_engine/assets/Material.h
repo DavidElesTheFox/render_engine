@@ -26,6 +26,7 @@ namespace RenderEngine
 			std::function<void(std::vector<UniformBinding>& ubo_container, uint32_t frame_number)> buffer_update_callback;
 			std::function<std::vector<uint8_t>(const Geometry& geometry, const Material& material)> vertex_buffer_create_callback;
 			std::function<void(Mesh* mesh, PushConstantsUpdater& updater)> push_constants_updater;
+			std::function<void(PushConstantsUpdater& updater)> push_constants_global_updater;
 		};
 		Material(Shader verted_shader,
 			Shader fragment_shader,
@@ -52,6 +53,11 @@ namespace RenderEngine
 		void updatePushConstants(Mesh* mesh, PushConstantsUpdater& updater) const
 		{
 			_callbacks.push_constants_updater(mesh, updater);
+		}
+
+		void updatePushConstants(PushConstantsUpdater& updater) const
+		{
+			_callbacks.push_constants_global_updater(updater);
 		}
 
 		const std::optional<Shader::MetaData::PushConstants>& getPushConstants() const

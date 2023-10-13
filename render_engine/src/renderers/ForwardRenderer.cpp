@@ -166,7 +166,10 @@ namespace RenderEngine
 		{
 			for (auto& mesh_group : mesh_group_container | std::views::values)
 			{
+				auto push_constants_updater = mesh_group.technique->createPushConstantsUpdater(frame_data.command_buffer);
+
 				mesh_group.technique->update(frame_number);
+				mesh_group.technique->updateConstants(push_constants_updater);
 
 				vkCmdBindPipeline(frame_data.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_group.technique->getPipeline());
 
@@ -192,7 +195,6 @@ namespace RenderEngine
 					descriptor_sets.size(),
 					descriptor_sets.data(), 0, nullptr);
 
-				auto push_constants_updater = mesh_group.technique->createPushConstantsUpdater(frame_data.command_buffer);
 				
 				for (auto& [mesh, mesh_buffers] : mesh_group.mesh_buffers)
 				{

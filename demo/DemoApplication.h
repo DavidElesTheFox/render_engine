@@ -40,6 +40,7 @@ public:
 private:
 
 	void createMesh();
+	void createNoLitMaterial();
 	NoLitShaderController _nolit_shader_controller;
 	std::unique_ptr<RenderEngine::Geometry> _triangle_geometry;
 	std::unique_ptr<RenderEngine::Mesh> _triangle;

@@ -51,6 +51,10 @@ namespace RenderEngine
 		{
 			_material->updatePushConstants(mesh, updater);
 		}
+		void updateConstants(PushConstantsUpdater& updater)
+		{
+			_material->updatePushConstants(updater);
+		}
 	private:
 		void destroy();
 		VkShaderStageFlags getPushConstantsUsageFlag() const;

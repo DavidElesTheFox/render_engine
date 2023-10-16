@@ -1,6 +1,9 @@
 #include "DemoApplication.h"
 
 #include <glm/vec4.hpp>
+#include <glm/gtx/quaternion.hpp>
+
+#include <iostream>
 
 #include <render_engine/resources/PushConstantsUpdater.h>
 
@@ -15,6 +18,102 @@ namespace
 		glm::mat4 model_view;
 		
 	};
+
+	struct MouseEventData
+	{
+		glm::vec2 dragging_coordinates{ 0.0f };
+		bool is_dragging{ false };
+	};
+
+	struct ApplicationContext
+	{
+		static ApplicationContext& instance()
+		{
+			static ApplicationContext _instance;
+			return _instance;
+		}
+
+		Scene::Scene* scene{ nullptr };
+		MouseEventData mouse_event_data;
+		float mouse_sensitivity = 0.001f;
+	};
+
+	void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
+	{
+		auto* scene = ApplicationContext::instance().scene;
+		auto* camera = scene->getActiveCamera();
+
+		if (camera == nullptr)
+		{
+			return;
+		}
+
+		if (key == GLFW_KEY_W && action == GLFW_PRESS)
+		{
+			camera->getTransformation().translate(scene->getSceneSetup().forward);
+		}
+		if (key == GLFW_KEY_S && action == GLFW_PRESS)
+		{
+			camera->getTransformation().translate(-scene->getSceneSetup().forward);
+		}
+		if (key == GLFW_KEY_A && action == GLFW_PRESS)
+		{
+			auto left = glm::cross(scene->getSceneSetup().forward, scene->getSceneSetup().up);
+			camera->getTransformation().translate(left);
+		}
+		if (key == GLFW_KEY_D && action == GLFW_PRESS)
+		{
+			auto left = glm::cross(scene->getSceneSetup().forward, scene->getSceneSetup().up);
+			camera->getTransformation().translate(-left);
+		}
+	}
+
+	void cursorPositionCallback(GLFWwindow* window, double xpos, double ypos)
+	{
+		auto* camera = ApplicationContext::instance().scene->getActiveCamera();
+
+		if (camera == nullptr)
+		{
+			return;
+		}
+		auto& event_data = ApplicationContext::instance().mouse_event_data;
+		if (event_data.is_dragging == false)
+		{
+			return;
+		}
+		const glm::vec2 current_coordinates = glm::vec2{ -ypos, xpos };
+		const glm::vec2 delta = event_data.dragging_coordinates - current_coordinates;
+		
+		const glm::quat rotation{ glm::vec3(delta, 0.0f) * ApplicationContext::instance().mouse_sensitivity };
+
+		camera->getTransformation().rotate(rotation);
+
+		event_data.dragging_coordinates = current_coordinates;
+	}
+	void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
+	{
+		if (button == GLFW_MOUSE_BUTTON_LEFT)
+		{
+			if (action == GLFW_PRESS)
+			{
+				glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+				auto& event_data = ApplicationContext::instance().mouse_event_data;
+				double xpos, ypos;
+				glfwGetCursorPos(window, &xpos, &ypos);
+				
+				event_data.dragging_coordinates.x = -ypos;
+				event_data.dragging_coordinates.y = xpos;
+				event_data.is_dragging = true;
+
+				
+			}
+			else if (action == GLFW_RELEASE)
+			{
+				glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+				ApplicationContext::instance().mouse_event_data.is_dragging = false;
+			}
+		}
+	}
 }
 void DemoApplication::init()
 {
@@ -26,6 +125,14 @@ void DemoApplication::init()
 	
 	initializeRenderers();
 	createWindow();
+
+	ApplicationContext::instance().scene = _scene.get();
+
+	glfwSetCursorPosCallback(_window->getWindowHandle(), cursorPositionCallback);
+	glfwSetKeyCallback(_window->getWindowHandle(), keyCallback);
+
+	glfwSetMouseButtonCallback(_window->getWindowHandle(), mouseButtonCallback);
+
 }
 
 void DemoApplication::run()
@@ -33,6 +140,7 @@ void DemoApplication::run()
 	while (_window->isClosed() == false)
 	{
 		_window->update();
+
 	}
 }
 
@@ -91,8 +199,8 @@ void DemoApplication::createNoLitMaterial()
 			},
 		.push_constants_updater = [&](Mesh* mesh, PushConstantsUpdater& updater) {
 			NoLitPushConstants data;
-			data.model_view = _scene->getActiveCamera()->getView() * 
-				_scene->getNodeLookup().findMesh(mesh->getId())->getTransformation().calculateTransformation();
+			data.model_view = _scene->getNodeLookup().findMesh(mesh->getId())->getTransformation().calculateTransformation()
+				* _scene->getActiveCamera()->getView();
 
 			const std::span<const uint8_t> data_view(reinterpret_cast<const uint8_t*>(&data.model_view), sizeof(data.model_view));
 			updater.update(offsetof(NoLitPushConstants, model_view), data_view);

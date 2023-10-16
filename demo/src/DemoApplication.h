@@ -10,6 +10,8 @@
 #include <render_engine/resources/UniformBinding.h>
 #include <render_engine/assets/Mesh.h>
 
+#include <scene/Scene.h>
+
 #include <glm/mat4x4.hpp>
 #include <glm/gtc/quaternion.hpp>
 class DemoApplication
@@ -41,14 +43,19 @@ private:
 
 	void createMesh();
 	void createNoLitMaterial();
+	void createScene();
+
+	void initializeRenderers();
+	void createAssets();
+
+	void createWindow();
+
 	NoLitShaderController _nolit_shader_controller;
-	std::unique_ptr<RenderEngine::Geometry> _triangle_geometry;
-	std::unique_ptr<RenderEngine::Mesh> _triangle;
+	std::unique_ptr<RenderEngine::Geometry> _quad_geometry;
+	std::unique_ptr<RenderEngine::Mesh> _quad;
 	std::unique_ptr<RenderEngine::Material> _nolit_material;
 
 	std::unique_ptr<RenderEngine::Window> _window;
 
-	std::unordered_map<uint32_t, glm::vec3> _mesh_positions;
-	std::unordered_map<uint32_t, glm::quat> _mesh_rotations;
-	CameraData _scene_camera;
+	std::unique_ptr<Scene::Scene> _scene;
 };

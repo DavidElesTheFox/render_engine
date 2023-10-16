@@ -76,6 +76,9 @@ set(RENDER_ENGINE_CONTAINERS_HEADERS
 	)
 source_group("include\\containers" FILES ${RENDER_ENGINE_CONTAINERS_HEADERS})
 
+##########
+# Window #
+##########
 
 set(RENDER_ENGINE_WINDOW_SRC
 	src/window/Window.cpp
@@ -88,7 +91,6 @@ set(RENDER_ENGINE_WINDOW_HEADERS
 
 source_group("src\\window" FILES ${RENDER_ENGINE_WINDOW_SRC})
 source_group("include\\window" FILES ${RENDER_ENGINE_WINDOW_HEADERS})
-
 ########
 # root #
 ########

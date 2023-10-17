@@ -17,7 +17,7 @@ namespace Scene
 			float far)
 		{
 			return std::unique_ptr<Camera>(new Camera(std::move(name),
-				glm::ortho(leftBottomCorner.x, rightUpCorner.x,
+				glm::orthoRH(leftBottomCorner.x, rightUpCorner.x,
 				leftBottomCorner.y, rightUpCorner.y,
 					near, far)));
 		}

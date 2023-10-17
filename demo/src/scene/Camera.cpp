@@ -11,7 +11,7 @@ namespace Scene
 			* transformation;
 		const glm::vec3 position = getTransformation().getPosition();
 
-		return glm::lookAt(position,
+		return glm::lookAtRH(position,
 			position + direction,
 			up);
 	}

@@ -12,6 +12,6 @@ layout(push_constant, std430) uniform constants
 };
 
 void main() {
-    gl_Position = vec4(inPosition, 0.0, 1.0) * model_view * projection; 
+    gl_Position = projection * model_view * vec4(inPosition, 0.0, 1.0); 
     fragColor = inColor;
 }

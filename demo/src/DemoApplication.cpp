@@ -187,8 +187,9 @@ std::unique_ptr<NoLitMaterial::Instance> NoLitMaterial::createInstance(Data data
 				updater.update(offsetof(PushConstants, projection), data_view);
 			},
 			.push_constants_updater = [material_constants = &result->_material_constants, scene](MeshInstance* mesh, PushConstantsUpdater& updater) {
-					material_constants->model_view = scene->getNodeLookup().findMesh(mesh->getId())->getTransformation().calculateTransformation()
-						* scene->getActiveCamera()->getView();
+					auto model = scene->getNodeLookup().findMesh(mesh->getId())->getTransformation().calculateTransformation();
+					auto view = scene->getActiveCamera()->getView();
+					material_constants->model_view =  view * model;
 
 					const std::span<const uint8_t> data_view(reinterpret_cast<const uint8_t*>(&material_constants->model_view), sizeof(material_constants->model_view));
 					updater.update(offsetof(PushConstants, model_view), data_view);

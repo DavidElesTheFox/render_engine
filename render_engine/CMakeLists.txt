@@ -170,7 +170,6 @@ target_link_libraries(RenderEngine
 		
 target_compile_definitions(RenderEngine 
 	PUBLIC
-	    GLM_FORCE_DEPTH_ZERO_TO_ONE 
 		GLM_FORCE_RADIANS
 	PRIVATE 
 		VK_USE_PLATFORM_WIN32_KHR

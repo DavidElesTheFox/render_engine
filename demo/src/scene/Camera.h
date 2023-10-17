@@ -17,11 +17,20 @@ namespace Scene
 			float far)
 		{
 			return std::unique_ptr<Camera>(new Camera(std::move(name),
-				glm::orthoRH(leftBottomCorner.x, rightUpCorner.x,
+				glm::orthoRH_ZO(leftBottomCorner.x, rightUpCorner.x,
 				leftBottomCorner.y, rightUpCorner.y,
 					near, far)));
 		}
-
+		static std::unique_ptr<Camera> createPerspective(std::string name,
+			float fov,
+			float width,
+			float height,
+			float near, 
+			float far)
+		{
+			return std::unique_ptr<Camera>(new Camera(std::move(name),
+				glm::perspectiveFovRH_ZO(fov, width, height, near, far)));
+		}
 		const glm::mat4& getProjection() const { return _projection; }
 		glm::mat4 getView() const;
 

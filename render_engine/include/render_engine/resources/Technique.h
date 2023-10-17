@@ -5,17 +5,18 @@
 #include <vector>
 
 #include <render_engine/assets/Material.h>
+#include <render_engine/assets/Mesh.h>
 #include <render_engine/resources/UniformBinding.h>
 #include <render_engine/resources/PushConstantsUpdater.h>
 
 namespace RenderEngine
 {
-	class Mesh;
 	class Technique
 	{
 	public:
+
 		Technique(VkDevice logical_device,
-			const Material* material,
+			const MaterialInstance* material,
 			std::vector<UniformBinding>&& uniform_buffers,
 			VkDescriptorSetLayout uniforms_layout,
 			VkRenderPass render_pass);
@@ -42,24 +43,21 @@ namespace RenderEngine
 		{
 			return PushConstantsUpdater{ command_buffer, _pipeline_layout, getPushConstantsUsageFlag() };
 		}
-		void update(uint32_t frame_number)
+		void updateGlobalUniformBuffer(uint32_t frame_number)
 		{
-			_material->updateUniformBuffers(_uniform_buffers, frame_number);
+			_material_instance->updateGlobalUniformBuffer(_uniform_buffers, frame_number);
 		}
 
-		void updateConstants(Mesh* mesh, PushConstantsUpdater& updater)
+		void updateGlobalPushConstants(PushConstantsUpdater& updater)
 		{
-			_material->updatePushConstants(mesh, updater);
+			_material_instance->updateGlobalPushConstants(updater);
 		}
-		void updateConstants(PushConstantsUpdater& updater)
-		{
-			_material->updatePushConstants(updater);
-		}
+
 	private:
 		void destroy();
 		VkShaderStageFlags getPushConstantsUsageFlag() const;
 
-		const Material* _material;
+		const MaterialInstance* _material_instance{ nullptr };
 
 		std::vector<UniformBinding> _uniform_buffers;
 		VkDevice _logical_device;

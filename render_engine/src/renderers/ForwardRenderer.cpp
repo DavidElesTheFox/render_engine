@@ -17,8 +17,7 @@ namespace RenderEngine
 {
 	ForwardRenderer::ForwardRenderer(Window& parent,
 		const SwapChain& swap_chain,
-		bool last_renderer,
-		std::vector<Material*> supported_materials)
+		bool last_renderer)
 		try : _window(parent)
 		, _back_buffer(parent.getGpuResourceManager().getBackBufferSize())
 	{
@@ -70,13 +69,6 @@ namespace RenderEngine
 		createFrameBuffers(swap_chain);
 		createCommandPool(_window.getRenderQueueFamily());
 		createCommandBuffer();
-
-
-		for (const auto* material : supported_materials)
-		{
-			std::unique_ptr<Technique> technique = material->createTechnique(logical_device, _window.getGpuResourceManager(), _render_pass);
-			_technique_map.insert(std::make_pair(material->getId(), std::move(technique)));
-		}
 	}
 	catch (const std::exception&)
 	{
@@ -114,11 +106,15 @@ namespace RenderEngine
 		_render_area.offset = { 0, 0 };
 		_render_area.extent = swap_chain.getDetails().extent;
 	}
-	void ForwardRenderer::addMesh(Mesh* mesh, int32_t priority)
+	void ForwardRenderer::addMesh(MeshInstance* mesh_instance, int32_t priority)
 	{
+		auto* mesh = mesh_instance->getMesh();
+		const auto& material = mesh->getMaterial();
+		const uint32_t material_id = material.getId();
+		const uint32_t material_instance_id = mesh_instance->getMaterialInstance()->getId();
 		const Geometry& geometry = mesh->getGeometry();
 
-		const Shader::MetaData& vertex_shader_meta_data = mesh->getMaterial().getVertexShader().getMetaData();
+		const Shader::MetaData& vertex_shader_meta_data = material.getVertexShader().getMetaData();
 		MeshBuffers mesh_buffers;
 		if (geometry.positions.empty() == false)
 		{
@@ -134,8 +130,15 @@ namespace RenderEngine
 				geometry.indexes.size() * sizeof(int16_t));
 			mesh_buffers.index_buffer->uploadUnmapped(std::span{ geometry.indexes.data(), geometry.indexes.size() }, _window.getRenderQueue(), _command_pool);
 		}
-		_meshes[priority][mesh->getMaterial().getId()].mesh_buffers[mesh] = std::move(mesh_buffers);
-		_meshes[priority][mesh->getMaterial().getId()].technique = _technique_map[mesh->getMaterial().getId()].get();
+		_mesh_buffers[mesh_instance->getMesh()] = std::move(mesh_buffers);
+		auto& mesh_group = _meshes[priority][material_instance_id];
+		mesh_group.mesh_instances.push_back(mesh_instance);
+		if (mesh_group.technique == nullptr)
+		{
+			auto& material = mesh->getMaterial();
+			_meshes[priority][material_instance_id].technique = mesh_instance->getMaterialInstance()->createTechnique(_window.getGpuResourceManager(),
+				_render_pass);
+		}
 	}
 
 	void ForwardRenderer::draw(uint32_t swap_chain_image_index, uint32_t frame_number)
@@ -168,8 +171,8 @@ namespace RenderEngine
 			{
 				auto push_constants_updater = mesh_group.technique->createPushConstantsUpdater(frame_data.command_buffer);
 
-				mesh_group.technique->update(frame_number);
-				mesh_group.technique->updateConstants(push_constants_updater);
+				mesh_group.technique->updateGlobalUniformBuffer(frame_number);
+				mesh_group.technique->updateGlobalPushConstants(push_constants_updater);
 
 				vkCmdBindPipeline(frame_data.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_group.technique->getPipeline());
 
@@ -196,9 +199,10 @@ namespace RenderEngine
 					descriptor_sets.data(), 0, nullptr);
 
 				
-				for (auto& [mesh, mesh_buffers] : mesh_group.mesh_buffers)
+				for (auto& mesh_instance : mesh_group.mesh_instances)
 				{
-					mesh_group.technique->updateConstants(mesh, push_constants_updater);
+					mesh_instance->updatePushConstants(push_constants_updater);
+					auto& mesh_buffers = _mesh_buffers.at(mesh_instance->getMesh());
 
 					VkBuffer vertexBuffers[] = { mesh_buffers.vertex_buffer->getBuffer() };
 					VkDeviceSize offsets[] = { 0 };

@@ -8,7 +8,7 @@ namespace Scene
 	class MeshObject : public SceneObject
 	{
 	public:
-		MeshObject(std::string name, RenderEngine::Mesh* mesh)
+		MeshObject(std::string name, RenderEngine::MeshInstance* mesh)
 			: SceneObject(std::move(name))
 			, _mesh(mesh)
 		{
@@ -16,10 +16,10 @@ namespace Scene
 		}
 		~MeshObject() override = default;
 
-		const RenderEngine::Mesh* getMesh() const { return _mesh; }
+		const RenderEngine::MeshInstance* getMesh() const { return _mesh; }
 
 		void onRegisterToNewLookup(SceneNodeLookup* new_lookup, SceneNodeLookup* old_lookup) override;
 	private:
-		RenderEngine::Mesh* _mesh{ nullptr };
+		RenderEngine::MeshInstance* _mesh{ nullptr };
 	};
 }

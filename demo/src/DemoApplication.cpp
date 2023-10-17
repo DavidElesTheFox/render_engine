@@ -158,7 +158,7 @@ void DemoApplication::createMesh()
 	_quad_geometry->indexes = {
 		0, 1, 2, 2, 3, 0
 	};
-	_quad = std::make_unique<RenderEngine::Mesh>(_quad_geometry.get(), _nolit_material.get(), 0);
+	_quad_asset = std::make_unique<RenderEngine::Mesh>(_quad_geometry.get(), _nolit_base_material.get(), 0);
 }
 
 void DemoApplication::createNoLitMaterial()
@@ -177,11 +177,10 @@ void DemoApplication::createNoLitMaterial()
 	Shader nolit_vertex_shader(NOLIT_VERT_SHADER, nolit_vertex_meta_data);
 	Shader nolit_fretment_shader(NOLIT_FRAG_SHADER, nolit_frament_meta_data);
 
-	_nolit_material = std::make_unique<Material>(nolit_vertex_shader,
+	_nolit_base_material = std::make_unique<Material>(nolit_vertex_shader,
 		nolit_fretment_shader,
 		Material::CallbackContainer{
-			.buffer_update_callback = [&](std::vector<UniformBinding>& uniform_bindings, uint32_t frame_number) {uniform_bindings[0].getBuffer(frame_number).uploadMapped(_nolit_shader_controller.data()); },
-			.vertex_buffer_create_callback = [](const Geometry& geometry, const Material& material)
+			.create_vertex_buffer = [](const Geometry& geometry, const Material& material)
 			{
 				std::vector<float> vertex_buffer_data;
 				vertex_buffer_data.reserve(geometry.positions.size() * 5);
@@ -196,22 +195,7 @@ void DemoApplication::createNoLitMaterial()
 				auto begin = reinterpret_cast<uint8_t*>(vertex_buffer_data.data());
 				std::vector<uint8_t> vertex_buffer(begin, begin + vertex_buffer_data.size() * sizeof(float));
 				return vertex_buffer;
-			},
-		.push_constants_updater = [&](Mesh* mesh, PushConstantsUpdater& updater) {
-			NoLitPushConstants data;
-			data.model_view = _scene->getNodeLookup().findMesh(mesh->getId())->getTransformation().calculateTransformation()
-				* _scene->getActiveCamera()->getView();
-
-			const std::span<const uint8_t> data_view(reinterpret_cast<const uint8_t*>(&data.model_view), sizeof(data.model_view));
-			updater.update(offsetof(NoLitPushConstants, model_view), data_view);
-		},
-		.push_constants_global_updater = [&](PushConstantsUpdater& updater) {
-			NoLitPushConstants data;
-			data.projection = _scene->getActiveCamera()->getProjection();
-
-			const std::span<const uint8_t> data_view(reinterpret_cast<const uint8_t*>(&data.projection), sizeof(data.projection));
-			updater.update(offsetof(NoLitPushConstants, projection), data_view);
-		}
+			}
 		}, 0
 	);
 }
@@ -242,10 +226,39 @@ void DemoApplication::createScene()
 		active_camera->getTransformation().setPosition({ 0.0f, 0.0f, 2.0f });
 	}
 	{
+		using namespace RenderEngine;
+		_nolit_material = std::make_unique<MaterialInstance>(_nolit_base_material.get(),
+			MaterialInstance::CallbackContainer{
+				.global_ubo_update = [&](std::vector<UniformBinding>& uniform_bindings, uint32_t frame_number)
+				{
+					uniform_bindings[0].getBuffer(frame_number).uploadMapped(_nolit_shader_controller.data());
+				},
+				.global_push_constants_update = [&](PushConstantsUpdater& updater) {
+					NoLitPushConstants data;
+					data.projection = _scene->getActiveCamera()->getProjection();
+
+					const std::span<const uint8_t> data_view(reinterpret_cast<const uint8_t*>(&data.projection), sizeof(data.projection));
+					updater.update(offsetof(NoLitPushConstants, projection), data_view);
+				},
+			},
+			0);
+
+		_quad = std::make_unique<MeshInstance>(_quad_asset.get(), _nolit_material.get(),
+			MeshInstance::CallbackContainer{
+				.push_constants_updater = [&](MeshInstance* mesh, PushConstantsUpdater& updater) {
+				NoLitPushConstants data;
+				data.model_view = _scene->getNodeLookup().findMesh(mesh->getId())->getTransformation().calculateTransformation()
+					* _scene->getActiveCamera()->getView();
+
+				const std::span<const uint8_t> data_view(reinterpret_cast<const uint8_t*>(&data.model_view), sizeof(data.model_view));
+				updater.update(offsetof(NoLitPushConstants, model_view), data_view);
+				}
+			}, 0);
+
 		Scene::SceneNode::Builder mesh_builder;
 		auto mesh_object = std::make_unique<Scene::MeshObject>("QuadMesh01", _quad.get());
 		mesh_builder.add(std::move(mesh_object));
-		_scene->addNode(mesh_builder.build("Quad"));
+		_scene->addNode(mesh_builder.build("Quad01"));
 	}
 }
 
@@ -259,7 +272,7 @@ void DemoApplication::initializeRenderers()
 		{ return std::make_unique<UIRenderer>(window, swap_chain, back_buffer_count, previous_renderer == nullptr); });
 	renderers->registerRenderer(ForwardRenderer::kRendererId,
 		[&](auto& window, const auto& swap_chain, uint32_t back_buffer_count, AbstractRenderer* previous_renderer, bool has_next) -> std::unique_ptr<AbstractRenderer>
-		{ return std::make_unique<ForwardRenderer>(window, swap_chain, has_next, std::vector{ _nolit_material.get() }); });
+		{ return std::make_unique<ForwardRenderer>(window, swap_chain, has_next); });
 	RenderContext::initialize({ "VK_LAYER_KHRONOS_validation" }, std::move(renderers));
 }
 

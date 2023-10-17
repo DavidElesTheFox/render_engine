@@ -30,4 +30,32 @@ namespace RenderEngine
 		Material* _material{ nullptr };
 		int32_t _id{ 0 };
 	};
+
+	class MeshInstance
+	{
+	public:
+		struct CallbackContainer
+		{
+			std::function<void(MeshInstance* material_instance, PushConstantsUpdater& updater)> push_constants_updater;
+		};
+		MeshInstance(Mesh* mesh, MaterialInstance* material_instance, CallbackContainer callbacks, uint32_t id)
+			: _mesh(mesh)
+			, _material_instance(material_instance)
+			, _callbacks(std::move(callbacks))
+			, _id(id)
+		{}
+
+		Mesh* getMesh() { return _mesh; }
+		MaterialInstance* getMaterialInstance() { return _material_instance; }
+		void updatePushConstants(PushConstantsUpdater& updater)
+		{
+			_callbacks.push_constants_updater(this, updater);
+		}
+		uint32_t getId() const { return _id; }
+	private:
+		Mesh* _mesh{ nullptr };
+		MaterialInstance* _material_instance{ nullptr };
+		CallbackContainer _callbacks;
+		uint32_t _id{ 0 };
+	};
 }

@@ -5,15 +5,16 @@
 namespace RenderEngine
 {
 	Technique::Technique(VkDevice logical_device,
-		const Material* material,
+		const MaterialInstance* material_instance,
 		std::vector<UniformBinding>&& uniform_buffers,
 		VkDescriptorSetLayout uniforms_layout,
 		VkRenderPass render_pass)
-		try : _material(material)
+		try : _material_instance(material_instance)
 		, _uniform_buffers(std::move(uniform_buffers))
 		, _logical_device(logical_device)
 		, _uniforms_layout(uniforms_layout)
 	{
+		const auto* material = _material_instance->getMaterial();
 		auto vertex_shader = material->getVertexShader().loadOn(logical_device);
 		auto fragment_shader = material->getFragmentShader().loadOn(logical_device);
 
@@ -31,7 +32,7 @@ namespace RenderEngine
 
 		VkPushConstantRange push_constants_info{};
 
-		if (const auto& push_constants = material->getPushConstants(); push_constants != std::nullopt)
+		if (const auto& push_constants = material->getPushConstantsMetaData(); push_constants != std::nullopt)
 		{
 			push_constants_info.offset = 0;
 			push_constants_info.size = push_constants->size;
@@ -174,11 +175,11 @@ namespace RenderEngine
 	VkShaderStageFlags Technique::getPushConstantsUsageFlag() const
 	{
 		VkShaderStageFlags result{ 0 };
-		if (_material->getVertexShader().getMetaData().push_constants != std::nullopt)
+		if (_material_instance->getMaterial()->getVertexShader().getMetaData().push_constants != std::nullopt)
 		{
 			result |= VK_SHADER_STAGE_VERTEX_BIT;
 		}
-		if (_material->getFragmentShader().getMetaData().push_constants != std::nullopt)
+		if (_material_instance->getMaterial()->getFragmentShader().getMetaData().push_constants != std::nullopt)
 		{
 			result |= VK_SHADER_STAGE_FRAGMENT_BIT;
 		}

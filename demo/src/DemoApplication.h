@@ -52,8 +52,11 @@ private:
 
 	NoLitShaderController _nolit_shader_controller;
 	std::unique_ptr<RenderEngine::Geometry> _quad_geometry;
-	std::unique_ptr<RenderEngine::Mesh> _quad;
-	std::unique_ptr<RenderEngine::Material> _nolit_material;
+	std::unique_ptr<RenderEngine::Mesh> _quad_asset;
+	std::unique_ptr<RenderEngine::Material> _nolit_base_material;
+
+	std::unique_ptr<RenderEngine::MeshInstance> _quad;
+	std::unique_ptr<RenderEngine::MaterialInstance> _nolit_material;
 
 	std::unique_ptr<RenderEngine::Window> _window;
 

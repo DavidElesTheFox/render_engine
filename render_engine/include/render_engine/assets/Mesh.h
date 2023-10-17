@@ -34,14 +34,9 @@ namespace RenderEngine
 	class MeshInstance
 	{
 	public:
-		struct CallbackContainer
-		{
-			std::function<void(MeshInstance* material_instance, PushConstantsUpdater& updater)> push_constants_updater;
-		};
-		MeshInstance(Mesh* mesh, MaterialInstance* material_instance, CallbackContainer callbacks, uint32_t id)
+		MeshInstance(Mesh* mesh, MaterialInstance* material_instance, uint32_t id)
 			: _mesh(mesh)
 			, _material_instance(material_instance)
-			, _callbacks(std::move(callbacks))
 			, _id(id)
 		{}
 
@@ -49,13 +44,12 @@ namespace RenderEngine
 		MaterialInstance* getMaterialInstance() { return _material_instance; }
 		void updatePushConstants(PushConstantsUpdater& updater)
 		{
-			_callbacks.push_constants_updater(this, updater);
+			_material_instance->updatePushConstants(this, updater);
 		}
 		uint32_t getId() const { return _id; }
 	private:
 		Mesh* _mesh{ nullptr };
 		MaterialInstance* _material_instance{ nullptr };
-		CallbackContainer _callbacks;
 		uint32_t _id{ 0 };
 	};
 }

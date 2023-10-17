@@ -12,12 +12,6 @@
 
 namespace
 {
-	struct NoLitPushConstants
-	{
-		glm::mat4 projection;
-		glm::mat4 model_view;
-		
-	};
 
 	struct MouseEventData
 	{
@@ -36,10 +30,17 @@ namespace
 		Scene::Scene* scene{ nullptr };
 		MouseEventData mouse_event_data;
 		float mouse_sensitivity = 0.001f;
+		GLFWcursorposfun original_cursor_position_callback{ nullptr };
+		GLFWmousebuttonfun original_mouse_button_callback{ nullptr };
+		GLFWkeyfun originak_key_callback{ nullptr };
 	};
 
 	void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
 	{
+		if (ApplicationContext::instance().originak_key_callback)
+		{
+			ApplicationContext::instance().originak_key_callback(window, key, scancode, action, mods);
+		}
 		auto* scene = ApplicationContext::instance().scene;
 		auto* camera = scene->getActiveCamera();
 
@@ -66,10 +67,17 @@ namespace
 			auto left = glm::cross(scene->getSceneSetup().forward, scene->getSceneSetup().up);
 			camera->getTransformation().translate(-left);
 		}
+
+
 	}
 
 	void cursorPositionCallback(GLFWwindow* window, double xpos, double ypos)
 	{
+
+		if (ApplicationContext::instance().original_cursor_position_callback)
+		{
+			ApplicationContext::instance().original_cursor_position_callback(window, xpos, ypos);
+		}
 		auto* camera = ApplicationContext::instance().scene->getActiveCamera();
 
 		if (camera == nullptr)
@@ -89,14 +97,18 @@ namespace
 		camera->getTransformation().rotate(rotation);
 
 		event_data.dragging_coordinates = current_coordinates;
+
 	}
 	void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 	{
-		if (button == GLFW_MOUSE_BUTTON_LEFT)
+		if (ApplicationContext::instance().original_mouse_button_callback)
+		{
+			ApplicationContext::instance().original_mouse_button_callback(window, button, action, mods);
+		}
+		if (button == GLFW_MOUSE_BUTTON_RIGHT)
 		{
 			if (action == GLFW_PRESS)
 			{
-				glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 				auto& event_data = ApplicationContext::instance().mouse_event_data;
 				double xpos, ypos;
 				glfwGetCursorPos(window, &xpos, &ypos);
@@ -104,17 +116,88 @@ namespace
 				event_data.dragging_coordinates.x = -ypos;
 				event_data.dragging_coordinates.y = xpos;
 				event_data.is_dragging = true;
-
-				
 			}
 			else if (action == GLFW_RELEASE)
 			{
-				glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 				ApplicationContext::instance().mouse_event_data.is_dragging = false;
 			}
 		}
+
+
+
 	}
 }
+
+NoLitMaterial::NoLitMaterial()
+{
+	using namespace RenderEngine;
+
+	Shader::MetaData nolit_vertex_meta_data;
+	nolit_vertex_meta_data.attributes_stride = 5 * sizeof(float);
+	nolit_vertex_meta_data.input_attributes.push_back({ .location = 0, .format = VK_FORMAT_R32G32_SFLOAT, .offset = 0 });
+	nolit_vertex_meta_data.input_attributes.push_back({ .location = 1, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = 2 * sizeof(float) });
+	nolit_vertex_meta_data.push_constants = Shader::MetaData::PushConstants{ .size = sizeof(PushConstants) };
+
+	Shader::MetaData nolit_frament_meta_data;
+	nolit_frament_meta_data.global_uniform_buffers.insert({ 0, Shader::MetaData::Uniforms{.binding = 0, .size = sizeof(float)} });
+
+	Shader nolit_vertex_shader(NOLIT_VERT_SHADER, nolit_vertex_meta_data);
+	Shader nolit_fretment_shader(NOLIT_FRAG_SHADER, nolit_frament_meta_data);
+
+	_material = std::make_unique<Material>(nolit_vertex_shader,
+		nolit_fretment_shader,
+		Material::CallbackContainer{
+			.create_vertex_buffer = [](const Geometry& geometry, const Material& material)
+			{
+				std::vector<float> vertex_buffer_data;
+				vertex_buffer_data.reserve(geometry.positions.size() * 5);
+				for (uint32_t i = 0; i < geometry.positions.size(); ++i)
+				{
+					vertex_buffer_data.push_back(geometry.positions[i].x);
+					vertex_buffer_data.push_back(geometry.positions[i].y);
+					vertex_buffer_data.push_back(geometry.colors[i].r);
+					vertex_buffer_data.push_back(geometry.colors[i].g);
+					vertex_buffer_data.push_back(geometry.colors[i].b);
+				}
+				auto begin = reinterpret_cast<uint8_t*>(vertex_buffer_data.data());
+				std::vector<uint8_t> vertex_buffer(begin, begin + vertex_buffer_data.size() * sizeof(float));
+				return vertex_buffer;
+			}
+		}, 0
+	);
+}
+std::unique_ptr<NoLitMaterial::Instance> NoLitMaterial::createInstance(Data data, Scene::Scene* scene)
+{
+	using namespace RenderEngine;
+	std::unique_ptr<Instance> result = std::make_unique<Instance>();
+	result->_material_data = std::move(data);
+	result->_material_instance = std::make_unique<MaterialInstance>(_material.get(),
+		MaterialInstance::CallbackContainer{
+			.global_ubo_update = [material_data = &result->_material_data ](std::vector<UniformBinding>& uniform_bindings, uint32_t frame_number)
+			{
+				uint8_t* ptr = reinterpret_cast<uint8_t*>(material_data);
+			    std::span data_span(ptr, sizeof(NoLitMaterial::Data));
+
+				uniform_bindings[0].getBuffer(frame_number).uploadMapped(data_span);
+			},
+			.global_push_constants_update = [material_constants = &result->_material_constants, scene](PushConstantsUpdater& updater) {
+				material_constants->projection = scene->getActiveCamera()->getProjection();
+
+				const std::span<const uint8_t> data_view(reinterpret_cast<const uint8_t*>(&material_constants->projection), sizeof(material_constants->projection));
+				updater.update(offsetof(PushConstants, projection), data_view);
+			},
+			.push_constants_updater = [material_constants = &result->_material_constants, scene](MeshInstance* mesh, PushConstantsUpdater& updater) {
+					material_constants->model_view = scene->getNodeLookup().findMesh(mesh->getId())->getTransformation().calculateTransformation()
+						* scene->getActiveCamera()->getView();
+
+					const std::span<const uint8_t> data_view(reinterpret_cast<const uint8_t*>(&material_constants->model_view), sizeof(material_constants->model_view));
+					updater.update(offsetof(PushConstants, model_view), data_view);
+				}
+		},
+		0);
+	return result;
+}
+
 void DemoApplication::init()
 {
 	using namespace RenderEngine;
@@ -128,10 +211,10 @@ void DemoApplication::init()
 
 	ApplicationContext::instance().scene = _scene.get();
 
-	glfwSetCursorPosCallback(_window->getWindowHandle(), cursorPositionCallback);
-	glfwSetKeyCallback(_window->getWindowHandle(), keyCallback);
+	ApplicationContext::instance().original_cursor_position_callback = glfwSetCursorPosCallback(_window->getWindowHandle(), cursorPositionCallback);
+	ApplicationContext::instance().originak_key_callback = glfwSetKeyCallback(_window->getWindowHandle(), keyCallback);
 
-	glfwSetMouseButtonCallback(_window->getWindowHandle(), mouseButtonCallback);
+	ApplicationContext::instance().original_mouse_button_callback = glfwSetMouseButtonCallback(_window->getWindowHandle(), mouseButtonCallback);
 
 }
 
@@ -158,46 +241,12 @@ void DemoApplication::createMesh()
 	_quad_geometry->indexes = {
 		0, 1, 2, 2, 3, 0
 	};
-	_quad_asset = std::make_unique<RenderEngine::Mesh>(_quad_geometry.get(), _nolit_base_material.get(), 0);
+	_quad_asset = std::make_unique<RenderEngine::Mesh>(_quad_geometry.get(), _nolit_material_new->getMaterial(), 0);
 }
 
 void DemoApplication::createNoLitMaterial()
 {
-	using namespace RenderEngine;
-
-	Shader::MetaData nolit_vertex_meta_data;
-	nolit_vertex_meta_data.attributes_stride = 5 * sizeof(float);
-	nolit_vertex_meta_data.input_attributes.push_back({ .location = 0, .format = VK_FORMAT_R32G32_SFLOAT, .offset = 0 });
-	nolit_vertex_meta_data.input_attributes.push_back({ .location = 1, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = 2 * sizeof(float) });
-	nolit_vertex_meta_data.push_constants = Shader::MetaData::PushConstants{ .size = sizeof(NoLitPushConstants) };
-
-	Shader::MetaData nolit_frament_meta_data;
-	nolit_frament_meta_data.global_uniform_buffers.insert({ 0, Shader::MetaData::Uniforms{.binding = 0, .size = sizeof(float)} });
-
-	Shader nolit_vertex_shader(NOLIT_VERT_SHADER, nolit_vertex_meta_data);
-	Shader nolit_fretment_shader(NOLIT_FRAG_SHADER, nolit_frament_meta_data);
-
-	_nolit_base_material = std::make_unique<Material>(nolit_vertex_shader,
-		nolit_fretment_shader,
-		Material::CallbackContainer{
-			.create_vertex_buffer = [](const Geometry& geometry, const Material& material)
-			{
-				std::vector<float> vertex_buffer_data;
-				vertex_buffer_data.reserve(geometry.positions.size() * 5);
-				for (uint32_t i = 0; i < geometry.positions.size(); ++i)
-				{
-					vertex_buffer_data.push_back(geometry.positions[i].x);
-					vertex_buffer_data.push_back(geometry.positions[i].y);
-					vertex_buffer_data.push_back(geometry.colors[i].r);
-					vertex_buffer_data.push_back(geometry.colors[i].g);
-					vertex_buffer_data.push_back(geometry.colors[i].b);
-				}
-				auto begin = reinterpret_cast<uint8_t*>(vertex_buffer_data.data());
-				std::vector<uint8_t> vertex_buffer(begin, begin + vertex_buffer_data.size() * sizeof(float));
-				return vertex_buffer;
-			}
-		}, 0
-	);
+	_nolit_material_new = std::make_unique<NoLitMaterial>();
 }
 
 void DemoApplication::createScene()
@@ -226,34 +275,8 @@ void DemoApplication::createScene()
 		active_camera->getTransformation().setPosition({ 0.0f, 0.0f, 2.0f });
 	}
 	{
-		using namespace RenderEngine;
-		_nolit_material = std::make_unique<MaterialInstance>(_nolit_base_material.get(),
-			MaterialInstance::CallbackContainer{
-				.global_ubo_update = [&](std::vector<UniformBinding>& uniform_bindings, uint32_t frame_number)
-				{
-					uniform_bindings[0].getBuffer(frame_number).uploadMapped(_nolit_shader_controller.data());
-				},
-				.global_push_constants_update = [&](PushConstantsUpdater& updater) {
-					NoLitPushConstants data;
-					data.projection = _scene->getActiveCamera()->getProjection();
-
-					const std::span<const uint8_t> data_view(reinterpret_cast<const uint8_t*>(&data.projection), sizeof(data.projection));
-					updater.update(offsetof(NoLitPushConstants, projection), data_view);
-				},
-			},
-			0);
-
-		_quad = std::make_unique<MeshInstance>(_quad_asset.get(), _nolit_material.get(),
-			MeshInstance::CallbackContainer{
-				.push_constants_updater = [&](MeshInstance* mesh, PushConstantsUpdater& updater) {
-				NoLitPushConstants data;
-				data.model_view = _scene->getNodeLookup().findMesh(mesh->getId())->getTransformation().calculateTransformation()
-					* _scene->getActiveCamera()->getView();
-
-				const std::span<const uint8_t> data_view(reinterpret_cast<const uint8_t*>(&data.model_view), sizeof(data.model_view));
-				updater.update(offsetof(NoLitPushConstants, model_view), data_view);
-				}
-			}, 0);
+		_nolit_material_instance = _nolit_material_new->createInstance(NoLitMaterial::Data{ .color_offset = 0.0f }, _scene.get());
+		_quad = std::make_unique<RenderEngine::MeshInstance>(_quad_asset.get(), _nolit_material_instance->getMaterialInstance(), 0);
 
 		Scene::SceneNode::Builder mesh_builder;
 		auto mesh_object = std::make_unique<Scene::MeshObject>("QuadMesh01", _quad.get());
@@ -292,9 +315,9 @@ void DemoApplication::createWindow()
 
 	_window->getRendererAs<UIRenderer>(UIRenderer::kRendererId).setOnGui(
 		[&] {
-			float value = _nolit_shader_controller.color_offset;
+			float value = _nolit_material_instance->getMaterialData().color_offset;
 			ImGui::SliderFloat("Color offset", &value, 0.0f, 1.0f);
-			_nolit_shader_controller.color_offset = value;
+			_nolit_material_instance->getMaterialData().color_offset = value;
 
 			auto* mesh_object = _scene->getNodeLookup().findMesh(_quad->getId());
 			glm::vec3 rotation = mesh_object->getTransformation().getEulerAngles();

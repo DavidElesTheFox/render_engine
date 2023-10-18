@@ -63,7 +63,7 @@ namespace RenderEngine
 		{
 			std::function<void(std::vector<UniformBinding>& ubo_container, uint32_t frame_number)> global_ubo_update;
 			std::function<void(PushConstantsUpdater& updater)> global_push_constants_update;
-			std::function<void(MeshInstance* mesh_instance, PushConstantsUpdater& updater)> push_constants_updater;
+			std::function<void(const MeshInstance* mesh_instance, PushConstantsUpdater& updater)> push_constants_updater;
 		};
 		MaterialInstance(Material* material, CallbackContainer callbacks, uint32_t id)
 			: _material(material)
@@ -83,7 +83,7 @@ namespace RenderEngine
 		{
 			_callbacks.global_push_constants_update(updater);
 		}
-		void updatePushConstants(MeshInstance* mesh_instance, PushConstantsUpdater& updater)
+		void updatePushConstants(const MeshInstance* mesh_instance, PushConstantsUpdater& updater) const
 		{
 			_callbacks.push_constants_updater(mesh_instance, updater);
 		}

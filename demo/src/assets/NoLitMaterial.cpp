@@ -73,7 +73,7 @@ namespace Assets
 					const std::span<const uint8_t> data_view(reinterpret_cast<const uint8_t*>(&material_constants->projection), sizeof(material_constants->projection));
 					updater.update(offsetof(PushConstants, projection), data_view);
 				},
-				.push_constants_updater = [material_constants = &result->_material_constants, scene](MeshInstance* mesh, PushConstantsUpdater& updater) {
+				.push_constants_updater = [material_constants = &result->_material_constants, scene](const MeshInstance* mesh, PushConstantsUpdater& updater) {
 						auto model = scene->getNodeLookup().findMesh(mesh->getId())->getTransformation().calculateTransformation();
 						auto view = scene->getActiveCamera()->getView();
 						material_constants->model_view = view * model;

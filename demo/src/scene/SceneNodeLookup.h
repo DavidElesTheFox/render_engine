@@ -2,6 +2,7 @@
 
 #include <unordered_map>
 #include <string>
+#include <ranges>
 namespace Scene
 {
 	class MeshObject;
@@ -28,6 +29,8 @@ namespace Scene
 		MeshObject* findMesh(uint32_t id) const;
 		Camera* findCamera(const std::string& name) const;
 
+		std::ranges::input_range auto getMeshes() const { return _meshes | std::views::values; }
+		std::ranges::input_range auto getCameras() const { return _cameras | std::views::values; }
 	private:
 		std::unordered_map<uint32_t, MeshObject*> _meshes;
 		std::unordered_map<std::string, Camera*> _cameras;

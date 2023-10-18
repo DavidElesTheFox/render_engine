@@ -41,8 +41,10 @@ namespace RenderEngine
 		{}
 
 		Mesh* getMesh() { return _mesh; }
+		const Mesh* getMesh() const { return _mesh; }
 		MaterialInstance* getMaterialInstance() { return _material_instance; }
-		void updatePushConstants(PushConstantsUpdater& updater)
+		const MaterialInstance* getMaterialInstance() const { return _material_instance; }
+		void updatePushConstants(PushConstantsUpdater& updater) const 
 		{
 			_material_instance->updatePushConstants(this, updater);
 		}

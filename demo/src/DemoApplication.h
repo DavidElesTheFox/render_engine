@@ -11,14 +11,14 @@
 #include <render_engine/assets/Mesh.h>
 
 #include <scene/Scene.h>
+#include <scene/SceneRenderManager.h>
 
 #include <glm/mat4x4.hpp>
 #include <glm/gtc/quaternion.hpp>
 
-
 #include <assets/AssetDatabase.h>
 #include <assets/NoLitMaterial.h>
-
+#include <ui/AssetBrowserUi.h>
 
 
 class DemoApplication
@@ -29,10 +29,13 @@ public:
 	void run();
 
 private:
-
-	void createMesh();
-	void createNoLitMaterial();
+	void createGeometries();
+	void createBaseMesh();
+	void createBaseMaterials();
 	void createScene();
+	void loadScene();
+	void instantiateMaterials();
+	void instantiateMeshes();
 
 	void initializeRenderers();
 	void createAssets();
@@ -44,4 +47,7 @@ private:
 	std::unique_ptr<RenderEngine::Window> _window;
 
 	std::unique_ptr<Scene::Scene> _scene;
+
+	std::unique_ptr<Scene::SceneRenderManager> _render_manager;
+	std::unique_ptr<Ui::AssetBrowserUi> _asset_browser;
 };

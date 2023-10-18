@@ -14,6 +14,7 @@ namespace Assets
 	class NoLitMaterial : public IMaterial
 	{
 	public:
+
 		struct Data
 		{
 			float color_offset{ 0.0f };
@@ -44,7 +45,11 @@ namespace Assets
 			PushConstants _material_constants;
 			std::unique_ptr<RenderEngine::MaterialInstance> _material_instance;
 		};
-
+		static const std::string& GetName() 
+		{
+			static std::string _name = "NoLit";
+			return _name;
+		}
 
 		NoLitMaterial();
 		~NoLitMaterial() override = default;
@@ -52,6 +57,11 @@ namespace Assets
 		std::unique_ptr<Instance> createInstance(Data data, Scene::Scene* scene);
 
 		RenderEngine::Material* getMaterial() { return _material.get(); }
+
+		const std::string& getName() const override
+		{
+			return GetName();
+		}
 	private:
 		std::unique_ptr<RenderEngine::Material> _material;
 	};

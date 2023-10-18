@@ -5,11 +5,16 @@ namespace Assets
 	class IMaterial
 	{
 	public:
-		virtual ~IMaterial() = default;
+
 		class IInstance
 		{
 		public:
 			virtual ~IInstance() = default;
+
 		};
+
+		virtual ~IMaterial() = default;
+		virtual const std::string& getName() const = 0;
+
 	};
 }

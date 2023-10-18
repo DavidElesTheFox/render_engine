@@ -13,18 +13,29 @@
 #include <ApplicationContext.h>
 
 
+
 void DemoApplication::init()
 {
 	using namespace RenderEngine;
-	
+	createScene();
+
 	createAssets();
 
-	createScene();
+	instantiateMaterials();
+	instantiateMeshes();
+
+	loadScene();
 	
 	initializeRenderers();
 	createWindow();
 
 	ApplicationContext::instance().init(_scene.get(), _window->getWindowHandle());
+
+	_render_manager = std::make_unique<Scene::SceneRenderManager>(_scene->getNodeLookup(), *_window);
+
+	_render_manager->registerMeshesForRender();
+
+	_asset_browser = std::make_unique<Ui::AssetBrowserUi>(_assets, *_scene);
 }
 
 void DemoApplication::run()
@@ -36,9 +47,8 @@ void DemoApplication::run()
 	}
 }
 
-void DemoApplication::createMesh()
+void DemoApplication::createGeometries()
 {
-	auto* nolit_material = _assets.getBaseMaterialAs<Assets::NoLitMaterial>("NoLit");
 	auto quad_geometry = std::make_unique<RenderEngine::Geometry>();
 	quad_geometry->positions.push_back({ -0.5f, -0.5f, 0.0f });
 	quad_geometry->positions.push_back({ 0.5f, -0.5f, 0.0f });
@@ -51,27 +61,37 @@ void DemoApplication::createMesh()
 	quad_geometry->indexes = {
 		0, 1, 2, 2, 3, 0
 	};
-	auto quad_asset = std::make_unique<RenderEngine::Mesh>(quad_geometry.get(), nolit_material->getMaterial(), 0);
 	_assets.addGeometry("quad", std::move(quad_geometry));
+}
+
+void DemoApplication::createBaseMesh()
+{
+	auto* nolit_material = _assets.getBaseMaterial<Assets::NoLitMaterial>();
+	auto* quad_geometry = _assets.getGeometry("quad");
+
+	auto quad_asset = std::make_unique<RenderEngine::Mesh>(quad_geometry, nolit_material->getMaterial(), 0);
 	_assets.addBaseMesh("quad", std::move(quad_asset));
 
 }
 
-void DemoApplication::createNoLitMaterial()
+void DemoApplication::createBaseMaterials()
 {
-	_assets.addBaseMaterial("NoLit", std::make_unique<Assets::NoLitMaterial>());
+	_assets.addBaseMaterial(std::make_unique<Assets::NoLitMaterial>());
 }
 
 void DemoApplication::createScene()
 {
-	{
-		Scene::Scene::SceneSetup scene_setup{
-			.up = glm::vec3(0.0f, 1.0f, 0.0f),
-			.forward = glm::vec3(0.0f, 0.0f, -1.0f)
-		};
+	Scene::Scene::SceneSetup scene_setup{
+		.up = glm::vec3(0.0f, 1.0f, 0.0f),
+		.forward = glm::vec3(0.0f, 0.0f, -1.0f)
+	};
 
-		_scene = std::make_unique<Scene::Scene>("Simple Scene", std::move(scene_setup));
-	}
+	_scene = std::make_unique<Scene::Scene>("Simple Scene", std::move(scene_setup));
+}
+
+void DemoApplication::loadScene()
+{
+
 	{
 		Scene::SceneNode::Builder camera_builder;
 		const std::string camera_name = "Ortho camera";
@@ -86,18 +106,10 @@ void DemoApplication::createScene()
 		active_camera->getTransformation().setPosition({ 0.0f, 0.0f, 2.0f });
 	}
 	{
-		auto nolit_material = _assets.getBaseMaterialAs<Assets::NoLitMaterial>("NoLit");
-		auto nolit_material_instance = nolit_material->createInstance(Assets::NoLitMaterial::Data{ .color_offset = 0.0f }, _scene.get());
-		auto quad_mesh = _assets.getBaseMesh("quad");
-		auto quad = std::make_unique<RenderEngine::MeshInstance>(quad_mesh, nolit_material_instance->getMaterialInstance(), 0);
-		{
-			Scene::SceneNode::Builder mesh_builder;
-			auto mesh_object = std::make_unique<Scene::MeshObject>("QuadMesh01", quad.get());
-			mesh_builder.add(std::move(mesh_object));
-			_scene->addNode(mesh_builder.build("Quad01"));
-		}
-		_assets.addMaterialInstance("NoLit", std::move(nolit_material_instance));
-		_assets.addMeshInstance("quad", std::move(quad));
+		Scene::SceneNode::Builder mesh_builder;
+		auto mesh_object = std::make_unique<Scene::MeshObject>("QuadMesh01", _assets.getMeshInstance("simple_quad"));
+		mesh_builder.add(std::move(mesh_object));
+		_scene->addNode(mesh_builder.build("Quad01"));
 	}
 }
 
@@ -117,9 +129,30 @@ void DemoApplication::initializeRenderers()
 
 void DemoApplication::createAssets()
 {
-	createNoLitMaterial();
-	createMesh();
+	createGeometries();
+	createBaseMaterials();
+	createBaseMesh();
+	instantiateMaterials();
 }
+
+void DemoApplication::instantiateMaterials()
+{
+	auto nolit_material = _assets.getBaseMaterial<Assets::NoLitMaterial>();
+	auto nolit_material_instance = nolit_material->createInstance(Assets::NoLitMaterial::Data{ .color_offset = 0.0f }, _scene.get());
+	_assets.addMaterialInstance("NoLit", std::move(nolit_material_instance));
+
+}
+
+void DemoApplication::instantiateMeshes()
+{
+	
+	auto quad_mesh = _assets.getBaseMesh("quad");
+	auto nolit_material_instance = _assets.getMaterialInstanceAs<Assets::NoLitMaterial::Instance>("NoLit");
+	auto quad = std::make_unique<RenderEngine::MeshInstance>(quad_mesh, nolit_material_instance->getMaterialInstance(), 0);
+	_assets.addMeshInstance("simple_quad", std::move(quad));
+	
+}
+
 
 void DemoApplication::createWindow()
 {
@@ -127,18 +160,11 @@ void DemoApplication::createWindow()
 
 	_window = RenderContext::context().getEngine(0).createWindow("Secondary Window", 3);
 	_window->registerRenderers({ ForwardRenderer::kRendererId, UIRenderer::kRendererId });
-	_window->getRendererAs<ForwardRenderer>(ForwardRenderer::kRendererId).addMesh(_assets.getMeshInstance("quad"), 0);
-
+	
 	_window->getRendererAs<UIRenderer>(UIRenderer::kRendererId).setOnGui(
 		[&] {
-			auto* material = _assets.getMaterialInstanceAs<Assets::NoLitMaterial::Instance>("NoLit");
-			float value = material->getMaterialData().color_offset;
-			ImGui::SliderFloat("Color offset", &value, 0.0f, 1.0f);
-			material->getMaterialData().color_offset = value;
-
-			auto* mesh_object = _scene->getNodeLookup().findMesh((_assets.getMeshInstance("quad")->getId()));
-			glm::vec3 rotation = mesh_object->getTransformation().getEulerAngles();
-			ImGui::SliderFloat("Rotation z", &rotation.z, -glm::pi<float>(), glm::pi<float>());
-			mesh_object->getTransformation().setEulerAngles(rotation);
+			_asset_browser->onGui();
 		});
 }
+
+

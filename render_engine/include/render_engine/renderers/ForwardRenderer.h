@@ -30,7 +30,7 @@ namespace RenderEngine
 		struct MeshGroup
 		{
 			std::unique_ptr<Technique> technique;
-			std::vector<MeshInstance*> mesh_instances;
+			std::vector<const MeshInstance*> mesh_instances;
 		};
 		struct FrameData
 		{
@@ -43,7 +43,7 @@ namespace RenderEngine
 			const SwapChain& swap_chain,
 			bool last_renderer);
 		~ForwardRenderer() override;
-		void addMesh(MeshInstance* mesh_instance, int32_t priority);
+		void addMesh(const MeshInstance* mesh_instance, int32_t priority);
 		void draw(uint32_t swap_chain_image_index, uint32_t frame_number) override;
 		std::vector<VkCommandBuffer> getCommandBuffers(uint32_t frame_number) override
 		{
@@ -61,7 +61,7 @@ namespace RenderEngine
 		void destroy();
 	private:
 		std::map<int32_t, MaterialMeshGroupMap> _meshes;
-		std::map<Mesh*, MeshBuffers> _mesh_buffers;
+		std::map<const Mesh*, MeshBuffers> _mesh_buffers;
 
 		BackBuffer<FrameData> _back_buffer;
 

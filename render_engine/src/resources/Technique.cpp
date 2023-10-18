@@ -28,20 +28,20 @@ namespace RenderEngine
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 		pipelineLayoutInfo.setLayoutCount = descriptor_set_layouts.size();
 		pipelineLayoutInfo.pSetLayouts = descriptor_set_layouts.data();
-		pipelineLayoutInfo.pushConstantRangeCount = 0;
 
-		VkPushConstantRange push_constants_info{};
+		std::vector<VkPushConstantRange> push_constants_info_container{};
 
-		if (const auto& push_constants = material->getPushConstantsMetaData(); push_constants != std::nullopt)
+		for (const auto& [stage, push_constants] : material->getPushConstantsMetaData())
 		{
-			push_constants_info.offset = 0;
-			push_constants_info.size = push_constants->size;
-			push_constants_info.stageFlags = getPushConstantsUsageFlag();
-
-			pipelineLayoutInfo.pushConstantRangeCount = 1;
-			pipelineLayoutInfo.pPushConstantRanges = &push_constants_info;
+			VkPushConstantRange push_constants_info;
+			push_constants_info.offset = push_constants.offset;
+			push_constants_info.size = push_constants.size;
+			push_constants_info.stageFlags = stage;
+			push_constants_info_container.push_back(push_constants_info);
 		}
 
+		pipelineLayoutInfo.pushConstantRangeCount = push_constants_info_container.size();
+		pipelineLayoutInfo.pPushConstantRanges = push_constants_info_container.data();
 		if (vkCreatePipelineLayout(logical_device, &pipelineLayoutInfo, nullptr, &_pipeline_layout) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create pipeline layout!");
 		}

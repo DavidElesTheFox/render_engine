@@ -54,10 +54,6 @@ void DemoApplication::createGeometries()
 	quad_geometry->positions.push_back({ 0.5f, -0.5f, 0.0f });
 	quad_geometry->positions.push_back({ 0.5f, 0.5f, 0.0f });
 	quad_geometry->positions.push_back({ -0.5f, 0.5f, 0.0f });
-	quad_geometry->colors.push_back({ .0f, 0.0f, 0.0f });
-	quad_geometry->colors.push_back({ .0f, 1.0f, 0.0f });
-	quad_geometry->colors.push_back({ .0f, 0.0f, 1.0f });
-	quad_geometry->colors.push_back({ 1.0f, 1.0f, 1.0f });
 	quad_geometry->indexes = {
 		0, 1, 2, 2, 3, 0
 	};
@@ -107,9 +103,31 @@ void DemoApplication::loadScene()
 	}
 	{
 		Scene::SceneNode::Builder mesh_builder;
-		auto mesh_object = std::make_unique<Scene::MeshObject>("QuadMesh01", _assets.getMeshInstance("simple_quad"));
+		auto mesh_object = std::make_unique<Scene::MeshObject>("QuadMesh00", _assets.getMeshInstance("white_quad00"));
+		mesh_object->getTransformation().setPosition(glm::vec3{ 1.0f, -1.0f, 0.0f });
+		mesh_builder.add(std::move(mesh_object));
+		_scene->addNode(mesh_builder.build("Quad00"));
+	}
+	{
+		Scene::SceneNode::Builder mesh_builder;
+		auto mesh_object = std::make_unique<Scene::MeshObject>("QuadMesh01", _assets.getMeshInstance("white_quad01"));
+		mesh_object->getTransformation().setPosition(glm::vec3{ 1.0f, 1.0f, 0.0f });
 		mesh_builder.add(std::move(mesh_object));
 		_scene->addNode(mesh_builder.build("Quad01"));
+	}
+	{
+		Scene::SceneNode::Builder mesh_builder;
+		auto mesh_object = std::make_unique<Scene::MeshObject>("QuadMesh02", _assets.getMeshInstance("red_quad00"));
+		mesh_object->getTransformation().setPosition(glm::vec3{ -1.0f, 1.0f, 0.0f });
+		mesh_builder.add(std::move(mesh_object));
+		_scene->addNode(mesh_builder.build("Quad02"));
+	}
+	{
+		Scene::SceneNode::Builder mesh_builder;
+		auto mesh_object = std::make_unique<Scene::MeshObject>("QuadMesh03", _assets.getMeshInstance("red_quad01"));
+		mesh_object->getTransformation().setPosition(glm::vec3{ -1.0f, -1.0f, 0.0f });
+		mesh_builder.add(std::move(mesh_object));
+		_scene->addNode(mesh_builder.build("Quad03"));
 	}
 }
 
@@ -132,25 +150,43 @@ void DemoApplication::createAssets()
 	createGeometries();
 	createBaseMaterials();
 	createBaseMesh();
-	instantiateMaterials();
 }
 
 void DemoApplication::instantiateMaterials()
 {
 	auto nolit_material = _assets.getBaseMaterial<Assets::NoLitMaterial>();
-	auto nolit_material_instance = nolit_material->createInstance(Assets::NoLitMaterial::Data{ .color_offset = 0.0f }, _scene.get());
-	_assets.addMaterialInstance("NoLit", std::move(nolit_material_instance));
-
+	_assets.addMaterialInstance("NoLit - white", nolit_material->createInstance(glm::vec3{ 1.0f }, _scene.get(), 0));
+	_assets.addMaterialInstance("NoLit - red", nolit_material->createInstance(glm::vec3{ 1.0f, 0.0f, 0.0f }, _scene.get(), 1));
 }
 
 void DemoApplication::instantiateMeshes()
 {
 	
 	auto quad_mesh = _assets.getBaseMesh("quad");
-	auto nolit_material_instance = _assets.getMaterialInstanceAs<Assets::NoLitMaterial::Instance>("NoLit");
-	auto quad = std::make_unique<RenderEngine::MeshInstance>(quad_mesh, nolit_material_instance->getMaterialInstance(), 0);
-	_assets.addMeshInstance("simple_quad", std::move(quad));
-	
+	{
+		auto quad = std::make_unique<RenderEngine::MeshInstance>(quad_mesh,
+			_assets.getMaterialInstanceAs<Assets::NoLitMaterial::Instance>("NoLit - white")->getMaterialInstance(),
+			0);
+		_assets.addMeshInstance("white_quad00", std::move(quad));
+	}
+	{
+		auto quad = std::make_unique<RenderEngine::MeshInstance>(quad_mesh,
+			_assets.getMaterialInstanceAs<Assets::NoLitMaterial::Instance>("NoLit - white")->getMaterialInstance(),
+			1);
+		_assets.addMeshInstance("white_quad01", std::move(quad));
+	}
+	{
+		auto quad = std::make_unique<RenderEngine::MeshInstance>(quad_mesh,
+			_assets.getMaterialInstanceAs<Assets::NoLitMaterial::Instance>("NoLit - red")->getMaterialInstance(),
+			2);
+		_assets.addMeshInstance("red_quad00", std::move(quad));
+	}
+	{
+		auto quad = std::make_unique<RenderEngine::MeshInstance>(quad_mesh,
+			_assets.getMaterialInstanceAs<Assets::NoLitMaterial::Instance>("NoLit - red")->getMaterialInstance(),
+			3);
+		_assets.addMeshInstance("red_quad01", std::move(quad));
+	}
 }
 
 

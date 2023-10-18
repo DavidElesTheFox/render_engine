@@ -122,7 +122,7 @@ namespace RenderEngine
 	{
 		if (checkPushConstantsConsistency() == false)
 		{
-			throw std::runtime_error("Materials push constants are not consistant across the shaders.");
+		//	throw std::runtime_error("Materials push constants are not consistant across the shaders.");
 		}
 	}
 

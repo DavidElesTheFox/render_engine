@@ -30,6 +30,8 @@ namespace RenderEngine
 			struct PushConstants
 			{
 				int32_t size{ -1 };
+				int32_t offset{ 0 };
+				VkShaderStageFlags shared_with{ 0 };
 			};
 
 			uint32_t attributes_stride;

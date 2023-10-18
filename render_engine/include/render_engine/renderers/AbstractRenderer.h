@@ -15,6 +15,16 @@ namespace RenderEngine
 		{
 		public:
 			explicit ReinitializationCommand(AbstractRenderer& renderer);
+			ReinitializationCommand(const ReinitializationCommand&) = delete;
+			ReinitializationCommand& operator=(const ReinitializationCommand&) = delete;
+
+			ReinitializationCommand(ReinitializationCommand&& o)
+				: _renderer(o._renderer)
+			{
+				o._finished = true;
+			}
+			ReinitializationCommand& operator=(ReinitializationCommand&&) = delete;
+
 
 			void finish(const SwapChain& swap_chain);
 			~ReinitializationCommand();

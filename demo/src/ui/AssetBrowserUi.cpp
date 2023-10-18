@@ -20,7 +20,11 @@ namespace Ui
 
 			if (auto* nolit_material = dynamic_cast<Assets::NoLitMaterial::Instance*>(material_instance))
 			{
-				ImGui::SliderFloat("Color offset", &nolit_material->getMaterialData().color_offset, 0.0f, 1.0f);
+				glm::vec3 color = nolit_material->getMaterialConstants().fragment_values.getInstanceColor();
+				if (ImGui::SliderFloat3(("Instance_color - " + material_instance_name).c_str(), &color.x, 0.0f, 1.0f))
+				{
+					nolit_material->getMaterialConstants().fragment_values.setInstanceColor(color);
+				}
 			}
 			ImGui::Separator();
 		}
@@ -33,18 +37,18 @@ namespace Ui
 			auto* mesh_instance = _assets.getMeshInstance(mesh_instance_name);
 			auto* mesh_object = _scene.getNodeLookup().findMesh(mesh_instance->getId());
 			glm::vec3 rotation = mesh_object->getTransformation().getEulerAngles();
-			if (ImGui::SliderFloat3("Rotation", &rotation.x, -glm::pi<float>(), glm::pi<float>()))
+			if (ImGui::SliderFloat3(("Rotation - " + mesh_instance_name).c_str(), &rotation.x, -glm::pi<float>(), glm::pi<float>()))
 			{
 				mesh_object->getTransformation().setEulerAngles(rotation);
 			}
 			glm::vec3 position = mesh_object->getTransformation().getPosition();
-			if (ImGui::InputFloat3("Position", &position.x))
+			if (ImGui::InputFloat3(("Position - " + mesh_instance_name).c_str(), &position.x))
 			{
 				mesh_object->getTransformation().setPosition(position);
 			}
 			ImGui::Separator();
 			glm::vec3 scale = mesh_object->getTransformation().getScale();
-			if (ImGui::InputFloat3("Scale", &scale.x))
+			if (ImGui::InputFloat3(("Scale - " + mesh_instance_name).c_str(), &scale.x))
 			{
 				mesh_object->getTransformation().setScale(scale);
 			}

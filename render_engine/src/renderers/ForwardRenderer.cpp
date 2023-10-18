@@ -191,13 +191,15 @@ namespace RenderEngine
 				vkCmdSetScissor(frame_data.command_buffer, 0, 1, &scissor);
 				auto descriptor_sets = mesh_group.technique->collectDescriptorSets(frame_number);
 
-				vkCmdBindDescriptorSets(frame_data.command_buffer,
-					VK_PIPELINE_BIND_POINT_GRAPHICS,
-					mesh_group.technique->getPipelineLayout(),
-					0,
-					descriptor_sets.size(),
-					descriptor_sets.data(), 0, nullptr);
-
+				if (descriptor_sets.empty() == false)
+				{
+					vkCmdBindDescriptorSets(frame_data.command_buffer,
+						VK_PIPELINE_BIND_POINT_GRAPHICS,
+						mesh_group.technique->getPipelineLayout(),
+						0,
+						descriptor_sets.size(),
+						descriptor_sets.data(), 0, nullptr);
+				}
 				
 				for (auto& mesh_instance : mesh_group.mesh_instances)
 				{

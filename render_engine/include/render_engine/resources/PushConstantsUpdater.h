@@ -9,17 +9,13 @@ namespace RenderEngine
 	{
 	public:
 		PushConstantsUpdater(VkCommandBuffer command_buffer,
-			VkPipelineLayout layout,
-			VkShaderStageFlags shader_stages)
+			VkPipelineLayout layout)
 			: _command_buffer(command_buffer)
 			, _layout(layout)
-			, _shader_stages(shader_stages)
 		{}
 
-		void update(size_t offset, std::span<const uint8_t> data);
+		void update(VkShaderStageFlags shader_stages, size_t offset, std::span<const uint8_t> data);
 	private:
 		VkCommandBuffer _command_buffer{ VK_NULL_HANDLE };
-		VkPipelineLayout _layout{ VK_NULL_HANDLE };
-		VkShaderStageFlags _shader_stages{ 0 };
-	};
+		VkPipelineLayout _layout{ VK_NULL_HANDLE };	};
 }

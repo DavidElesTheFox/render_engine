@@ -41,7 +41,7 @@ namespace RenderEngine
 		VkDescriptorSetLayout getDescriptorSetLayout() const { return _uniforms_layout; }
 		PushConstantsUpdater createPushConstantsUpdater(VkCommandBuffer command_buffer)
 		{
-			return PushConstantsUpdater{ command_buffer, _pipeline_layout, getPushConstantsUsageFlag() };
+			return PushConstantsUpdater{ command_buffer, _pipeline_layout};
 		}
 		void updateGlobalUniformBuffer(uint32_t frame_number)
 		{

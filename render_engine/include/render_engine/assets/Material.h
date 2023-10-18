@@ -40,11 +40,18 @@ namespace RenderEngine
 			return _callbacks.create_vertex_buffer(geometry, *this);
 		}
 
-		const std::optional<Shader::MetaData::PushConstants>& getPushConstantsMetaData() const
+		std::unordered_map<VkShaderStageFlags, Shader::MetaData::PushConstants> getPushConstantsMetaData() const
 		{
-			return _vertex_shader.getMetaData().push_constants != std::nullopt
-				? _vertex_shader.getMetaData().push_constants
-				: _fragment_shader.getMetaData().push_constants;
+			std::unordered_map<VkShaderStageFlags, Shader::MetaData::PushConstants> result;
+			if (_vertex_shader.getMetaData().push_constants != std::nullopt)
+			{
+				result.insert({ VK_SHADER_STAGE_VERTEX_BIT | _vertex_shader.getMetaData().push_constants->shared_with,*_vertex_shader.getMetaData().push_constants });
+			}
+			if (_fragment_shader.getMetaData().push_constants != std::nullopt)
+			{
+				result.insert({ VK_SHADER_STAGE_FRAGMENT_BIT | _fragment_shader.getMetaData().push_constants->shared_with, *_fragment_shader.getMetaData().push_constants });
+			}
+			return result;
 		}
 	private:
 

@@ -12,7 +12,7 @@ namespace RenderEngine
 	void AbstractRenderer::ReinitializationCommand::finish(const SwapChain& swap_chain)
 	{
 		_renderer.finalizeReinit(swap_chain);
-
+		_finished = true;
 	}
 	AbstractRenderer::ReinitializationCommand::~ReinitializationCommand()
 	{

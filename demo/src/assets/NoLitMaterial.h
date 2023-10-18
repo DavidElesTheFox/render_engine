@@ -15,12 +15,7 @@ namespace Assets
 	{
 	public:
 
-		struct Data
-		{
-			float color_offset{ 0.0f };
-		};
-
-		class PushConstants
+		class VertexPushConstants
 		{
 			friend class NoLitMaterial;
 		public:
@@ -28,21 +23,32 @@ namespace Assets
 			glm::mat4 projection;
 			glm::mat4 model_view;
 		};
+		class FragmentPushConstants
+		{
+			friend class NoLitMaterial;
+		public:
+			const glm::vec3& getInstanceColor() const { return instance_color; }
+			void setInstanceColor(glm::vec3 color) { instance_color = std::move(color); }
+		private:
+			glm::vec3 instance_color{ 1.0f };
+		};
 
+		struct MaterialPushConstants
+		{
+			VertexPushConstants vertex_values;
+			FragmentPushConstants fragment_values;
+		};
 		class Instance : public IInstance
 		{
 			friend class NoLitMaterial;
 		public:
 			Instance() = default;
 			~Instance() override = default;
-			Data& getMaterialData() { return _material_data; }
-			const Data& getMaterialData() const { return _material_data; }
-			PushConstants& getMaterialConstants() { return _material_constants; }
-			const PushConstants& getMaterialConstants() const { return _material_constants; }
+			MaterialPushConstants& getMaterialConstants() { return _material_constants; }
+			const MaterialPushConstants& getMaterialConstants() const { return _material_constants; }
 			RenderEngine::MaterialInstance* getMaterialInstance() { return _material_instance.get(); }
 		private:
-			Data _material_data{};
-			PushConstants _material_constants;
+			MaterialPushConstants _material_constants;
 			std::unique_ptr<RenderEngine::MaterialInstance> _material_instance;
 		};
 		static const std::string& GetName() 
@@ -54,7 +60,7 @@ namespace Assets
 		NoLitMaterial();
 		~NoLitMaterial() override = default;
 
-		std::unique_ptr<Instance> createInstance(Data data, Scene::Scene* scene);
+		std::unique_ptr<Instance> createInstance(glm::vec3 instance_color, Scene::Scene* scene, uint32_t id);
 
 		RenderEngine::Material* getMaterial() { return _material.get(); }
 

@@ -19,8 +19,8 @@ namespace Scene
 		void setEulerAngles(glm::vec3 euler_angles) { _rotation = std::move(euler_angles); }
 		void setScale(glm::vec3 scale) { _scale = std::move(scale); }
 
-		glm::mat4 calculateTransformation() const { return glm::translate(glm::scale(glm::mat4_cast(getRotation()), _scale), _position); }
-		glm::mat4 calculateNoScaleTransformation() const { return glm::translate(glm::mat4_cast(getRotation()), _position); }
+		glm::mat4 calculateTransformation() const { return glm::translate(glm::mat4{ 1.0f }, _position) * glm::mat4_cast(getRotation()) * glm::scale(glm::mat4{ 1.0f }, _scale); }
+		glm::mat4 calculateNoScaleTransformation() const { return glm::translate(glm::mat4{ 1.0f }, _position) * glm::mat4_cast(getRotation()); }
 		const glm::quat& getRotation() const { return _rotation; }
 
 		void rotate(const glm::quat& rotation)

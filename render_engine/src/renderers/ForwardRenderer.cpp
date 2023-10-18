@@ -106,9 +106,9 @@ namespace RenderEngine
 		_render_area.offset = { 0, 0 };
 		_render_area.extent = swap_chain.getDetails().extent;
 	}
-	void ForwardRenderer::addMesh(MeshInstance* mesh_instance, int32_t priority)
+	void ForwardRenderer::addMesh(const MeshInstance* mesh_instance, int32_t priority)
 	{
-		auto* mesh = mesh_instance->getMesh();
+		const auto* mesh = mesh_instance->getMesh();
 		const auto& material = mesh->getMaterial();
 		const uint32_t material_id = material.getId();
 		const uint32_t material_instance_id = mesh_instance->getMaterialInstance()->getId();

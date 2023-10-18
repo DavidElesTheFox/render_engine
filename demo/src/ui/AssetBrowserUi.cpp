@@ -33,12 +33,21 @@ namespace Ui
 			auto* mesh_instance = _assets.getMeshInstance(mesh_instance_name);
 			auto* mesh_object = _scene.getNodeLookup().findMesh(mesh_instance->getId());
 			glm::vec3 rotation = mesh_object->getTransformation().getEulerAngles();
-			ImGui::SliderFloat3("Rotation", &rotation.x, -glm::pi<float>(), glm::pi<float>());
-			mesh_object->getTransformation().setEulerAngles(rotation);
+			if (ImGui::SliderFloat3("Rotation", &rotation.x, -glm::pi<float>(), glm::pi<float>()))
+			{
+				mesh_object->getTransformation().setEulerAngles(rotation);
+			}
 			glm::vec3 position = mesh_object->getTransformation().getPosition();
-			ImGui::InputFloat3("Position", &position.x);
-			mesh_object->getTransformation().setPosition(position);
+			if (ImGui::InputFloat3("Position", &position.x))
+			{
+				mesh_object->getTransformation().setPosition(position);
+			}
 			ImGui::Separator();
+			glm::vec3 scale = mesh_object->getTransformation().getScale();
+			if (ImGui::InputFloat3("Scale", &scale.x))
+			{
+				mesh_object->getTransformation().setScale(scale);
+			}
 		}
 		ImGui::End();
 

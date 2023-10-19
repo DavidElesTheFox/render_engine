@@ -7,6 +7,17 @@
 
 class ApplicationContext
 {
+private:
+	/**
+	* @TODO: Implement proper id generation
+	*/
+	class IdGenerator
+	{
+	public:
+		uint32_t generateId() { assert(next_id + 1 != 0 && "Overflow detected"); return next_id++; };
+	private:
+		uint32_t next_id{ 0 };
+	};
 public:
 	struct MouseEventData
 	{
@@ -26,7 +37,7 @@ public:
 	friend void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 
 	float getMouseSensitivity() const { return _mouse_sensitivity; }
-
+	uint32_t generateId() { return _id_generator.generateId(); }
 private:
 	Scene::Scene* getScene() { return _scene; }
 
@@ -36,4 +47,5 @@ private:
 	GLFWcursorposfun original_cursor_position_callback{ nullptr };
 	GLFWmousebuttonfun original_mouse_button_callback{ nullptr };
 	GLFWkeyfun originak_key_callback{ nullptr };
+	IdGenerator _id_generator;
 };

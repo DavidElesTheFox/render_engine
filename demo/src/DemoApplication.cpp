@@ -65,14 +65,14 @@ void DemoApplication::createBaseMesh()
 	auto* nolit_material = _assets.getBaseMaterial<Assets::NoLitMaterial>();
 	auto* quad_geometry = _assets.getGeometry("quad");
 
-	auto quad_asset = std::make_unique<RenderEngine::Mesh>(quad_geometry, nolit_material->getMaterial(), 0);
+	auto quad_asset = std::make_unique<RenderEngine::Mesh>(quad_geometry, nolit_material->getMaterial(), ApplicationContext::instance().generateId());
 	_assets.addBaseMesh("quad", std::move(quad_asset));
 
 }
 
 void DemoApplication::createBaseMaterials()
 {
-	_assets.addBaseMaterial(std::make_unique<Assets::NoLitMaterial>());
+	_assets.addBaseMaterial(std::make_unique<Assets::NoLitMaterial>(ApplicationContext::instance().generateId()));
 }
 
 void DemoApplication::createScene()
@@ -155,8 +155,8 @@ void DemoApplication::createAssets()
 void DemoApplication::instantiateMaterials()
 {
 	auto nolit_material = _assets.getBaseMaterial<Assets::NoLitMaterial>();
-	_assets.addMaterialInstance("NoLit - white", nolit_material->createInstance(glm::vec3{ 1.0f }, _scene.get(), 0));
-	_assets.addMaterialInstance("NoLit - red", nolit_material->createInstance(glm::vec3{ 1.0f, 0.0f, 0.0f }, _scene.get(), 1));
+	_assets.addMaterialInstance("NoLit - white", nolit_material->createInstance(glm::vec3{ 1.0f }, _scene.get(), ApplicationContext::instance().generateId()));
+	_assets.addMaterialInstance("NoLit - red", nolit_material->createInstance(glm::vec3{ 1.0f, 0.0f, 0.0f }, _scene.get(), ApplicationContext::instance().generateId()));
 }
 
 void DemoApplication::instantiateMeshes()
@@ -166,25 +166,25 @@ void DemoApplication::instantiateMeshes()
 	{
 		auto quad = std::make_unique<RenderEngine::MeshInstance>(quad_mesh,
 			_assets.getMaterialInstanceAs<Assets::NoLitMaterial::Instance>("NoLit - white")->getMaterialInstance(),
-			0);
+			ApplicationContext::instance().generateId());
 		_assets.addMeshInstance("white_quad00", std::move(quad));
 	}
 	{
 		auto quad = std::make_unique<RenderEngine::MeshInstance>(quad_mesh,
 			_assets.getMaterialInstanceAs<Assets::NoLitMaterial::Instance>("NoLit - white")->getMaterialInstance(),
-			1);
+			ApplicationContext::instance().generateId());
 		_assets.addMeshInstance("white_quad01", std::move(quad));
 	}
 	{
 		auto quad = std::make_unique<RenderEngine::MeshInstance>(quad_mesh,
 			_assets.getMaterialInstanceAs<Assets::NoLitMaterial::Instance>("NoLit - red")->getMaterialInstance(),
-			2);
+			ApplicationContext::instance().generateId());
 		_assets.addMeshInstance("red_quad00", std::move(quad));
 	}
 	{
 		auto quad = std::make_unique<RenderEngine::MeshInstance>(quad_mesh,
 			_assets.getMaterialInstanceAs<Assets::NoLitMaterial::Instance>("NoLit - red")->getMaterialInstance(),
-			3);
+			ApplicationContext::instance().generateId());
 		_assets.addMeshInstance("red_quad01", std::move(quad));
 	}
 }

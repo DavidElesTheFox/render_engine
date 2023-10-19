@@ -20,7 +20,6 @@ namespace Scene
 		void setScale(glm::vec3 scale) { _scale = std::move(scale); }
 
 		glm::mat4 calculateTransformation() const { return glm::translate(glm::mat4{ 1.0f }, _position) * glm::mat4_cast(getRotation()) * glm::scale(glm::mat4{ 1.0f }, _scale); }
-		glm::mat4 calculateNoScaleTransformation() const { return glm::translate(glm::mat4{ 1.0f }, _position) * glm::mat4_cast(getRotation()); }
 		const glm::quat& getRotation() const { return _rotation; }
 
 		void rotate(const glm::quat& rotation)

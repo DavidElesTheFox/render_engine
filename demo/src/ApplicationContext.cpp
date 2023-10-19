@@ -56,7 +56,7 @@ void cursorPositionCallback(GLFWwindow* window, double xpos, double ypos)
 	{
 		return;
 	}
-	const glm::vec2 current_coordinates = glm::vec2{ -ypos, xpos };
+	const glm::vec2 current_coordinates = glm::vec2{ -ypos, -xpos };
 	const glm::vec2 delta = event_data.dragging_coordinates - current_coordinates;
 
 	const glm::quat rotation{ glm::vec3(delta, 0.0f) * ApplicationContext::instance().getMouseSensitivity() };
@@ -81,7 +81,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 			glfwGetCursorPos(window, &xpos, &ypos);
 
 			event_data.dragging_coordinates.x = -ypos;
-			event_data.dragging_coordinates.y = xpos;
+			event_data.dragging_coordinates.y = -xpos;
 			event_data.is_dragging = true;
 		}
 		else if (action == GLFW_RELEASE)

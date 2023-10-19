@@ -15,10 +15,11 @@
 
 #include <demo/resource_config.h>
 
+#include <ApplicationContext.h>
 namespace Assets
 {
 
-	NoLitMaterial::NoLitMaterial()
+	NoLitMaterial::NoLitMaterial(uint32_t id)
 	{
 		using namespace RenderEngine;
 
@@ -50,8 +51,7 @@ namespace Assets
 					std::vector<uint8_t> vertex_buffer(begin, begin + vertex_buffer_data.size() * sizeof(float));
 					return vertex_buffer;
 				}
-			}, 0
-		);
+			}, id);
 	}
 	std::unique_ptr<NoLitMaterial::Instance> NoLitMaterial::createInstance(glm::vec3 instance_color, Scene::Scene* scene, uint32_t id)
 	{

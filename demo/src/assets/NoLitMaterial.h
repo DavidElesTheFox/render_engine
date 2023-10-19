@@ -57,7 +57,7 @@ namespace Assets
 			return _name;
 		}
 
-		NoLitMaterial();
+		explicit NoLitMaterial(uint32_t id);
 		~NoLitMaterial() override = default;
 
 		std::unique_ptr<Instance> createInstance(glm::vec3 instance_color, Scene::Scene* scene, uint32_t id);

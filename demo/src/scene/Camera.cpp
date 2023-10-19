@@ -4,11 +4,11 @@ namespace Scene
 {
 	glm::mat4 Camera::getView() const
 	{
-		const glm::mat4 transformation = getTransformation().calculateNoScaleTransformation();
+		const glm::mat4 rotation = glm::mat4_cast(getTransformation().getRotation());
 		const glm::vec3 direction = glm::vec4(_scene_setup.forward, 1.0f)
-			* transformation;
+			* rotation;
 		const glm::vec3 up = glm::vec4(_scene_setup.up, 1.0f)
-			* transformation;
+			* rotation;
 		const glm::vec3 position = getTransformation().getPosition();
 
 		return glm::lookAtRH(position,

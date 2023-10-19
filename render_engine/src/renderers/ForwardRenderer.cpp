@@ -11,13 +11,13 @@
 #include <render_engine/assets/Shader.h>
 #include <render_engine/resources/Buffer.h>
 #include <render_engine/resources/Technique.h>
+#include <render_engine/resources/PushConstantsUpdater.h>
 
 namespace RenderEngine
 {
 	ForwardRenderer::ForwardRenderer(Window& parent,
 		const SwapChain& swap_chain,
-		bool last_renderer,
-		std::vector<Material*> supported_materials)
+		bool last_renderer)
 		try : _window(parent)
 		, _back_buffer(parent.getGpuResourceManager().getBackBufferSize())
 	{
@@ -69,13 +69,6 @@ namespace RenderEngine
 		createFrameBuffers(swap_chain);
 		createCommandPool(_window.getRenderQueueFamily());
 		createCommandBuffer();
-
-
-		for (const auto* material : supported_materials)
-		{
-			std::unique_ptr<Technique> technique = material->createTechnique(logical_device, _window.getGpuResourceManager(), _render_pass);
-			_technique_map.insert(std::make_pair(material->getId(), std::move(technique)));
-		}
 	}
 	catch (const std::exception&)
 	{
@@ -113,11 +106,15 @@ namespace RenderEngine
 		_render_area.offset = { 0, 0 };
 		_render_area.extent = swap_chain.getDetails().extent;
 	}
-	void ForwardRenderer::addMesh(Mesh* mesh, int32_t priority)
+	void ForwardRenderer::addMesh(const MeshInstance* mesh_instance, int32_t priority)
 	{
+		const auto* mesh = mesh_instance->getMesh();
+		const auto& material = mesh->getMaterial();
+		const uint32_t material_id = material.getId();
+		const uint32_t material_instance_id = mesh_instance->getMaterialInstance()->getId();
 		const Geometry& geometry = mesh->getGeometry();
 
-		const Shader::MetaData& vertex_shader_meta_data = mesh->getMaterial().vertexShader().metaData();
+		const Shader::MetaData& vertex_shader_meta_data = material.getVertexShader().getMetaData();
 		MeshBuffers mesh_buffers;
 		if (geometry.positions.empty() == false)
 		{
@@ -133,15 +130,21 @@ namespace RenderEngine
 				geometry.indexes.size() * sizeof(int16_t));
 			mesh_buffers.index_buffer->uploadUnmapped(std::span{ geometry.indexes.data(), geometry.indexes.size() }, _window.getRenderQueue(), _command_pool);
 		}
-		_meshes[priority][mesh->getMaterial().getId()].mesh_buffers[mesh] = std::move(mesh_buffers);
-		_meshes[priority][mesh->getMaterial().getId()].technique = _technique_map[mesh->getMaterial().getId()].get();
+		_mesh_buffers[mesh_instance->getMesh()] = std::move(mesh_buffers);
+		auto& mesh_group = _meshes[priority][material_instance_id];
+		mesh_group.mesh_instances.push_back(mesh_instance);
+		if (mesh_group.technique == nullptr)
+		{
+			auto& material = mesh->getMaterial();
+			_meshes[priority][material_instance_id].technique = mesh_instance->getMaterialInstance()->createTechnique(_window.getGpuResourceManager(),
+				_render_pass);
+		}
 	}
 
 	void ForwardRenderer::draw(uint32_t swap_chain_image_index, uint32_t frame_number)
 	{
 		FrameData& frame_data = _back_buffer[frame_number];
 
-		//frame_data.color_offset->uploadMapped(std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(&_color_offset), sizeof(ColorOffset)));
 
 		vkResetCommandBuffer(frame_data.command_buffer, /*VkCommandBufferResetFlagBits*/ 0);
 		VkCommandBufferBeginInfo begin_info{};
@@ -166,7 +169,10 @@ namespace RenderEngine
 		{
 			for (auto& mesh_group : mesh_group_container | std::views::values)
 			{
-				mesh_group.technique->update(frame_number);
+				auto push_constants_updater = mesh_group.technique->createPushConstantsUpdater(frame_data.command_buffer);
+
+				mesh_group.technique->updateGlobalUniformBuffer(frame_number);
+				mesh_group.technique->updateGlobalPushConstants(push_constants_updater);
 
 				vkCmdBindPipeline(frame_data.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_group.technique->getPipeline());
 
@@ -185,15 +191,20 @@ namespace RenderEngine
 				vkCmdSetScissor(frame_data.command_buffer, 0, 1, &scissor);
 				auto descriptor_sets = mesh_group.technique->collectDescriptorSets(frame_number);
 
-				vkCmdBindDescriptorSets(frame_data.command_buffer,
-					VK_PIPELINE_BIND_POINT_GRAPHICS,
-					mesh_group.technique->getPipelineLayout(),
-					0,
-					descriptor_sets.size(),
-					descriptor_sets.data(), 0, nullptr);
-
-				for (auto& [mesh, mesh_buffers] : mesh_group.mesh_buffers)
+				if (descriptor_sets.empty() == false)
 				{
+					vkCmdBindDescriptorSets(frame_data.command_buffer,
+						VK_PIPELINE_BIND_POINT_GRAPHICS,
+						mesh_group.technique->getPipelineLayout(),
+						0,
+						descriptor_sets.size(),
+						descriptor_sets.data(), 0, nullptr);
+				}
+				
+				for (auto& mesh_instance : mesh_group.mesh_instances)
+				{
+					mesh_instance->updatePushConstants(push_constants_updater);
+					auto& mesh_buffers = _mesh_buffers.at(mesh_instance->getMesh());
 
 					VkBuffer vertexBuffers[] = { mesh_buffers.vertex_buffer->getBuffer() };
 					VkDeviceSize offsets[] = { 0 };

@@ -30,4 +30,28 @@ namespace RenderEngine
 		Material* _material{ nullptr };
 		int32_t _id{ 0 };
 	};
+
+	class MeshInstance
+	{
+	public:
+		MeshInstance(Mesh* mesh, MaterialInstance* material_instance, uint32_t id)
+			: _mesh(mesh)
+			, _material_instance(material_instance)
+			, _id(id)
+		{}
+
+		Mesh* getMesh() { return _mesh; }
+		const Mesh* getMesh() const { return _mesh; }
+		MaterialInstance* getMaterialInstance() { return _material_instance; }
+		const MaterialInstance* getMaterialInstance() const { return _material_instance; }
+		void updatePushConstants(PushConstantsUpdater& updater) const 
+		{
+			_material_instance->updatePushConstants(this, updater);
+		}
+		uint32_t getId() const { return _id; }
+	private:
+		Mesh* _mesh{ nullptr };
+		MaterialInstance* _material_instance{ nullptr };
+		uint32_t _id{ 0 };
+	};
 }

@@ -38,13 +38,14 @@ set(RENDER_ENGINE_RESOURCES_SRC
 	src/resources/Technique.cpp
 	src/resources/Buffer.cpp
 	src/resources/UniformBinding.cpp
+	src/resources/PushConstantsUpdater.cpp
     )
 set(RENDER_ENGINE_RESOURCES_HEADERS 
 	${RENDER_ENGINE_HEADER_LOCATION}/resources/Buffer.h
 	${RENDER_ENGINE_HEADER_LOCATION}/resources/ShaderModule.h
 	${RENDER_ENGINE_HEADER_LOCATION}/resources/Technique.h
 	${RENDER_ENGINE_HEADER_LOCATION}/resources/UniformBinding.h
-	
+	${RENDER_ENGINE_HEADER_LOCATION}/resources/PushConstantsUpdater.h
 	)
 source_group("src\\resources" FILES ${RENDER_ENGINE_RESOURCES_SRC})
 source_group("include\\resources" FILES ${RENDER_ENGINE_RESOURCES_HEADERS})
@@ -75,6 +76,9 @@ set(RENDER_ENGINE_CONTAINERS_HEADERS
 	)
 source_group("include\\containers" FILES ${RENDER_ENGINE_CONTAINERS_HEADERS})
 
+##########
+# Window #
+##########
 
 set(RENDER_ENGINE_WINDOW_SRC
 	src/window/Window.cpp
@@ -87,7 +91,6 @@ set(RENDER_ENGINE_WINDOW_HEADERS
 
 source_group("src\\window" FILES ${RENDER_ENGINE_WINDOW_SRC})
 source_group("include\\window" FILES ${RENDER_ENGINE_WINDOW_HEADERS})
-
 ########
 # root #
 ########
@@ -166,6 +169,8 @@ target_link_libraries(RenderEngine
         glm::glm)
 		
 target_compile_definitions(RenderEngine 
+	PUBLIC
+		GLM_FORCE_RADIANS
 	PRIVATE 
 		VK_USE_PLATFORM_WIN32_KHR
 		VK_NO_PROTOTYPES

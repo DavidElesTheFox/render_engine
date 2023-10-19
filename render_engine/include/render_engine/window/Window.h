@@ -21,7 +21,7 @@ namespace RenderEngine
 	public:
 
 		static constexpr std::array<const char*, 1> kDeviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
-		explicit Window(RenderEngine& engine,
+		Window(RenderEngine& engine,
 			GLFWwindow* window,
 			std::unique_ptr<SwapChain> swap_chain,
 			VkQueue render_queue,

@@ -12,6 +12,7 @@ namespace RenderEngine
 {
 	class Material;
 	class Mesh;
+	class MeshInstance;
 	class Technique;
 	class Buffer;
 
@@ -28,22 +29,21 @@ namespace RenderEngine
 		};
 		struct MeshGroup
 		{
-			Technique* technique;
-			std::map<Mesh*, MeshBuffers> mesh_buffers;
+			std::unique_ptr<Technique> technique;
+			std::vector<const MeshInstance*> mesh_instances;
 		};
 		struct FrameData
 		{
 			VkCommandBuffer command_buffer;
 		};
-		using MeshGroupMap = std::unordered_map<uint32_t, MeshGroup>;
+		using MaterialMeshGroupMap = std::unordered_map<uint32_t, MeshGroup>;
 	public:
 		static constexpr uint32_t kRendererId = 2u;
 		ForwardRenderer(Window& parent,
 			const SwapChain& swap_chain,
-			bool last_renderer,
-			std::vector<Material*> supported_materials);
+			bool last_renderer);
 		~ForwardRenderer() override;
-		void addMesh(Mesh* mesh, int32_t priority);
+		void addMesh(const MeshInstance* mesh_instance, int32_t priority);
 		void draw(uint32_t swap_chain_image_index, uint32_t frame_number) override;
 		std::vector<VkCommandBuffer> getCommandBuffers(uint32_t frame_number) override
 		{
@@ -60,8 +60,9 @@ namespace RenderEngine
 		void finalizeReinit(const SwapChain& swap_chain) override;
 		void destroy();
 	private:
-		std::map<int32_t, MeshGroupMap> _meshes;
-		std::unordered_map<uint32_t, std::unique_ptr<Technique>> _technique_map;
+		std::map<int32_t, MaterialMeshGroupMap> _meshes;
+		std::map<const Mesh*, MeshBuffers> _mesh_buffers;
+
 		BackBuffer<FrameData> _back_buffer;
 
 		VkRect2D _render_area;

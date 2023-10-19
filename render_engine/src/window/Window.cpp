@@ -13,8 +13,17 @@
 #include <fstream>
 
 #include <backends/imgui_impl_vulkan.h>
-#include <renderdoc_app.h>
 
+#ifdef RENDERDOC_ENABLED
+#	include <renderdoc_app.h>
+#else
+struct NullRenderdocApi
+{
+	void StartFrameCapture(void*, void*) {}
+	void EndFrameCapture(void*, void*) {};
+};
+#	define RENDERDOC_API_1_1_2 NullRenderdocApi
+#endif
 namespace
 {
 	constexpr uint32_t kMaxNumOfResources = 10;

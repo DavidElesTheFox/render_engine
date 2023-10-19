@@ -5,30 +5,43 @@
 namespace RenderEngine
 {
 	Technique::Technique(VkDevice logical_device,
-		const Material* material,
+		const MaterialInstance* material_instance,
 		std::vector<UniformBinding>&& uniform_buffers,
 		VkDescriptorSetLayout uniforms_layout,
 		VkRenderPass render_pass)
-		try : _material(material)
+		try : _material_instance(material_instance)
 		, _uniform_buffers(std::move(uniform_buffers))
 		, _logical_device(logical_device)
 		, _uniforms_layout(uniforms_layout)
 	{
-		auto vertex_shader = material->vertexShader().loadOn(logical_device);
-		auto fragment_shader = material->fragmentShader().loadOn(logical_device);
+		const auto* material = _material_instance->getMaterial();
+		auto vertex_shader = material->getVertexShader().loadOn(logical_device);
+		auto fragment_shader = material->getFragmentShader().loadOn(logical_device);
 
 		std::vector<VkDescriptorSetLayout> descriptor_set_layouts;
 		if (_uniform_buffers.empty() == false)
 		{
 			descriptor_set_layouts.push_back(_uniforms_layout);
 		}
+
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-		pipelineLayoutInfo.pushConstantRangeCount = 0;
 		pipelineLayoutInfo.setLayoutCount = descriptor_set_layouts.size();
 		pipelineLayoutInfo.pSetLayouts = descriptor_set_layouts.data();
 
+		std::vector<VkPushConstantRange> push_constants_info_container{};
 
+		for (const auto& [stage, push_constants] : material->getPushConstantsMetaData())
+		{
+			VkPushConstantRange push_constants_info;
+			push_constants_info.offset = push_constants.offset;
+			push_constants_info.size = push_constants.size;
+			push_constants_info.stageFlags = stage;
+			push_constants_info_container.push_back(push_constants_info);
+		}
+
+		pipelineLayoutInfo.pushConstantRangeCount = push_constants_info_container.size();
+		pipelineLayoutInfo.pPushConstantRanges = push_constants_info_container.data();
 		if (vkCreatePipelineLayout(logical_device, &pipelineLayoutInfo, nullptr, &_pipeline_layout) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create pipeline layout!");
 		}
@@ -51,12 +64,12 @@ namespace RenderEngine
 		// TODO implement more binding
 		VkVertexInputBindingDescription binding_description{};
 		binding_description.binding = 0;
-		binding_description.stride = material->vertexShader().metaData().attributes_stride;
+		binding_description.stride = material->getVertexShader().getMetaData().attributes_stride;
 		// TODO add support of instanced rendering
 		binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
 		std::vector<VkVertexInputAttributeDescription> attribute_descriptions;
-		for (const auto& attribute : material->vertexShader().metaData().input_attributes)
+		for (const auto& attribute : material->getVertexShader().getMetaData().input_attributes)
 		{
 			VkVertexInputAttributeDescription description{};
 			description.binding = 0;
@@ -157,5 +170,19 @@ namespace RenderEngine
 
 
 		vkDestroyDescriptorSetLayout(_logical_device, _uniforms_layout, nullptr);
+	}
+
+	VkShaderStageFlags Technique::getPushConstantsUsageFlag() const
+	{
+		VkShaderStageFlags result{ 0 };
+		if (_material_instance->getMaterial()->getVertexShader().getMetaData().push_constants != std::nullopt)
+		{
+			result |= VK_SHADER_STAGE_VERTEX_BIT;
+		}
+		if (_material_instance->getMaterial()->getFragmentShader().getMetaData().push_constants != std::nullopt)
+		{
+			result |= VK_SHADER_STAGE_FRAGMENT_BIT;
+		}
+		return result;
 	}
 }

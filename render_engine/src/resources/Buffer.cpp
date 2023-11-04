@@ -103,47 +103,26 @@ namespace
 
 namespace RenderEngine
 {
-	std::unique_ptr<Buffer> Buffer::CreateAttributeBuffer(VkPhysicalDevice physical_device,
-		VkDevice logical_device,
-		VkBufferUsageFlags usage,
-		VkDeviceSize size)
-	{
-		return std::unique_ptr<Buffer>(new Buffer(physical_device,
-			logical_device,
-			usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-			size,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT));
-	}
-
-	std::unique_ptr<Buffer> Buffer::CreateUniformBuffer(VkPhysicalDevice physical_device,
-		VkDevice logical_device,
-		VkDeviceSize size)
-	{
-		auto result = std::unique_ptr<Buffer>(new Buffer(physical_device,
-			logical_device,
-			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-			size,
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT));
-		vkMapMemory(logical_device, result->_buffer_memory, 0, size, 0, &result->_mapped_memory);
-		return result;
-	}
 
 
 	Buffer::Buffer(VkPhysicalDevice physical_device,
 		VkDevice logical_device,
-		VkBufferUsageFlags usage,
-		VkDeviceSize size,
-		VkMemoryPropertyFlags properties)
+		BufferInfo&& buffer_info)
 		: _physical_device(physical_device)
 		, _logical_device(logical_device)
-		, _size(size)
+		, _buffer_info(std::move(buffer_info))
 	{
 		std::tie(_buffer, _buffer_memory) = createBuffer(physical_device,
 			logical_device,
-			size,
-			usage,
-			properties);
+			_buffer_info.size,
+			_buffer_info.usage,
+			_buffer_info.memory_properties);
+		if (isMapped())
+		{
+			vkMapMemory(logical_device, _buffer_memory, 0, getDeviceSize(), 0, &_mapped_memory);
+		}
 	}
+
 	Buffer::~Buffer()
 	{
 		vkDestroyBuffer(_logical_device, _buffer, nullptr);
@@ -153,22 +132,22 @@ namespace RenderEngine
 	void Buffer::uploadUnmapped(std::span<const uint8_t> data_view, VkQueue upload_queue, VkCommandPool command_pool)
 	{
 		assert(isMapped() == false);
-		if (_size != data_view.size())
+		if (_buffer_info.size != data_view.size())
 		{
-			throw std::runtime_error("Invalid size during upload. Buffer size: " + std::to_string(_size) + " data to upload: " + std::to_string(data_view.size()));
+			throw std::runtime_error("Invalid size during upload. Buffer size: " + std::to_string(_buffer_info.size) + " data to upload: " + std::to_string(data_view.size()));
 		}
 		auto [staging_buffer, staging_memory] = createBuffer(_physical_device,
 			_logical_device,
-			_size,
+			_buffer_info.size,
 			VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
 		void* data = nullptr;
-		vkMapMemory(_logical_device, staging_memory, 0, _size, 0, &data);
-		memcpy(data, data_view.data(), (size_t)_size);
+		vkMapMemory(_logical_device, staging_memory, 0, _buffer_info.size, 0, &data);
+		memcpy(data, data_view.data(), (size_t)_buffer_info.size);
 		vkUnmapMemory(_logical_device, staging_memory);
 
-		copyBuffer(_logical_device, upload_queue, command_pool, staging_buffer, _buffer, _size);
+		copyBuffer(_logical_device, upload_queue, command_pool, staging_buffer, _buffer, _buffer_info.size);
 		vkDestroyBuffer(_logical_device, staging_buffer, nullptr);
 		vkFreeMemory(_logical_device, staging_memory, nullptr);
 	}

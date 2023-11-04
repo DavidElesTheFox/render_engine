@@ -162,6 +162,14 @@ target_sources(RenderEngine
 # Library dependencies #
 ########################
 
+# STB headers #
+add_custom_command(
+	TARGET RenderEngine
+	PRE_BUILD
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different "${STB_LIBRARY_INCLUDE_PATH}/stb_image.h" ${GENERATED_INCLUDE_DIR}
+)
+
+# Dependencies #
 target_link_libraries(RenderEngine 
 	PUBLIC 
 		glfw
@@ -183,4 +191,5 @@ target_include_directories(RenderEngine
 		$<INSTALL_INTERFACE:include>
 		${GENERATED_INCLUDE_DIR}
 		${IMGUI_SRC}
-		${RENDERDOC_PATH})
+		${RENDERDOC_PATH}
+)

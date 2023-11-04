@@ -8,6 +8,7 @@ file(MAKE_DIRECTORY ${GENERATED_INCLUDE_DIR})
 set(DATA_DIRECTORY ${CMAKE_SOURCE_DIR}/data_dir)
 set(IMGUI_SRC "${CMAKE_SOURCE_DIR}/3rd_party/imgui")
 set(RENDERDOC_PATH "C:/Program Files/RenderDoc" CACHE STRING "Renderdoc path to api and include files")
+set(STB_LIBRARY_INCLUDE_PATH "${CMAKE_SOURCE_DIR}/3rd_party/stb")
 
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/3rd_party/glfw/cmake" "${CMAKE_SOURCE_DIR}/3rd_party/eigen/cmake")

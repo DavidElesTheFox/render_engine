@@ -6,16 +6,20 @@
 #include <memory>
 namespace RenderEngine
 {
+	struct BufferInfo
+	{
+		VkBufferUsageFlags usage{ 0 };
+		VkDeviceSize size{ 0 };
+		VkMemoryPropertyFlags memory_properties{ 0 };
+		bool mapped{ false };
+	};
+
 	class Buffer
 	{
 	public:
-		static std::unique_ptr<Buffer> CreateAttributeBuffer(VkPhysicalDevice physical_device,
+		Buffer(VkPhysicalDevice physical_device,
 			VkDevice logical_device,
-			VkBufferUsageFlags usage,
-			VkDeviceSize size);
-		static std::unique_ptr<Buffer> CreateUniformBuffer(VkPhysicalDevice physical_device,
-			VkDevice logical_device,
-			VkDeviceSize size);
+			BufferInfo&& buffer_info);
 		~Buffer();
 
 		void uploadMapped(std::span<const uint8_t> data_view);
@@ -28,20 +32,16 @@ namespace RenderEngine
 			uploadUnmapped(std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(data_view.data()), data_view.size() * sizeof(T)), upload_queue, command_pool);
 		}
 		VkBuffer getBuffer() { return _buffer; }
-		VkDeviceSize getDeviceSize() const { return _size; }
+		VkDeviceSize getDeviceSize() const { return _buffer_info.size; }
 	private:
-		Buffer(VkPhysicalDevice physical_device,
-			VkDevice logical_device,
-			VkBufferUsageFlags usage,
-			VkDeviceSize size,
-			VkMemoryPropertyFlags properties);
-		bool isMapped() const { return _mapped_memory != nullptr; }
+
+		bool isMapped() const { return _buffer_info.mapped; }
 
 		VkPhysicalDevice _physical_device;
 		VkDevice _logical_device;
 		VkBuffer _buffer;
 		VkDeviceMemory _buffer_memory;
-		VkDeviceSize _size;
+		BufferInfo _buffer_info;
 		void* _mapped_memory{ nullptr };
 	};
 }

@@ -67,36 +67,40 @@ namespace
 	}
 
 	void copyBuffer(VkDevice logical_device, VkQueue upload_queue, VkCommandPool upload_pool, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
-		VkCommandBufferAllocateInfo allocInfo{};
-		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		allocInfo.commandPool = upload_pool;
-		allocInfo.commandBufferCount = 1;
+		VkCommandBufferAllocateInfo alloc_info{};
+		alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		alloc_info.commandPool = upload_pool;
+		alloc_info.commandBufferCount = 1;
 
-		VkCommandBuffer commandBuffer;
-		vkAllocateCommandBuffers(logical_device, &allocInfo, &commandBuffer);
+		VkCommandBuffer command_buffer;
+		vkAllocateCommandBuffers(logical_device, &alloc_info, &command_buffer);
 
-		VkCommandBufferBeginInfo beginInfo{};
-		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+		VkCommandBufferSubmitInfo command_buffer_info{};
+		command_buffer_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
+		command_buffer_info.commandBuffer = command_buffer;
 
-		vkBeginCommandBuffer(commandBuffer, &beginInfo);
+		VkCommandBufferBeginInfo begin_info{};
+		begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
-		VkBufferCopy copyRegion{};
-		copyRegion.size = size;
-		vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+		vkBeginCommandBuffer(command_buffer, &begin_info);
 
-		vkEndCommandBuffer(commandBuffer);
+		VkBufferCopy copy_region{};
+		copy_region.size = size;
+		vkCmdCopyBuffer(command_buffer, srcBuffer, dstBuffer, 1, &copy_region);
 
-		VkSubmitInfo submitInfo{};
-		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-		submitInfo.commandBufferCount = 1;
-		submitInfo.pCommandBuffers = &commandBuffer;
+		vkEndCommandBuffer(command_buffer);
 
-		vkQueueSubmit(upload_queue, 1, &submitInfo, VK_NULL_HANDLE);
+		VkSubmitInfo2 submitInfo{};
+		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
+		submitInfo.commandBufferInfoCount = 1;
+		submitInfo.pCommandBufferInfos = &command_buffer_info;
+
+		vkQueueSubmit2(upload_queue, 1, &submitInfo, VK_NULL_HANDLE);
 		vkQueueWaitIdle(upload_queue);
 
-		vkFreeCommandBuffers(logical_device, upload_pool, 1, &commandBuffer);
+		vkFreeCommandBuffers(logical_device, upload_pool, 1, &command_buffer);
 	}
 
 }

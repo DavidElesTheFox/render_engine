@@ -142,28 +142,32 @@ namespace RenderEngine
 				allocInfo.commandPool = _command_pool;
 				allocInfo.commandBufferCount = 1;
 
-				VkCommandBuffer commandBuffer;
-				vkAllocateCommandBuffers(logical_device, &allocInfo, &commandBuffer);
+				VkCommandBuffer command_buffer;
+				vkAllocateCommandBuffers(logical_device, &allocInfo, &command_buffer);
+				
+				VkCommandBufferSubmitInfo command_buffer_info{};
+				command_buffer_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
+				command_buffer_info.commandBuffer = command_buffer;
+				command_buffer_info.pNext = nullptr;
 
-				VkCommandBufferBeginInfo beginInfo{};
-				beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-				beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+				VkCommandBufferBeginInfo begin_info{};
+				begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+				begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
-				vkBeginCommandBuffer(commandBuffer, &beginInfo);
+				vkBeginCommandBuffer(command_buffer, &begin_info);
 
-				ImGui_ImplVulkan_CreateFontsTexture(commandBuffer);
+				ImGui_ImplVulkan_CreateFontsTexture(command_buffer);
 
-				vkEndCommandBuffer(commandBuffer);
+				vkEndCommandBuffer(command_buffer);
 
-				VkSubmitInfo submitInfo{};
-				submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-				submitInfo.commandBufferCount = 1;
-				submitInfo.pCommandBuffers = &commandBuffer;
-
-				vkQueueSubmit(_window.getRenderQueue(), 1, &submitInfo, VK_NULL_HANDLE);
+				VkSubmitInfo2 submit_info{}; 
+				submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
+				submit_info.commandBufferInfoCount = 1;
+				submit_info.pCommandBufferInfos = &command_buffer_info;
+				vkQueueSubmit2(_window.getRenderQueue(), 1, &submit_info, VK_NULL_HANDLE);
 				vkQueueWaitIdle(_window.getRenderQueue());
 
-				vkFreeCommandBuffers(logical_device, _command_pool, 1, &commandBuffer);
+				vkFreeCommandBuffers(logical_device, _command_pool, 1, &command_buffer);
 			}
 			ImGui_ImplVulkan_DestroyFontUploadObjects();
 

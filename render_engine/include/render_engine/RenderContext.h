@@ -28,8 +28,7 @@ namespace RenderEngine
 		}
 	private:
 		static RenderContext& context_impl();
-
-		RenderContext();
+		RenderContext() = default;
 		~RenderContext()
 		{
 			reset();

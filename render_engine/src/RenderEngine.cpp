@@ -34,18 +34,44 @@ namespace
 			queue_create_infos.push_back(queue_create_info);
 		}
 
-		VkPhysicalDeviceFeatures device_features{};
+		{
+			VkPhysicalDeviceSynchronization2Features synchronization_2_feature{};
+			synchronization_2_feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
+			//synchronization_2_feature.synchronization2 = true;
 
+			VkPhysicalDeviceFeatures2KHR features =
+			{
+				.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2_KHR,
+				.pNext = &synchronization_2_feature,
+			};
+
+			vkGetPhysicalDeviceFeatures2KHR(physical_device, &features);
+			if (synchronization_2_feature.synchronization2 == false)
+			{
+				throw std::runtime_error("synchronization2 feature is not supported");
+			}
+		}
+
+		VkPhysicalDeviceSynchronization2Features synchronization_2_feature{};
+		synchronization_2_feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
+		synchronization_2_feature.synchronization2 = true;
+
+		VkPhysicalDeviceFeatures2 device_features{};
+		device_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+		device_features.pNext = &synchronization_2_feature;
+		
 		VkDeviceCreateInfo create_info{};
 		create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+		create_info.pNext = &device_features;
 
 		create_info.pQueueCreateInfos = queue_create_infos.data();
 		create_info.queueCreateInfoCount = queue_create_infos.size();
 
-		create_info.pEnabledFeatures = &device_features;
+		create_info.pEnabledFeatures = VK_NULL_HANDLE;
 
 		create_info.enabledExtensionCount = device_extensions.size();
 		create_info.ppEnabledExtensionNames = device_extensions.data();
+
 
 		if (validation_layers.empty())
 		{
@@ -60,6 +86,7 @@ namespace
 		if (vkCreateDevice(physical_device, &create_info, nullptr, &device) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create logical device!");
 		}
+		volkLoadDevice(device);
 		return device;
 
 	}
@@ -73,20 +100,22 @@ namespace RenderEngine
 		uint32_t queue_family_index_presentation,
 		const std::vector<const char*>& device_extensions,
 		const std::vector<const char*>& validation_layers)
-		: _instance(instance)
+		:  _instance(instance)
 		, _physical_device(physical_device)
 		, _logical_device(createLogicalDevice(kSupportedWindowCount, physical_device, queue_family_index_graphics, queue_family_index_presentation, device_extensions, validation_layers))
 		, _queue_family_present(queue_family_index_presentation)
 		, _queue_family_graphics(queue_family_index_graphics)
 	{
-
 	}
 
 	RenderEngine::~RenderEngine()
 	{
+		destroy();
+	}
+	void RenderEngine::destroy() noexcept
+	{
 		vkDestroyDevice(_logical_device, nullptr);
 	}
-
 	std::unique_ptr<Window> RenderEngine::createWindow(std::string_view name, size_t back_buffer_size)
 	{
 		VkQueue render_queue;

@@ -32,9 +32,9 @@ namespace
 		appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 		appInfo.pApplicationName = "TestApplication";
 		appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-		appInfo.pEngineName = "Boo";
+		appInfo.pEngineName = "SharpEngine";
 		appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-		appInfo.apiVersion = VK_API_VERSION_1_0;
+		appInfo.apiVersion = VK_API_VERSION_1_3;
 		return appInfo;
 	}
 
@@ -170,9 +170,6 @@ namespace RenderEngine
 	}
 
 
-	RenderContext::RenderContext()
-	{
-	}
 	void RenderContext::init(const std::vector<const char*>& validation_layers, std::unique_ptr<RendererFeactory> renderer_factory)
 	{
 #ifdef ENABLE_RENDERDOC
@@ -219,7 +216,7 @@ namespace RenderEngine
 		create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 		create_info.pApplicationInfo = &app_info;
 
-		std::vector<const char*> instance_extensions = { };
+		std::vector<const char*> instance_extensions = { VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME };
 		{
 			uint32_t glfw_extension_count = 0;
 			const char** glfw_extensions = glfwGetRequiredInstanceExtensions(&glfw_extension_count);
@@ -263,12 +260,13 @@ namespace RenderEngine
 			throw std::runtime_error(std::string{ "Cannot initialize vulkan instance: " } + string_VkResult(result));
 		}
 		volkLoadInstance(_instance);
+	
 	}
 
 	void RenderContext::createEngines(const std::vector<const char*>& validation_layers)
 	{
 		std::vector<const char*> device_extensions{ Window::kDeviceExtensions.begin(), Window::kDeviceExtensions.end() };
-
+		//device_extensions.push_back(VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME);
 		auto physical_devices = findPhysicalDevices(_instance, device_extensions);
 		if (physical_devices.empty())
 		{
@@ -284,6 +282,10 @@ namespace RenderEngine
 				device_extensions,
 				validation_layers);
 			_engines.push_back(std::move(engine));
+			// TODO implement volk device table usage
+			// Volk can load functions into table, and it might be different from device to device.
+			// Implement a VulkanLogicalDevice that has the api callbacks.
+			break;
 #ifdef ENABLE_RENDERDOC
 			break; // Renderdoc supports only one logical device
 #endif

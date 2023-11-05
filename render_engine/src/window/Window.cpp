@@ -189,7 +189,8 @@ namespace RenderEngine
 				_swap_chain->getDetails().swap_chain,
 				UINT64_MAX,
 				frame_data.image_available_semaphore,
-				VK_NULL_HANDLE, &image_index);
+				VK_NULL_HANDLE,
+				&image_index);
 			switch (call_result)
 			{
 			case VK_ERROR_OUT_OF_DATE_KHR:
@@ -204,39 +205,53 @@ namespace RenderEngine
 		}
 		vkResetFences(logical_device, 1, &frame_data.in_flight_fence);
 
-		std::vector<VkCommandBuffer> command_buffers;
+		std::vector<VkCommandBufferSubmitInfo> command_buffers;
 		for (auto& drawer : _renderers)
 		{
 			drawer->draw(image_index, _frame_counter);
 			auto current_command_buffers = drawer->getCommandBuffers(_frame_counter);
-			std::copy(current_command_buffers.begin(), current_command_buffers.end(),
-				std::back_inserter(command_buffers));
+			std::transform(current_command_buffers.begin(), current_command_buffers.end(),
+				std::back_inserter(command_buffers),
+				[](const auto& command_buffer) { return VkCommandBufferSubmitInfo{
+					.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+					.pNext = VK_NULL_HANDLE,
+					.commandBuffer = command_buffer,
+					.deviceMask = 0 }; 
+				});
 		}
-		VkSubmitInfo submitInfo{};
-		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		VkSubmitInfo2 submit_info{};
+		submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
 
-		VkSemaphore waitSemaphores[] = { frame_data.image_available_semaphore };
-		VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-		submitInfo.waitSemaphoreCount = 1;
-		submitInfo.pWaitSemaphores = waitSemaphores;
-		submitInfo.pWaitDstStageMask = waitStages;
+		VkSemaphoreSubmitInfo wait_semaphore_info{};
+		wait_semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+		wait_semaphore_info.semaphore = frame_data.image_available_semaphore;
+		wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
 
-		submitInfo.commandBufferCount = command_buffers.size();
-		submitInfo.pCommandBuffers = command_buffers.data();
+		submit_info.commandBufferInfoCount = command_buffers.size();
+		submit_info.pCommandBufferInfos = command_buffers.data();
 
-		VkSemaphore signalSemaphores[] = { frame_data.render_finished_semaphore };
-		submitInfo.signalSemaphoreCount = 1;
-		submitInfo.pSignalSemaphores = signalSemaphores;
+		submit_info.waitSemaphoreInfoCount = 1;
+		submit_info.pWaitSemaphoreInfos = &wait_semaphore_info;
 
-		if (vkQueueSubmit(_render_queue, 1, &submitInfo, frame_data.in_flight_fence) != VK_SUCCESS) {
+		VkSemaphoreSubmitInfo signal_semaphore_info{};
+		signal_semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+		signal_semaphore_info.semaphore = frame_data.render_finished_semaphore;
+		signal_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+
+		submit_info.signalSemaphoreInfoCount = 1;
+		submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
+
+
+		if (vkQueueSubmit2(_render_queue, 1, &submit_info, frame_data.in_flight_fence) != VK_SUCCESS) {
 			throw std::runtime_error("failed to submit draw command buffer!");
 		}
+
 
 		VkPresentInfoKHR presentInfo{};
 		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 
 		presentInfo.waitSemaphoreCount = 1;
-		presentInfo.pWaitSemaphores = signalSemaphores;
+		presentInfo.pWaitSemaphores = &frame_data.render_finished_semaphore;
 
 		VkSwapchainKHR swapChains[] = { _swap_chain->getDetails().swap_chain };
 		presentInfo.swapchainCount = 1;

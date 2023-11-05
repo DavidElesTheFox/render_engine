@@ -142,7 +142,7 @@ void DemoApplication::initializeRenderers()
 	renderers->registerRenderer(ForwardRenderer::kRendererId,
 		[&](auto& window, const auto& swap_chain, uint32_t back_buffer_count, AbstractRenderer* previous_renderer, bool has_next) -> std::unique_ptr<AbstractRenderer>
 		{ return std::make_unique<ForwardRenderer>(window, swap_chain, has_next); });
-	RenderContext::initialize({ "VK_LAYER_KHRONOS_validation" }, std::move(renderers));
+	RenderContext::initialize({ "VK_LAYER_KHRONOS_validation", "VK_LAYER_KHRONOS_synchronization2"}, std::move(renderers));
 }
 
 void DemoApplication::createAssets()

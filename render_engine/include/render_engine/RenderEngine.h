@@ -38,6 +38,8 @@ namespace RenderEngine
 		VkPhysicalDevice getPhysicalDevice() { return _physical_device; }
 		VkInstance& getVulkanInstance() { return _instance; }
 	private:
+		void destroy() noexcept;
+		
 		VkInstance _instance;
 		VkPhysicalDevice _physical_device;
 		VkDevice _logical_device;

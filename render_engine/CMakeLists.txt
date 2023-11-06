@@ -97,15 +97,22 @@ source_group("include\\window" FILES ${RENDER_ENGINE_WINDOW_HEADERS})
 
 set(RENDER_ENGINE_ROOT_SRC 
 		src/RenderEngine.cpp
+		src/Device.cpp
 		src/RenderContext.cpp
 		src/RendererFactory.cpp
 		src/GpuResourceManager.cpp
+		src/TransferEngine.cpp
+		src/CommandPoolFactory.cpp
 )
 set(RENDER_ENGINE_ROOT_HEADERS
 	${RENDER_ENGINE_HEADER_LOCATION}/RenderEngine.h
+	${RENDER_ENGINE_HEADER_LOCATION}/Device.h
 	${RENDER_ENGINE_HEADER_LOCATION}/RenderContext.h
 	${RENDER_ENGINE_HEADER_LOCATION}/RendererFactory.h
 	${RENDER_ENGINE_HEADER_LOCATION}/GpuResourceManager.h
+	${RENDER_ENGINE_HEADER_LOCATION}/TransferEngine.h
+	${RENDER_ENGINE_HEADER_LOCATION}/CommandPoolFactory.h
+	${RENDER_ENGINE_HEADER_LOCATION}/SynchronizationPrimitives.h
 )
 source_group("src" FILES ${RENDER_ENGINE_ROOT_SRC})
 source_group("include" FILES ${RENDER_ENGINE_ROOT_HEADERS})
@@ -162,6 +169,14 @@ target_sources(RenderEngine
 # Library dependencies #
 ########################
 
+# STB headers #
+add_custom_command(
+	TARGET RenderEngine
+	PRE_BUILD
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different "${STB_LIBRARY_INCLUDE_PATH}/stb_image.h" ${GENERATED_INCLUDE_DIR}
+)
+
+# Dependencies #
 target_link_libraries(RenderEngine 
 	PUBLIC 
 		glfw
@@ -183,4 +198,5 @@ target_include_directories(RenderEngine
 		$<INSTALL_INTERFACE:include>
 		${GENERATED_INCLUDE_DIR}
 		${IMGUI_SRC}
-		${RENDERDOC_PATH})
+		${RENDERDOC_PATH}
+)

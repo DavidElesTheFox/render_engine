@@ -8,7 +8,7 @@
 #include <functional>
 #include <ranges>
 #include <render_engine/GpuResourceManager.h>
-#include <render_engine/RenderEngine.h>
+#include <render_engine/Device.h>
 
 
 namespace RenderEngine

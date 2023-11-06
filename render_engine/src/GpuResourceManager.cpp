@@ -4,6 +4,19 @@
 
 namespace RenderEngine
 {
+
+	namespace 
+	{
+		BufferInfo createBufferInfoForAttributeBuffer(VkBufferUsageFlags usage, VkDeviceSize size)
+		{
+			return { usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT, size, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, false };
+		}
+		BufferInfo createBufferInfoForUniformBuffer(VkDeviceSize size)
+		{
+			return { VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, size, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, true };
+
+		}
+	}
 	GpuResourceManager::GpuResourceManager(VkPhysicalDevice physical_device, VkDevice logical_device,
 		uint32_t back_buffer_size, uint32_t max_num_of_resources) : _physical_device(physical_device)
 		, _logical_device(logical_device)
@@ -34,10 +47,10 @@ namespace RenderEngine
 
 	std::unique_ptr<Buffer> GpuResourceManager::createAttributeBuffer(VkBufferUsageFlags usage, VkDeviceSize size)
 	{
-		return Buffer::CreateAttributeBuffer(_physical_device, _logical_device, usage, size);
+		return std::make_unique<Buffer>(_physical_device, _logical_device, createBufferInfoForAttributeBuffer(usage, size));
 	}
 	std::unique_ptr<Buffer> GpuResourceManager::createUniformBuffer(VkDeviceSize size)
 	{
-		return Buffer::CreateUniformBuffer(_physical_device, _logical_device, size);
+		return std::make_unique<Buffer>(_physical_device, _logical_device, createBufferInfoForUniformBuffer(size));
 	}
 }

@@ -52,7 +52,6 @@ namespace RenderEngine
 	private:
 		void createFrameBuffers(const SwapChain& swap_chain);
 		void createFrameBuffer(const SwapChain& swap_chain, uint32_t frame_buffer_index);
-		void createCommandPool(uint32_t render_queue_family);
 		void createCommandBuffer();
 
 		void resetFrameBuffers();
@@ -71,6 +70,6 @@ namespace RenderEngine
 		std::vector<VkFramebuffer> _frame_buffers;
 		VkRenderPass _render_pass{ VK_NULL_HANDLE };
 
-		VkCommandPool _command_pool{ VK_NULL_HANDLE };
+		CommandPoolFactory::CommandPool _command_pool{};
 	};
 }

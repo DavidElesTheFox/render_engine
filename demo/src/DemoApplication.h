@@ -2,7 +2,7 @@
 #include <data_config.h>
 #include <imgui.h>
 #include <render_engine/RenderContext.h>
-#include <render_engine/RenderEngine.h>
+#include <render_engine/Device.h>
 #include <render_engine/assets/Geometry.h>
 #include <render_engine/assets/Material.h>
 #include <render_engine/assets/Shader.h>

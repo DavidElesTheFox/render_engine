@@ -1,5 +1,5 @@
 #include <render_engine/RenderContext.h>
-#include <render_engine/RenderEngine.h>
+#include <render_engine/Device.h>
 
 #include <ranges>
 #include <algorithm>
@@ -32,9 +32,9 @@ namespace
 		appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 		appInfo.pApplicationName = "TestApplication";
 		appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-		appInfo.pEngineName = "Boo";
+		appInfo.pEngineName = "SharpEngine";
 		appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-		appInfo.apiVersion = VK_API_VERSION_1_0;
+		appInfo.apiVersion = VK_API_VERSION_1_3;
 		return appInfo;
 	}
 
@@ -42,11 +42,15 @@ namespace
 	{
 		std::optional<uint32_t> graphics_index;
 		std::optional<uint32_t> presentation_index;
+		std::optional<uint32_t> transfer_index;
 
-		bool hasAll() const { return graphics_index != std::nullopt && presentation_index != std::nullopt; }
+		bool hasAll() const { return graphics_index != std::nullopt 
+			&& presentation_index != std::nullopt 
+			&& transfer_index != std::nullopt; }
 	};
 	constexpr bool g_enable_validation_layers = true;
 
+	// TODO Find multiple families
 	QueueFamilyIndices findQueueFamilies(VkInstance instance, VkPhysicalDevice device) {
 
 		QueueFamilyIndices result;
@@ -62,7 +66,9 @@ namespace
 			if (queue_family.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
 				result.graphics_index = i;
 			}
-
+			if (queue_family.queueFlags & VK_QUEUE_TRANSFER_BIT) {
+				result.transfer_index = i;
+			}
 			if (glfwGetPhysicalDevicePresentationSupport(instance, device, i))
 			{
 				result.presentation_index = i;
@@ -170,9 +176,6 @@ namespace RenderEngine
 	}
 
 
-	RenderContext::RenderContext()
-	{
-	}
 	void RenderContext::init(const std::vector<const char*>& validation_layers, std::unique_ptr<RendererFeactory> renderer_factory)
 	{
 #ifdef ENABLE_RENDERDOC
@@ -203,7 +206,7 @@ namespace RenderEngine
 		if (isVulkanInitialized() == false)
 		{
 			initVulkan(validation_layers);
-			createEngines(validation_layers);
+			createDevices(validation_layers);
 		}
 		_initialized = true;
 	}
@@ -219,7 +222,7 @@ namespace RenderEngine
 		create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 		create_info.pApplicationInfo = &app_info;
 
-		std::vector<const char*> instance_extensions = { };
+		std::vector<const char*> instance_extensions = { VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME };
 		{
 			uint32_t glfw_extension_count = 0;
 			const char** glfw_extensions = glfwGetRequiredInstanceExtensions(&glfw_extension_count);
@@ -263,12 +266,13 @@ namespace RenderEngine
 			throw std::runtime_error(std::string{ "Cannot initialize vulkan instance: " } + string_VkResult(result));
 		}
 		volkLoadInstance(_instance);
+	
 	}
 
-	void RenderContext::createEngines(const std::vector<const char*>& validation_layers)
+	void RenderContext::createDevices(const std::vector<const char*>& validation_layers)
 	{
 		std::vector<const char*> device_extensions{ Window::kDeviceExtensions.begin(), Window::kDeviceExtensions.end() };
-
+		//device_extensions.push_back(VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME);
 		auto physical_devices = findPhysicalDevices(_instance, device_extensions);
 		if (physical_devices.empty())
 		{
@@ -277,13 +281,18 @@ namespace RenderEngine
 		for (auto physical_device : physical_devices)
 		{
 			auto indices = findQueueFamilies(_instance, physical_device);
-			auto engine = std::make_unique<RenderEngine>(_instance,
+			auto device = std::make_unique<Device>(_instance,
 				physical_device,
 				*indices.graphics_index,
 				*indices.presentation_index,
+				*indices.transfer_index,
 				device_extensions,
 				validation_layers);
-			_engines.push_back(std::move(engine));
+			_devices.push_back(std::move(device));
+			// TODO implement volk device table usage
+			// Volk can load functions into table, and it might be different from device to device.
+			// Implement a VulkanLogicalDevice that has the api callbacks.
+			break;
 #ifdef ENABLE_RENDERDOC
 			break; // Renderdoc supports only one logical device
 #endif
@@ -294,7 +303,7 @@ namespace RenderEngine
 	{
 		if (isVulkanInitialized())
 		{
-			_engines.clear();
+			_devices.clear();
 			vkDestroyInstance(_instance, nullptr);
 			_instance = nullptr;
 		}
@@ -308,4 +317,5 @@ namespace RenderEngine
 		throw std::runtime_error("Cannot enable renderdoc, feature is disabled in this build");
 #endif
 	}
-	}
+
+}

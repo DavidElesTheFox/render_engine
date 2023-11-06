@@ -1,6 +1,6 @@
 #include <render_engine/renderers/ExampleRenderer.h>
 #include <render_engine/window/Window.h>
-#include <render_engine/RenderEngine.h>
+#include <render_engine/Device.h>
 
 #include <data_config.h>
 
@@ -333,7 +333,7 @@ namespace RenderEngine
 		bool last_ExampleRenderer)
 		: _window(window)
 	{
-		auto logical_device = window.getRenderEngine().getLogicalDevice();
+		auto logical_device = window.getDevice().getLogicalDevice();
 		auto [vert_shader, frag_shader] = loadShaders(logical_device, BASE_VERT_SHADER, BASE_FRAG_SHADER);
 
 		try
@@ -348,15 +348,15 @@ namespace RenderEngine
 			_render_area.offset = { 0, 0 };
 			_render_area.extent = swap_chain.getDetails().extent;
 			createFrameBuffers(swap_chain);
-			createCommandPool(window.getRenderQueueFamily());
+			_command_pool = _window.getRenderEngine().getCommandPoolFactory().getCommandPool(VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 			createCommandBuffer();
 			vkDestroyShaderModule(logical_device, vert_shader, nullptr);
 			vkDestroyShaderModule(logical_device, frag_shader, nullptr);
 		}
 		catch (const std::runtime_error&)
 		{
-			auto logical_device = window.getRenderEngine().getLogicalDevice();
-			vkDestroyCommandPool(logical_device, _command_pool, nullptr);
+			auto logical_device = window.getDevice().getLogicalDevice();
+			vkDestroyCommandPool(logical_device, _command_pool.command_pool, nullptr);
 
 			for (auto framebuffer : _frame_buffers) {
 				vkDestroyFramebuffer(logical_device, framebuffer, nullptr);
@@ -377,23 +377,25 @@ namespace RenderEngine
 	{
 		{
 			VkDeviceSize size = sizeof(Vertex) * vertices.size();
-			_vertex_buffer = _window.getGpuResourceManager().createAttributeBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, size);
-			_vertex_buffer->uploadUnmapped(std::span<const Vertex>{vertices.data(), vertices.size()}, _window.getRenderQueue(), _command_pool);
+			_vertex_buffer = _window.getRenderEngine().getGpuResourceManager().createAttributeBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, size);
+			_vertex_buffer->uploadUnmapped(std::span<const Vertex>{vertices.data(), vertices.size()}, 
+				_window.getTransferEngine(), _window.getRenderEngine().getQueueFamilyIndex());
 		}
 		{
 			VkDeviceSize size = sizeof(uint16_t) * indicies.size();
-			_index_buffer = _window.getGpuResourceManager().createAttributeBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, size);
-			_index_buffer->uploadUnmapped(std::span<const uint16_t>{indicies.data(), indicies.size()}, _window.getRenderQueue(), _command_pool);
+			_index_buffer = _window.getRenderEngine().getGpuResourceManager().createAttributeBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, size);
+			_index_buffer->uploadUnmapped(std::span<const uint16_t>{indicies.data(), indicies.size()}, 
+				_window.getTransferEngine(), _window.getRenderEngine().getQueueFamilyIndex());
 		}
 
 		std::vector<Buffer*> created_buffers;
 		for (auto& frame_data : _back_buffer)
 		{
-			frame_data.color_offset = _window.getGpuResourceManager().createUniformBuffer(sizeof(ColorOffset));
+			frame_data.color_offset = _window.getRenderEngine().getGpuResourceManager().createUniformBuffer(sizeof(ColorOffset));
 			created_buffers.push_back(frame_data.color_offset.get());
 		}
 
-		auto descriptor_sets = createDescriptorSets(_window.getRenderEngine().getLogicalDevice(),
+		auto descriptor_sets = createDescriptorSets(_window.getDevice().getLogicalDevice(),
 			_descriptor_pool,
 			_descriptor_set_layout,
 			_back_buffer.size(),
@@ -464,8 +466,8 @@ namespace RenderEngine
 
 	ExampleRenderer::~ExampleRenderer()
 	{
-		auto logical_device = _window.getRenderEngine().getLogicalDevice();
-		vkDestroyCommandPool(logical_device, _command_pool, nullptr);
+		auto logical_device = _window.getDevice().getLogicalDevice();
+		vkDestroyCommandPool(logical_device, _command_pool.command_pool, nullptr);
 
 		resetFrameBuffers();
 
@@ -478,7 +480,7 @@ namespace RenderEngine
 	}
 	void ExampleRenderer::resetFrameBuffers()
 	{
-		auto logical_device = _window.getRenderEngine().getLogicalDevice();
+		auto logical_device = _window.getDevice().getLogicalDevice();
 
 		for (auto framebuffer : _frame_buffers) {
 			vkDestroyFramebuffer(logical_device, framebuffer, nullptr);
@@ -496,7 +498,7 @@ namespace RenderEngine
 	}
 	void ExampleRenderer::createFrameBuffers(const SwapChain& swap_chain)
 	{
-		auto logical_device = _window.getRenderEngine().getLogicalDevice();
+		auto logical_device = _window.getDevice().getLogicalDevice();
 
 		_frame_buffers.resize(swap_chain.getDetails().image_views.size());
 		for (uint32_t i = 0; i < swap_chain.getDetails().image_views.size(); ++i)
@@ -513,7 +515,7 @@ namespace RenderEngine
 	}
 	bool ExampleRenderer::createFrameBuffer(const SwapChain& swap_chain, uint32_t frame_buffer_index)
 	{
-		auto logical_device = _window.getRenderEngine().getLogicalDevice();
+		auto logical_device = _window.getDevice().getLogicalDevice();
 
 		VkImageView attachments[] = {
 				swap_chain.getDetails().image_views[frame_buffer_index]
@@ -529,27 +531,16 @@ namespace RenderEngine
 
 		return vkCreateFramebuffer(logical_device, &framebuffer_info, nullptr, &_frame_buffers[frame_buffer_index]) == VK_SUCCESS;
 	}
-	void ExampleRenderer::createCommandPool(uint32_t render_queue_family)
-	{
-		auto logical_device = _window.getRenderEngine().getLogicalDevice();
 
-		VkCommandPoolCreateInfo pool_info{};
-		pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-		pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-		pool_info.queueFamilyIndex = render_queue_family;
-		if (vkCreateCommandPool(logical_device, &pool_info, nullptr, &_command_pool) != VK_SUCCESS) {
-			throw std::runtime_error("failed to create command pool!");
-		}
-	}
 	void ExampleRenderer::createCommandBuffer()
 	{
-		auto logical_device = _window.getRenderEngine().getLogicalDevice();
+		auto logical_device = _window.getDevice().getLogicalDevice();
 
 		for (FrameData& frame_data : _back_buffer)
 		{
 			VkCommandBufferAllocateInfo allocInfo{};
 			allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-			allocInfo.commandPool = _command_pool;
+			allocInfo.commandPool = _command_pool.command_pool;
 			allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 			allocInfo.commandBufferCount = 1;
 

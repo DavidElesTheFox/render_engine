@@ -142,7 +142,7 @@ void DemoApplication::initializeRenderers()
 	renderers->registerRenderer(ForwardRenderer::kRendererId,
 		[&](auto& window, const auto& swap_chain, uint32_t back_buffer_count, AbstractRenderer* previous_renderer, bool has_next) -> std::unique_ptr<AbstractRenderer>
 		{ return std::make_unique<ForwardRenderer>(window, swap_chain, has_next); });
-	RenderContext::initialize({ "VK_LAYER_KHRONOS_validation" }, std::move(renderers));
+	RenderContext::initialize({ "VK_LAYER_KHRONOS_validation"}, std::move(renderers));
 }
 
 void DemoApplication::createAssets()
@@ -194,7 +194,7 @@ void DemoApplication::createWindow()
 {
 	using namespace RenderEngine;
 
-	_window = RenderContext::context().getEngine(0).createWindow("Secondary Window", 3);
+	_window = RenderContext::context().getDevice(0).createWindow("Secondary Window", 3);
 	_window->registerRenderers({ ForwardRenderer::kRendererId, UIRenderer::kRendererId });
 	
 	_window->getRendererAs<UIRenderer>(UIRenderer::kRendererId).setOnGui(

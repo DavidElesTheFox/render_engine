@@ -1,48 +1,69 @@
 #pragma once
 
-#include <render_engine/resources/Buffer.h>
-
 #include <volk.h>
-#include <memory>
-#include <span>
-#include <stdexcept>
-#include <vector>
+
+#include <render_engine/GpuResourceManager.h>
+#include <render_engine/CommandPoolFactory.h>
+#include <render_engine/Device.h>
+#include <render_engine/SynchronizationPrimitives.h>
+
+#include <unordered_map>
+
+#include <ranges>
+#include <algorithm>
 
 namespace RenderEngine
 {
-	class Window;
-
+	class AbstractRenderer;
 
 	class RenderEngine
 	{
 	public:
-		static constexpr auto kSupportedWindowCount = 1;
 
-		explicit RenderEngine(VkInstance instance,
-			VkPhysicalDevice physical_device,
-			uint32_t queue_family_index_graphics,
-			uint32_t queue_family_index_presentation,
-			const std::vector<const char*>& device_extensions,
-			const std::vector<const char*>& validation_layers);
-		RenderEngine(const RenderEngine&) = delete;
-		RenderEngine(RenderEngine&&) = delete;
+		RenderEngine(Device& device, VkQueue _render_queue, uint32_t _render_queue_family, size_t back_buffer_count);
 
-		RenderEngine& operator=(const RenderEngine&) = delete;
-		RenderEngine& operator=(RenderEngine&&) = delete;
+		VkQueue& getRenderQueue() { return _render_queue; }
+		uint32_t getQueueFamilyIndex() const { return _render_queue_family; }
+		void render(const SynchronizationPrimitives& synchronization_primitives,
+			const std::ranges::input_range auto& renderers, 
+			uint32_t image_index,
+			uint32_t frame_id)
+		{
+			std::vector<VkCommandBufferSubmitInfo> command_buffer_infos = collectCommandBuffers(renderers, image_index, frame_id);
+			submitDrawCalls(command_buffer_infos, synchronization_primitives);
+		}
 
-		~RenderEngine();
-		std::unique_ptr<Window> createWindow(std::string_view name, size_t back_buffer_size);
-
-
-		VkDevice getLogicalDevice() { return _logical_device; }
-		VkPhysicalDevice getPhysicalDevice() { return _physical_device; }
-		VkInstance& getVulkanInstance() { return _instance; }
+		GpuResourceManager& getGpuResourceManager() { return _gpu_resource_manager; }
+		CommandPoolFactory& getCommandPoolFactory() { return _command_pool_factory; }
 	private:
-		VkInstance _instance;
-		VkPhysicalDevice _physical_device;
-		VkDevice _logical_device;
-		uint32_t _queue_family_present = 0;
-		uint32_t _queue_family_graphics = 0;
-		uint32_t _next_queue_index = 0;
+		std::vector<VkCommandBufferSubmitInfo> collectCommandBuffers(const std::ranges::input_range auto& renderers,
+			uint32_t image_index,
+			uint32_t frame_id)
+		{
+			std::vector<VkCommandBufferSubmitInfo> command_buffers;
+			for (AbstractRenderer* drawer : renderers)
+			{
+				drawer->draw(image_index, frame_id);
+				auto current_command_buffers = drawer->getCommandBuffers(frame_id);
+				std::ranges::transform(current_command_buffers,
+					std::back_inserter(command_buffers),
+					[](const auto& command_buffer) { return VkCommandBufferSubmitInfo{
+						.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+						.pNext = VK_NULL_HANDLE,
+						.commandBuffer = command_buffer,
+						.deviceMask = 0 };
+					});
+			}
+			return command_buffers;
+		}
+
+		void submitDrawCalls(const std::vector<VkCommandBufferSubmitInfo>& command_buffers,
+			const SynchronizationPrimitives& synchronization_primitives);
+
+		Device& _device;
+		VkQueue _render_queue;
+		uint32_t _render_queue_family{ 0 };
+		GpuResourceManager _gpu_resource_manager;
+		CommandPoolFactory _command_pool_factory;
 	};
 }

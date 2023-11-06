@@ -12,6 +12,7 @@
 #include <GLFW/glfw3.h>
 #include <render_engine/Device.h>
 #include <render_engine/RenderEngine.h>
+#include <render_engine/TransferEngine.h>
 struct ImGuiContext;
 namespace RenderEngine
 {
@@ -24,6 +25,7 @@ namespace RenderEngine
 		static constexpr std::array<const char*, 1> kDeviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 		Window(Device& device,
 			std::unique_ptr<RenderEngine>&& render_engine,
+			std::unique_ptr<TransferEngine>&& transfer_engine,
 			GLFWwindow* window,
 			std::unique_ptr<SwapChain> swap_chain,
 			VkQueue present_queue,
@@ -44,7 +46,7 @@ namespace RenderEngine
 		void disableRenderdocCapture();
 		GLFWwindow* getWindowHandle() { return _window; }
 		RenderEngine& getRenderEngine() { return *_render_engine; }
-
+		TransferEngine& getTransferEngine() { return *_transfer_engine; }
 	private:
 		struct FrameData
 		{
@@ -66,6 +68,7 @@ namespace RenderEngine
 
 		Device& _device;
 		std::unique_ptr<RenderEngine> _render_engine;
+		std::unique_ptr<TransferEngine> _transfer_engine;
 		std::vector<FrameData> _back_buffer;
 		uint32_t _render_queue_family{ 0 };
 

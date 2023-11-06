@@ -42,11 +42,15 @@ namespace
 	{
 		std::optional<uint32_t> graphics_index;
 		std::optional<uint32_t> presentation_index;
+		std::optional<uint32_t> transfer_index;
 
-		bool hasAll() const { return graphics_index != std::nullopt && presentation_index != std::nullopt; }
+		bool hasAll() const { return graphics_index != std::nullopt 
+			&& presentation_index != std::nullopt 
+			&& transfer_index != std::nullopt; }
 	};
 	constexpr bool g_enable_validation_layers = true;
 
+	// TODO Find multiple families
 	QueueFamilyIndices findQueueFamilies(VkInstance instance, VkPhysicalDevice device) {
 
 		QueueFamilyIndices result;
@@ -62,7 +66,9 @@ namespace
 			if (queue_family.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
 				result.graphics_index = i;
 			}
-
+			if (queue_family.queueFlags & VK_QUEUE_TRANSFER_BIT) {
+				result.transfer_index = i;
+			}
 			if (glfwGetPhysicalDevicePresentationSupport(instance, device, i))
 			{
 				result.presentation_index = i;
@@ -279,6 +285,7 @@ namespace RenderEngine
 				physical_device,
 				*indices.graphics_index,
 				*indices.presentation_index,
+				*indices.transfer_index,
 				device_extensions,
 				validation_layers);
 			_devices.push_back(std::move(device));

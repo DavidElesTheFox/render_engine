@@ -3,6 +3,7 @@
 
 #include <render_engine/RenderContext.h>
 #include <render_engine/RenderEngine.h>
+#include <render_engine/TransferEngine.h>
 #include <render_engine/GpuResourceManager.h>
 #include <render_engine/window/Window.h>
 
@@ -14,6 +15,8 @@
 #include <set>
 namespace
 {
+	// TODO support multiple queue count
+	constexpr size_t k_supported_queue_count = 1;
 
 	VkDevice createLogicalDevice(size_t queue_count,
 		VkPhysicalDevice physical_device,
@@ -99,13 +102,15 @@ namespace RenderEngine
 		VkPhysicalDevice physical_device,
 		uint32_t queue_family_index_graphics,
 		uint32_t queue_family_index_presentation,
+		uint32_t queue_family_index_transfer,
 		const std::vector<const char*>& device_extensions,
 		const std::vector<const char*>& validation_layers)
 		: _instance(instance)
 		, _physical_device(physical_device)
-		, _logical_device(createLogicalDevice(kSupportedWindowCount, physical_device, queue_family_index_graphics, queue_family_index_presentation, device_extensions, validation_layers))
+		, _logical_device(createLogicalDevice(k_supported_queue_count, physical_device, queue_family_index_graphics, queue_family_index_presentation, device_extensions, validation_layers))
 		, _queue_family_present(queue_family_index_presentation)
 		, _queue_family_graphics(queue_family_index_graphics)
+		, _queue_family_transfer(queue_family_index_transfer)
 	{
 	}
 
@@ -121,8 +126,8 @@ namespace RenderEngine
 	{
 		VkQueue render_queue;
 		VkQueue present_queue;
-		vkGetDeviceQueue(_logical_device, _queue_family_graphics, _next_queue_index, &render_queue);
-		vkGetDeviceQueue(_logical_device, _queue_family_present, _next_queue_index, &present_queue);
+		vkGetDeviceQueue(_logical_device, _queue_family_graphics, 0, &render_queue);
+		vkGetDeviceQueue(_logical_device, _queue_family_present, 0, &present_queue);
 
 		constexpr auto width = 1024;
 		constexpr auto height = 764;
@@ -143,8 +148,8 @@ namespace RenderEngine
 		{
 			std::unique_ptr<SwapChain> swap_chain = std::make_unique<SwapChain>(SwapChain::CreateInfo{ window, _instance, _physical_device, _logical_device, std::move(surface), _queue_family_graphics, _queue_family_present });
 			std::unique_ptr<RenderEngine> render_engine = createRenderEngine(back_buffer_size);
-			_next_queue_index = (_next_queue_index + 1) % kSupportedWindowCount;
-			return std::make_unique<Window>(*this, std::move(render_engine), window, std::move(swap_chain), present_queue, back_buffer_size);
+			std::unique_ptr<TransferEngine> transfer_engine = createTransferEngine();
+			return std::make_unique<Window>(*this, std::move(render_engine), std::move(transfer_engine), window, std::move(swap_chain), present_queue, back_buffer_size);
 		}
 		catch (const std::runtime_error& error)
 		{
@@ -156,9 +161,17 @@ namespace RenderEngine
 	std::unique_ptr<RenderEngine> Device::createRenderEngine(size_t back_buffer_size)
 	{
 		VkQueue render_queue;
-		vkGetDeviceQueue(_logical_device, _queue_family_graphics, _next_queue_index, &render_queue);
+		vkGetDeviceQueue(_logical_device, _queue_family_graphics, 0, &render_queue);
 
 		return std::make_unique<RenderEngine>(*this, render_queue, _queue_family_graphics, back_buffer_size);
+	}
+
+	std::unique_ptr<TransferEngine> Device::createTransferEngine()
+	{
+		VkQueue transfer_queue;
+		vkGetDeviceQueue(_logical_device, _queue_family_transfer, 0, &transfer_queue);
+
+		return std::make_unique<TransferEngine>(*this, _queue_family_transfer, transfer_queue);
 	}
 
 }

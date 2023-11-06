@@ -12,16 +12,16 @@ namespace RenderEngine
 {
 	class Window;
 	class RenderEngine;
+	class TransferEngine;
 
 	class Device
 	{
 	public:
-		static constexpr auto kSupportedWindowCount = 1;
-
 		explicit Device(VkInstance instance,
 			VkPhysicalDevice physical_device,
 			uint32_t queue_family_index_graphics,
 			uint32_t queue_family_index_presentation,
+			uint32_t queue_family_index_transfer,
 			const std::vector<const char*>& device_extensions,
 			const std::vector<const char*>& validation_layers);
 		Device(const Device&) = delete;
@@ -33,7 +33,7 @@ namespace RenderEngine
 		~Device();
 		std::unique_ptr<Window> createWindow(std::string_view name, size_t back_buffer_size);
 		std::unique_ptr<RenderEngine> createRenderEngine(size_t back_buffer_size);
-
+		std::unique_ptr<TransferEngine> createTransferEngine();
 
 		VkDevice getLogicalDevice() { return _logical_device; }
 		VkPhysicalDevice getPhysicalDevice() { return _physical_device; }
@@ -46,6 +46,6 @@ namespace RenderEngine
 		VkDevice _logical_device;
 		uint32_t _queue_family_present = 0;
 		uint32_t _queue_family_graphics = 0;
-		uint32_t _next_queue_index = 0;
+		uint32_t _queue_family_transfer = 0;
 	};
 }

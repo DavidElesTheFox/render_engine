@@ -101,6 +101,8 @@ set(RENDER_ENGINE_ROOT_SRC
 		src/RenderContext.cpp
 		src/RendererFactory.cpp
 		src/GpuResourceManager.cpp
+		src/TransferEngine.cpp
+		src/CommandPoolFactory.cpp
 )
 set(RENDER_ENGINE_ROOT_HEADERS
 	${RENDER_ENGINE_HEADER_LOCATION}/RenderEngine.h
@@ -108,6 +110,9 @@ set(RENDER_ENGINE_ROOT_HEADERS
 	${RENDER_ENGINE_HEADER_LOCATION}/RenderContext.h
 	${RENDER_ENGINE_HEADER_LOCATION}/RendererFactory.h
 	${RENDER_ENGINE_HEADER_LOCATION}/GpuResourceManager.h
+	${RENDER_ENGINE_HEADER_LOCATION}/TransferEngine.h
+	${RENDER_ENGINE_HEADER_LOCATION}/CommandPoolFactory.h
+	${RENDER_ENGINE_HEADER_LOCATION}/SynchronizationPrimitives.h
 )
 source_group("src" FILES ${RENDER_ENGINE_ROOT_SRC})
 source_group("include" FILES ${RENDER_ENGINE_ROOT_HEADERS})

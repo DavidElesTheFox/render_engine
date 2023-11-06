@@ -67,7 +67,7 @@ namespace RenderEngine
 		}
 
 		createFrameBuffers(swap_chain);
-		createCommandPool(_window.getRenderEngine().getRenderQueueFamily());
+		_command_pool = _window.getRenderEngine().getCommandPoolFactory().getCommandPool(VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 		createCommandBuffer();
 	}
 	catch (const std::exception&)
@@ -85,7 +85,7 @@ namespace RenderEngine
 		resetFrameBuffers();
 
 		vkDestroyRenderPass(logical_device, _render_pass, nullptr);
-		vkDestroyCommandPool(logical_device, _command_pool, nullptr);
+		vkDestroyCommandPool(logical_device, _command_pool.command_pool, nullptr);
 	}
 
 	void ForwardRenderer::resetFrameBuffers()
@@ -121,14 +121,14 @@ namespace RenderEngine
 			std::vector vertex_buffer = mesh->createVertexBuffer();
 			mesh_buffers.vertex_buffer = _window.getRenderEngine().getGpuResourceManager().createAttributeBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
 				vertex_buffer.size());
-			mesh_buffers.vertex_buffer->uploadUnmapped(std::span{ vertex_buffer.data(), vertex_buffer.size() }, _window.getRenderEngine().getRenderQueue(), _command_pool);
+			mesh_buffers.vertex_buffer->uploadUnmapped(std::span{ vertex_buffer.data(), vertex_buffer.size() }, _window.getRenderEngine().getRenderQueue(), _command_pool.command_pool);
 
 		}
 		if (geometry.indexes.empty() == false)
 		{
 			mesh_buffers.index_buffer = _window.getRenderEngine().getGpuResourceManager().createAttributeBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
 				geometry.indexes.size() * sizeof(int16_t));
-			mesh_buffers.index_buffer->uploadUnmapped(std::span{ geometry.indexes.data(), geometry.indexes.size() }, _window.getRenderEngine().getRenderQueue(), _command_pool);
+			mesh_buffers.index_buffer->uploadUnmapped(std::span{ geometry.indexes.data(), geometry.indexes.size() }, _window.getRenderEngine().getRenderQueue(), _command_pool.command_pool);
 		}
 		_mesh_buffers[mesh_instance->getMesh()] = std::move(mesh_buffers);
 		auto& mesh_group = _meshes[priority][material_instance_id];
@@ -254,18 +254,7 @@ namespace RenderEngine
 			throw std::runtime_error("failed to create framebuffer!");
 		}
 	}
-	void ForwardRenderer::createCommandPool(uint32_t render_queue_family)
-	{
-		auto logical_device = _window.getDevice().getLogicalDevice();
 
-		VkCommandPoolCreateInfo pool_info{};
-		pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-		pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-		pool_info.queueFamilyIndex = render_queue_family;
-		if (vkCreateCommandPool(logical_device, &pool_info, nullptr, &_command_pool) != VK_SUCCESS) {
-			throw std::runtime_error("failed to create command pool!");
-		}
-	}
 	void ForwardRenderer::createCommandBuffer()
 	{
 		auto logical_device = _window.getDevice().getLogicalDevice();
@@ -274,7 +263,7 @@ namespace RenderEngine
 		{
 			VkCommandBufferAllocateInfo allocInfo{};
 			allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-			allocInfo.commandPool = _command_pool;
+			allocInfo.commandPool = _command_pool.command_pool;
 			allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 			allocInfo.commandBufferCount = 1;
 

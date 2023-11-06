@@ -29,6 +29,7 @@ namespace RenderEngine
 {
 	Window::Window(Device& device,
 		std::unique_ptr<RenderEngine>&& render_engine,
+		std::unique_ptr<TransferEngine>&& transfer_engine,
 		GLFWwindow* window,
 		std::unique_ptr<SwapChain> swap_chain,
 		VkQueue present_queue,
@@ -38,6 +39,7 @@ namespace RenderEngine
 		, _swap_chain(std::move(swap_chain))
 		, _device(device)
 		, _render_engine(std::move(render_engine))
+		, _transfer_engine(std::move(transfer_engine))
 		, _back_buffer(back_buffer_size, FrameData{})
 		, _back_buffer_size(back_buffer_size)
 	{
@@ -165,6 +167,7 @@ namespace RenderEngine
 		_renderers.clear();
 
 		_render_engine.reset();
+		_transfer_engine.reset();
 		glfwDestroyWindow(_window);
 
 		_window = nullptr;
@@ -200,7 +203,7 @@ namespace RenderEngine
 		}
 		vkResetFences(logical_device, 1, &frame_data.in_flight_fence);
 
-		RenderEngine::SynchronizationPrimitives synchronization_primitives{};
+		SynchronizationPrimitives synchronization_primitives{};
 		{
 			VkSemaphoreSubmitInfo wait_semaphore_info{};
 			wait_semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;

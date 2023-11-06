@@ -3,7 +3,9 @@
 #include <volk.h>
 
 #include <render_engine/GpuResourceManager.h>
+#include <render_engine/CommandPoolFactory.h>
 #include <render_engine/Device.h>
+#include <render_engine/SynchronizationPrimitives.h>
 
 #include <unordered_map>
 
@@ -17,18 +19,11 @@ namespace RenderEngine
 	class RenderEngine
 	{
 	public:
-		struct SynchronizationPrimitives
-		{
-			std::vector<VkSemaphoreSubmitInfo> wait_semaphores;
-			std::vector<VkSemaphoreSubmitInfo> signal_semaphores;
-			VkFence on_finished_fence{ VK_NULL_HANDLE };
-		};
+
 		RenderEngine(Device& device, VkQueue _render_queue, uint32_t _render_queue_family, size_t back_buffer_count);
 
-
-		uint32_t getRenderQueueFamily() { return _render_queue_family; }
 		VkQueue& getRenderQueue() { return _render_queue; }
-
+		uint32_t getQueueFamilyIndex() const { return _render_queue_family; }
 		void render(const SynchronizationPrimitives& synchronization_primitives,
 			const std::ranges::input_range auto& renderers, 
 			uint32_t image_index,
@@ -39,6 +34,7 @@ namespace RenderEngine
 		}
 
 		GpuResourceManager& getGpuResourceManager() { return _gpu_resource_manager; }
+		CommandPoolFactory& getCommandPoolFactory() { return _command_pool_factory; }
 	private:
 		std::vector<VkCommandBufferSubmitInfo> collectCommandBuffers(const std::ranges::input_range auto& renderers,
 			uint32_t image_index,
@@ -62,11 +58,12 @@ namespace RenderEngine
 		}
 
 		void submitDrawCalls(const std::vector<VkCommandBufferSubmitInfo>& command_buffers,
-			const RenderEngine::RenderEngine::SynchronizationPrimitives& synchronization_primitives);
+			const SynchronizationPrimitives& synchronization_primitives);
 
 		Device& _device;
 		VkQueue _render_queue;
 		uint32_t _render_queue_family{ 0 };
 		GpuResourceManager _gpu_resource_manager;
+		CommandPoolFactory _command_pool_factory;
 	};
 }

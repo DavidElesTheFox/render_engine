@@ -15,11 +15,12 @@ namespace RenderEngine
 		, _render_queue(render_queue)
 		, _render_queue_family(render_queue_family)
 		, _gpu_resource_manager(device.getPhysicalDevice(), device.getLogicalDevice(), back_buffer_count, kMaxNumOfResources)
+		, _command_pool_factory(device, render_queue_family)
 	{
 
 	}
 
-	void RenderEngine::submitDrawCalls(const std::vector<VkCommandBufferSubmitInfo>& command_buffers, const RenderEngine::RenderEngine::SynchronizationPrimitives& synchronization_primitives)
+	void RenderEngine::submitDrawCalls(const std::vector<VkCommandBufferSubmitInfo>& command_buffers, const SynchronizationPrimitives& synchronization_primitives)
 	{
 		VkSubmitInfo2 submit_info{};
 		submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;

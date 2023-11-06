@@ -1,4 +1,7 @@
 #pragma once
+
+#include <render_engine/CommandPoolFactory.h>
+
 #include <render_engine/window/SwapChain.h>
 #include <render_engine/resources/Buffer.h>
 #include <render_engine/renderers/AbstractRenderer.h>
@@ -58,7 +61,6 @@ namespace RenderEngine
 
 		void createFrameBuffers(const SwapChain& swap_chain);
 		bool createFrameBuffer(const SwapChain& swap_chain, uint32_t frame_buffer_index);
-		void createCommandPool(uint32_t render_queue_family);
 		void createCommandBuffer();
 		void draw(const VkFramebuffer& frame_buffer, uint32_t frame_number);
 		void resetFrameBuffers();
@@ -71,7 +73,7 @@ namespace RenderEngine
 		VkRenderPass _render_pass;
 		VkDescriptorPool _descriptor_pool;
 		std::vector<VkFramebuffer> _frame_buffers;
-		VkCommandPool _command_pool;
+		CommandPoolFactory::CommandPool _command_pool;
 		std::vector<FrameData> _back_buffer;
 		VkRect2D _render_area;
 

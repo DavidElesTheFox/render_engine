@@ -3,7 +3,7 @@
 
 #include <imgui.h>
 #include <render_engine/RenderContext.h>
-#include <render_engine/RenderEngine.h>
+#include <render_engine/Device.h>
 #include <render_engine/RendererFactory.h>
 #include <render_engine/renderers/ExampleRenderer.h>
 #include <render_engine/renderers/UIRenderer.h>

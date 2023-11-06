@@ -6,16 +6,16 @@ void MultiWindowApplication::init()
 {
 	initEngine();
 #if ENABLE_WINDOW_0
-	_window_0 = RenderEngine::RenderContext::context().getEngine(0).createWindow("Main Window", 3);
+	_window_0 = RenderEngine::RenderContext::context().getDevice(0).createWindow("Main Window", 3);
 	_window_0->registerRenderers({ RenderEngine::ExampleRenderer::kRendererId });
 #endif
 #if ENABLE_WINDOW_1
 
-	_window_1 = RenderEngine::RenderContext::context().getEngine(0).createWindow("Secondary Window", 3);
+	_window_1 = RenderEngine::RenderContext::context().getDevice(0).createWindow("Secondary Window", 3);
 	_window_1->registerRenderers({ RenderEngine::ExampleRenderer::kRendererId, RenderEngine::UIRenderer::kRendererId });
 #endif
 #if ENABLE_WINDOW_2
-	_window_2 = RenderEngine::RenderContext::context().getEngine(0).createWindow("Secondary Window", 3);
+	_window_2 = RenderEngine::RenderContext::context().getDevice(0).createWindow("Secondary Window", 3);
 	_window_2->registerRenderers({ RenderEngine::UIRenderer::kRendererId });
 #endif
 #if ENABLE_WINDOW_0

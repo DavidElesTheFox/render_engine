@@ -6,9 +6,11 @@
 #include <volk.h>
 #include <render_engine/RendererFactory.h>
 
+
 namespace RenderEngine
 {
-	class RenderEngine;
+	class Device;
+
 	class RenderContext
 	{
 
@@ -16,9 +18,9 @@ namespace RenderEngine
 		static RenderContext& context();
 		static void initialize(const std::vector<const char*>& validation_layers, std::unique_ptr<RendererFeactory> renderer_factory);
 
-		RenderEngine& getEngine(size_t index) const
+		Device& getDevice(size_t index) const
 		{
-			return *_engines[index];
+			return *_devices[index];
 		}
 		void reset();
 		void* getRenderdocApi();
@@ -35,10 +37,10 @@ namespace RenderEngine
 		}
 		void init(const std::vector<const char*>& validation_layers, std::unique_ptr<RendererFeactory> renderer_factory);
 		void initVulkan(const std::vector<const char*>& validation_layers);
-		void createEngines(const std::vector<const char*>& validation_layers);
+		void createDevices(const std::vector<const char*>& validation_layers);
 		bool isVulkanInitialized() const { return _instance != nullptr; }
 		VkInstance _instance;
-		std::vector<std::unique_ptr<RenderEngine>> _engines;
+		std::vector<std::unique_ptr<Device>> _devices;
 		VkDebugUtilsMessengerEXT _debug_messenger;
 		void* _renderdoc_api{ nullptr };
 		std::unique_ptr<RendererFeactory> _renderer_factory;

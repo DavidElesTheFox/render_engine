@@ -1,7 +1,7 @@
 #include <render_engine/renderers/ForwardRenderer.h>
 
 #include "render_engine/window/Window.h"
-#include "render_engine/RenderEngine.h"
+#include "render_engine/Device.h"
 #include <ranges>
 #include <volk.h>
 #include <render_engine/GpuResourceManager.h>
@@ -19,7 +19,7 @@ namespace RenderEngine
 		const SwapChain& swap_chain,
 		bool last_renderer)
 		try : _window(parent)
-		, _back_buffer(parent.getGpuResourceManager().getBackBufferSize())
+		, _back_buffer(parent.getRenderEngine().getGpuResourceManager().getBackBufferSize())
 	{
 
 		_render_area.offset = { 0, 0 };
@@ -61,13 +61,13 @@ namespace RenderEngine
 		renderPassInfo.dependencyCount = 1;
 		renderPassInfo.pDependencies = &dependency;
 
-		auto logical_device = _window.getRenderEngine().getLogicalDevice();
+		auto logical_device = _window.getDevice().getLogicalDevice();
 		if (vkCreateRenderPass(logical_device, &renderPassInfo, nullptr, &_render_pass) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create render pass!");
 		}
 
 		createFrameBuffers(swap_chain);
-		createCommandPool(_window.getRenderQueueFamily());
+		createCommandPool(_window.getRenderEngine().getRenderQueueFamily());
 		createCommandBuffer();
 	}
 	catch (const std::exception&)
@@ -81,7 +81,7 @@ namespace RenderEngine
 	}
 	void ForwardRenderer::destroy()
 	{
-		auto logical_device = _window.getRenderEngine().getLogicalDevice();
+		auto logical_device = _window.getDevice().getLogicalDevice();
 		resetFrameBuffers();
 
 		vkDestroyRenderPass(logical_device, _render_pass, nullptr);
@@ -90,7 +90,7 @@ namespace RenderEngine
 
 	void ForwardRenderer::resetFrameBuffers()
 	{
-		auto logical_device = _window.getRenderEngine().getLogicalDevice();
+		auto logical_device = _window.getDevice().getLogicalDevice();
 
 		for (auto framebuffer : _frame_buffers) {
 			vkDestroyFramebuffer(logical_device, framebuffer, nullptr);
@@ -119,16 +119,16 @@ namespace RenderEngine
 		if (geometry.positions.empty() == false)
 		{
 			std::vector vertex_buffer = mesh->createVertexBuffer();
-			mesh_buffers.vertex_buffer = _window.getGpuResourceManager().createAttributeBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+			mesh_buffers.vertex_buffer = _window.getRenderEngine().getGpuResourceManager().createAttributeBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
 				vertex_buffer.size());
-			mesh_buffers.vertex_buffer->uploadUnmapped(std::span{ vertex_buffer.data(), vertex_buffer.size() }, _window.getRenderQueue(), _command_pool);
+			mesh_buffers.vertex_buffer->uploadUnmapped(std::span{ vertex_buffer.data(), vertex_buffer.size() }, _window.getRenderEngine().getRenderQueue(), _command_pool);
 
 		}
 		if (geometry.indexes.empty() == false)
 		{
-			mesh_buffers.index_buffer = _window.getGpuResourceManager().createAttributeBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+			mesh_buffers.index_buffer = _window.getRenderEngine().getGpuResourceManager().createAttributeBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
 				geometry.indexes.size() * sizeof(int16_t));
-			mesh_buffers.index_buffer->uploadUnmapped(std::span{ geometry.indexes.data(), geometry.indexes.size() }, _window.getRenderQueue(), _command_pool);
+			mesh_buffers.index_buffer->uploadUnmapped(std::span{ geometry.indexes.data(), geometry.indexes.size() }, _window.getRenderEngine().getRenderQueue(), _command_pool);
 		}
 		_mesh_buffers[mesh_instance->getMesh()] = std::move(mesh_buffers);
 		auto& mesh_group = _meshes[priority][material_instance_id];
@@ -136,7 +136,7 @@ namespace RenderEngine
 		if (mesh_group.technique == nullptr)
 		{
 			auto& material = mesh->getMaterial();
-			_meshes[priority][material_instance_id].technique = mesh_instance->getMaterialInstance()->createTechnique(_window.getGpuResourceManager(),
+			_meshes[priority][material_instance_id].technique = mesh_instance->getMaterialInstance()->createTechnique(_window.getRenderEngine().getGpuResourceManager(),
 				_render_pass);
 		}
 	}
@@ -225,7 +225,7 @@ namespace RenderEngine
 
 	void ForwardRenderer::createFrameBuffers(const SwapChain& swap_chain)
 	{
-		auto logical_device = _window.getRenderEngine().getLogicalDevice();
+		auto logical_device = _window.getDevice().getLogicalDevice();
 
 		_frame_buffers.resize(swap_chain.getDetails().image_views.size(), VK_NULL_HANDLE);
 		for (uint32_t i = 0; i < swap_chain.getDetails().image_views.size(); ++i)
@@ -235,7 +235,7 @@ namespace RenderEngine
 	}
 	void ForwardRenderer::createFrameBuffer(const SwapChain& swap_chain, uint32_t frame_buffer_index)
 	{
-		auto logical_device = _window.getRenderEngine().getLogicalDevice();
+		auto logical_device = _window.getDevice().getLogicalDevice();
 
 		VkImageView attachments[] = {
 				swap_chain.getDetails().image_views[frame_buffer_index]
@@ -256,7 +256,7 @@ namespace RenderEngine
 	}
 	void ForwardRenderer::createCommandPool(uint32_t render_queue_family)
 	{
-		auto logical_device = _window.getRenderEngine().getLogicalDevice();
+		auto logical_device = _window.getDevice().getLogicalDevice();
 
 		VkCommandPoolCreateInfo pool_info{};
 		pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -268,7 +268,7 @@ namespace RenderEngine
 	}
 	void ForwardRenderer::createCommandBuffer()
 	{
-		auto logical_device = _window.getRenderEngine().getLogicalDevice();
+		auto logical_device = _window.getDevice().getLogicalDevice();
 
 		for (FrameData& frame_data : _back_buffer)
 		{

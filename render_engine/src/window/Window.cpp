@@ -1,6 +1,6 @@
 #include <render_engine/window/Window.h>
 
-#include <render_engine/RenderEngine.h>
+#include <render_engine/Device.h>
 #include <render_engine/GpuResourceManager.h>
 #include <render_engine/RenderContext.h>
 
@@ -24,26 +24,21 @@ struct NullRenderdocApi
 };
 #	define RENDERDOC_API_1_1_2 NullRenderdocApi
 #endif
-namespace
-{
-	constexpr uint32_t kMaxNumOfResources = 10;
-}
+
 namespace RenderEngine
 {
-	Window::Window(RenderEngine& engine,
+	Window::Window(Device& device,
+		std::unique_ptr<RenderEngine>&& render_engine,
 		GLFWwindow* window,
 		std::unique_ptr<SwapChain> swap_chain,
-		VkQueue render_queue,
 		VkQueue present_queue,
-		uint32_t render_queue_family,
-		uint32_t back_buffer_size)
-		: _render_queue{ render_queue }
-		, _present_queue{ present_queue }
+		size_t back_buffer_size)
+		: _present_queue{ present_queue }
 		, _window(window)
 		, _swap_chain(std::move(swap_chain))
-		, _engine(engine)
-		, _gpuResourceManager(std::make_unique<GpuResourceManager>(engine.getPhysicalDevice(), engine.getLogicalDevice(), back_buffer_size, kMaxNumOfResources))
-		, _render_queue_family(render_queue_family)
+		, _device(device)
+		, _render_engine(std::move(render_engine))
+		, _back_buffer(back_buffer_size, FrameData{})
 		, _back_buffer_size(back_buffer_size)
 	{
 		initSynchronizationObjects();
@@ -101,7 +96,7 @@ namespace RenderEngine
 			VkFenceCreateInfo fence_info{};
 			fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 			fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-			auto logical_device = _engine.getLogicalDevice();
+			auto logical_device = _device.getLogicalDevice();
 			if (vkCreateSemaphore(logical_device, &semaphore_info, nullptr, &frame_data.image_available_semaphore) != VK_SUCCESS ||
 				vkCreateSemaphore(logical_device, &semaphore_info, nullptr, &frame_data.render_finished_semaphore) != VK_SUCCESS ||
 				vkCreateFence(logical_device, &fence_info, nullptr, &frame_data.in_flight_fence) != VK_SUCCESS)
@@ -137,7 +132,7 @@ namespace RenderEngine
 	}
 	void Window::reinitSwapChain()
 	{
-		auto logical_device = _engine.getLogicalDevice();
+		auto logical_device = _device.getLogicalDevice();
 		vkDeviceWaitIdle(logical_device);
 		std::vector<AbstractRenderer::ReinitializationCommand> commands;
 		for (auto& drawer : _renderers)
@@ -158,7 +153,7 @@ namespace RenderEngine
 		{
 			return;
 		}
-		auto logical_device = _engine.getLogicalDevice();
+		auto logical_device = _device.getLogicalDevice();
 		vkDeviceWaitIdle(logical_device);
 		for (FrameData& frame_data : _back_buffer)
 		{
@@ -169,7 +164,7 @@ namespace RenderEngine
 		_swap_chain.reset();
 		_renderers.clear();
 
-		_gpuResourceManager.reset();
+		_render_engine.reset();
 		glfwDestroyWindow(_window);
 
 		_window = nullptr;
@@ -181,7 +176,7 @@ namespace RenderEngine
 		{
 			return;
 		}
-		auto logical_device = _engine.getLogicalDevice();
+		auto logical_device = _device.getLogicalDevice();
 		vkWaitForFences(logical_device, 1, &frame_data.in_flight_fence, VK_TRUE, UINT64_MAX);
 		uint32_t image_index = 0;
 		{
@@ -205,47 +200,28 @@ namespace RenderEngine
 		}
 		vkResetFences(logical_device, 1, &frame_data.in_flight_fence);
 
-		std::vector<VkCommandBufferSubmitInfo> command_buffers;
-		for (auto& drawer : _renderers)
+		RenderEngine::SynchronizationPrimitives synchronization_primitives{};
 		{
-			drawer->draw(image_index, _frame_counter);
-			auto current_command_buffers = drawer->getCommandBuffers(_frame_counter);
-			std::transform(current_command_buffers.begin(), current_command_buffers.end(),
-				std::back_inserter(command_buffers),
-				[](const auto& command_buffer) { return VkCommandBufferSubmitInfo{
-					.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
-					.pNext = VK_NULL_HANDLE,
-					.commandBuffer = command_buffer,
-					.deviceMask = 0 }; 
-				});
+			VkSemaphoreSubmitInfo wait_semaphore_info{};
+			wait_semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+			wait_semaphore_info.semaphore = frame_data.image_available_semaphore;
+			wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+			synchronization_primitives.wait_semaphores.push_back(wait_semaphore_info);
 		}
-		VkSubmitInfo2 submit_info{};
-		submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
+		{
+			VkSemaphoreSubmitInfo signal_semaphore_info{};
+			signal_semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+			signal_semaphore_info.semaphore = frame_data.render_finished_semaphore;
+			signal_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
 
-		VkSemaphoreSubmitInfo wait_semaphore_info{};
-		wait_semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
-		wait_semaphore_info.semaphore = frame_data.image_available_semaphore;
-		wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
-
-		submit_info.commandBufferInfoCount = command_buffers.size();
-		submit_info.pCommandBufferInfos = command_buffers.data();
-
-		submit_info.waitSemaphoreInfoCount = 1;
-		submit_info.pWaitSemaphoreInfos = &wait_semaphore_info;
-
-		VkSemaphoreSubmitInfo signal_semaphore_info{};
-		signal_semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
-		signal_semaphore_info.semaphore = frame_data.render_finished_semaphore;
-		signal_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
-
-		submit_info.signalSemaphoreInfoCount = 1;
-		submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
-
-
-		if (vkQueueSubmit2(_render_queue, 1, &submit_info, frame_data.in_flight_fence) != VK_SUCCESS) {
-			throw std::runtime_error("failed to submit draw command buffer!");
+			synchronization_primitives.signal_semaphores.push_back(signal_semaphore_info);
 		}
+		synchronization_primitives.on_finished_fence = frame_data.in_flight_fence;
 
+		_render_engine->render(synchronization_primitives,
+			_renderers | std::views::transform([](const auto& ptr) {return ptr.get(); }),
+			image_index,
+			_frame_counter);
 
 		VkPresentInfoKHR presentInfo{};
 		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;

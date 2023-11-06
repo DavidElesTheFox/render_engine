@@ -1,6 +1,6 @@
 #include <render_engine/renderers/UIRenderer.h>
 #include <render_engine/window/Window.h>
-#include <render_engine/RenderEngine.h>
+#include <render_engine/Device.h>
 
 #include <stdexcept>
 #include <fstream>
@@ -105,12 +105,12 @@ namespace RenderEngine
 
 		ImGui_ImplVulkan_LoadFunctions([](const char* function_name, void* vulkan_instance) {
 			return vkGetInstanceProcAddr(*(reinterpret_cast<VkInstance*>(vulkan_instance)), function_name);
-			}, &window.getRenderEngine().getVulkanInstance());
+			}, &window.getDevice().getVulkanInstance());
 
 		ImGui_ImplGlfw_InitForVulkan(_window.getWindowHandle(), true);
 
 
-		auto logical_device = window.getRenderEngine().getLogicalDevice();
+		auto logical_device = window.getDevice().getLogicalDevice();
 
 		try
 		{
@@ -121,14 +121,14 @@ namespace RenderEngine
 			_render_area.offset = { 0, 0 };
 			_render_area.extent = swap_chain.getDetails().extent;
 			createFrameBuffers(swap_chain);
-			createCommandPool(window.getRenderQueueFamily());
+			createCommandPool(window.getRenderEngine().getRenderQueueFamily());
 			createCommandBuffer();
 
 			ImGui_ImplVulkan_InitInfo init_info = {};
-			init_info.Instance = _window.getRenderEngine().getVulkanInstance();
-			init_info.PhysicalDevice = _window.getRenderEngine().getPhysicalDevice();
+			init_info.Instance = _window.getDevice().getVulkanInstance();
+			init_info.PhysicalDevice = _window.getDevice().getPhysicalDevice();
 			init_info.Device = logical_device;
-			init_info.Queue = window.getRenderQueue();
+			init_info.Queue = window.getRenderEngine().getRenderQueue();
 			init_info.DescriptorPool = _descriptor_pool;
 			init_info.MinImageCount = back_buffer_size;
 			init_info.ImageCount = back_buffer_size;
@@ -164,8 +164,8 @@ namespace RenderEngine
 				submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
 				submit_info.commandBufferInfoCount = 1;
 				submit_info.pCommandBufferInfos = &command_buffer_info;
-				vkQueueSubmit2(_window.getRenderQueue(), 1, &submit_info, VK_NULL_HANDLE);
-				vkQueueWaitIdle(_window.getRenderQueue());
+				vkQueueSubmit2(_window.getRenderEngine().getRenderQueue(), 1, &submit_info, VK_NULL_HANDLE);
+				vkQueueWaitIdle(_window.getRenderEngine().getRenderQueue());
 
 				vkFreeCommandBuffers(logical_device, _command_pool, 1, &command_buffer);
 			}
@@ -174,7 +174,7 @@ namespace RenderEngine
 		}
 		catch (const std::runtime_error&)
 		{
-			auto logical_device = window.getRenderEngine().getLogicalDevice();
+			auto logical_device = window.getDevice().getLogicalDevice();
 			vkDestroyCommandPool(logical_device, _command_pool, nullptr);
 
 			for (auto framebuffer : _frame_buffers) {
@@ -188,7 +188,7 @@ namespace RenderEngine
 	UIRenderer::~UIRenderer()
 	{
 		ImGui::SetCurrentContext(_imgui_context);
-		auto logical_device = _window.getRenderEngine().getLogicalDevice();
+		auto logical_device = _window.getDevice().getLogicalDevice();
 		vkDestroyCommandPool(logical_device, _command_pool, nullptr);
 
 		resetFrameBuffers();
@@ -209,7 +209,7 @@ namespace RenderEngine
 	}
 	void UIRenderer::resetFrameBuffers()
 	{
-		auto logical_device = _window.getRenderEngine().getLogicalDevice();
+		auto logical_device = _window.getDevice().getLogicalDevice();
 
 		for (auto framebuffer : _frame_buffers) {
 			vkDestroyFramebuffer(logical_device, framebuffer, nullptr);
@@ -290,7 +290,7 @@ namespace RenderEngine
 
 	void UIRenderer::createFrameBuffers(const SwapChain& swap_chain)
 	{
-		auto logical_device = _window.getRenderEngine().getLogicalDevice();
+		auto logical_device = _window.getDevice().getLogicalDevice();
 
 		_frame_buffers.resize(swap_chain.getDetails().image_views.size());
 		for (uint32_t i = 0; i < swap_chain.getDetails().image_views.size(); ++i)
@@ -307,7 +307,7 @@ namespace RenderEngine
 	}
 	bool UIRenderer::createFrameBuffer(const SwapChain& swap_chain, uint32_t frame_buffer_index)
 	{
-		auto logical_device = _window.getRenderEngine().getLogicalDevice();
+		auto logical_device = _window.getDevice().getLogicalDevice();
 
 		VkImageView attachments[] = {
 				swap_chain.getDetails().image_views[frame_buffer_index]
@@ -325,7 +325,7 @@ namespace RenderEngine
 	}
 	void UIRenderer::createCommandPool(uint32_t render_queue_family)
 	{
-		auto logical_device = _window.getRenderEngine().getLogicalDevice();
+		auto logical_device = _window.getDevice().getLogicalDevice();
 
 		VkCommandPoolCreateInfo pool_info{};
 		pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -337,7 +337,7 @@ namespace RenderEngine
 	}
 	void UIRenderer::createCommandBuffer()
 	{
-		auto logical_device = _window.getRenderEngine().getLogicalDevice();
+		auto logical_device = _window.getDevice().getLogicalDevice();
 
 		for (FrameData& frame_data : _back_buffer)
 		{

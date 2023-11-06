@@ -194,7 +194,7 @@ void DemoApplication::createWindow()
 {
 	using namespace RenderEngine;
 
-	_window = RenderContext::context().getEngine(0).createWindow("Secondary Window", 3);
+	_window = RenderContext::context().getDevice(0).createWindow("Secondary Window", 3);
 	_window->registerRenderers({ ForwardRenderer::kRendererId, UIRenderer::kRendererId });
 	
 	_window->getRendererAs<UIRenderer>(UIRenderer::kRendererId).setOnGui(

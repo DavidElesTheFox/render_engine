@@ -97,12 +97,14 @@ source_group("include\\window" FILES ${RENDER_ENGINE_WINDOW_HEADERS})
 
 set(RENDER_ENGINE_ROOT_SRC 
 		src/RenderEngine.cpp
+		src/Device.cpp
 		src/RenderContext.cpp
 		src/RendererFactory.cpp
 		src/GpuResourceManager.cpp
 )
 set(RENDER_ENGINE_ROOT_HEADERS
 	${RENDER_ENGINE_HEADER_LOCATION}/RenderEngine.h
+	${RENDER_ENGINE_HEADER_LOCATION}/Device.h
 	${RENDER_ENGINE_HEADER_LOCATION}/RenderContext.h
 	${RENDER_ENGINE_HEADER_LOCATION}/RendererFactory.h
 	${RENDER_ENGINE_HEADER_LOCATION}/GpuResourceManager.h

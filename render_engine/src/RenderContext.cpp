@@ -1,5 +1,5 @@
 #include <render_engine/RenderContext.h>
-#include <render_engine/RenderEngine.h>
+#include <render_engine/Device.h>
 
 #include <ranges>
 #include <algorithm>
@@ -200,7 +200,7 @@ namespace RenderEngine
 		if (isVulkanInitialized() == false)
 		{
 			initVulkan(validation_layers);
-			createEngines(validation_layers);
+			createDevices(validation_layers);
 		}
 		_initialized = true;
 	}
@@ -263,7 +263,7 @@ namespace RenderEngine
 	
 	}
 
-	void RenderContext::createEngines(const std::vector<const char*>& validation_layers)
+	void RenderContext::createDevices(const std::vector<const char*>& validation_layers)
 	{
 		std::vector<const char*> device_extensions{ Window::kDeviceExtensions.begin(), Window::kDeviceExtensions.end() };
 		//device_extensions.push_back(VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME);
@@ -275,13 +275,13 @@ namespace RenderEngine
 		for (auto physical_device : physical_devices)
 		{
 			auto indices = findQueueFamilies(_instance, physical_device);
-			auto engine = std::make_unique<RenderEngine>(_instance,
+			auto device = std::make_unique<Device>(_instance,
 				physical_device,
 				*indices.graphics_index,
 				*indices.presentation_index,
 				device_extensions,
 				validation_layers);
-			_engines.push_back(std::move(engine));
+			_devices.push_back(std::move(device));
 			// TODO implement volk device table usage
 			// Volk can load functions into table, and it might be different from device to device.
 			// Implement a VulkanLogicalDevice that has the api callbacks.
@@ -296,7 +296,7 @@ namespace RenderEngine
 	{
 		if (isVulkanInitialized())
 		{
-			_engines.clear();
+			_devices.clear();
 			vkDestroyInstance(_instance, nullptr);
 			_instance = nullptr;
 		}
@@ -310,4 +310,5 @@ namespace RenderEngine
 		throw std::runtime_error("Cannot enable renderdoc, feature is disabled in this build");
 #endif
 	}
-	}
+
+}

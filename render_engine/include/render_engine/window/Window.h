@@ -10,24 +10,24 @@
 #include <memory>
 
 #include <GLFW/glfw3.h>
+#include <render_engine/Device.h>
 #include <render_engine/RenderEngine.h>
 struct ImGuiContext;
 namespace RenderEngine
 {
-	class RenderEngine;
+	class Device;
 	class GpuResourceManager;
 	class Window
 	{
 	public:
 
 		static constexpr std::array<const char*, 1> kDeviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
-		Window(RenderEngine& engine,
+		Window(Device& device,
+			std::unique_ptr<RenderEngine>&& render_engine,
 			GLFWwindow* window,
 			std::unique_ptr<SwapChain> swap_chain,
-			VkQueue render_queue,
 			VkQueue present_queue,
-			uint32_t render_queue_family,
-			uint32_t back_buffer_size);
+			size_t back_buffer_size);
 		~Window();
 
 		void update();
@@ -39,20 +39,18 @@ namespace RenderEngine
 		{
 			return static_cast<T&>(*_renderer_map.at(renderer_id));
 		}
-		RenderEngine& getRenderEngine() { return _engine; }
-		uint32_t getRenderQueueFamily() { return _render_queue_family; }
-		VkQueue& getRenderQueue() { return _render_queue; }
+		Device& getDevice() { return _device; }
 		void enableRenderdocCapture();
 		void disableRenderdocCapture();
 		GLFWwindow* getWindowHandle() { return _window; }
-		GpuResourceManager& getGpuResourceManager() { return *_gpuResourceManager; }
+		RenderEngine& getRenderEngine() { return *_render_engine; }
 
 	private:
 		struct FrameData
 		{
-			VkSemaphore image_available_semaphore;
-			VkSemaphore render_finished_semaphore;
-			VkFence in_flight_fence;
+			VkSemaphore image_available_semaphore{VK_NULL_HANDLE};
+			VkSemaphore render_finished_semaphore{ VK_NULL_HANDLE };
+			VkFence in_flight_fence{ VK_NULL_HANDLE };
 		};
 		void initSynchronizationObjects();
 		void handleEvents();
@@ -60,23 +58,21 @@ namespace RenderEngine
 		void present(FrameData& current_frame_data);
 		void reinitSwapChain();
 		void destroy();
-		static constexpr uint32_t kBackBufferSize = 2u;
 		bool _closed = false;
-		VkQueue _render_queue;
 		VkQueue _present_queue;
 
 		GLFWwindow* _window{ nullptr };
 		std::unique_ptr<SwapChain> _swap_chain;
 
-		RenderEngine& _engine;
-		std::unique_ptr<GpuResourceManager> _gpuResourceManager;
-		std::array<FrameData, kBackBufferSize> _back_buffer;
+		Device& _device;
+		std::unique_ptr<RenderEngine> _render_engine;
+		std::vector<FrameData> _back_buffer;
 		uint32_t _render_queue_family{ 0 };
 
 		std::vector<std::unique_ptr<AbstractRenderer>> _renderers;
 		std::unordered_map<uint32_t, AbstractRenderer*> _renderer_map;
 		uint32_t _frame_counter{ 0 };
-		uint32_t _back_buffer_size{ 1 };
+		size_t _back_buffer_size{ 2 };
 		void* _renderdoc_api{ nullptr };
 	};
 }

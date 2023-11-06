@@ -3,6 +3,7 @@
 #include <volk.h>
 
 #include <vector>
+#include <stdexcept>
 namespace RenderEngine
 {
 	struct SynchronizationPrimitives

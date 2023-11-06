@@ -378,12 +378,14 @@ namespace RenderEngine
 		{
 			VkDeviceSize size = sizeof(Vertex) * vertices.size();
 			_vertex_buffer = _window.getRenderEngine().getGpuResourceManager().createAttributeBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, size);
-			_vertex_buffer->uploadUnmapped(std::span<const Vertex>{vertices.data(), vertices.size()}, _window.getRenderEngine().getRenderQueue(), _command_pool.command_pool);
+			_vertex_buffer->uploadUnmapped(std::span<const Vertex>{vertices.data(), vertices.size()}, 
+				_window.getTransferEngine(), _window.getRenderEngine().getQueueFamilyIndex());
 		}
 		{
 			VkDeviceSize size = sizeof(uint16_t) * indicies.size();
 			_index_buffer = _window.getRenderEngine().getGpuResourceManager().createAttributeBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, size);
-			_index_buffer->uploadUnmapped(std::span<const uint16_t>{indicies.data(), indicies.size()}, _window.getRenderEngine().getRenderQueue(), _command_pool.command_pool);
+			_index_buffer->uploadUnmapped(std::span<const uint16_t>{indicies.data(), indicies.size()}, 
+				_window.getTransferEngine(), _window.getRenderEngine().getQueueFamilyIndex());
 		}
 
 		std::vector<Buffer*> created_buffers;

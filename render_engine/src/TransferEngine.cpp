@@ -9,6 +9,7 @@ namespace RenderEngine
 		, _command_pool_factory(device, queue_familiy_index)
 	{
 	}
+
 	TransferEngine::InFlightData TransferEngine::transfer(const SynchronizationPrimitives& synchronization_primitives, 
 		std::function<void(VkCommandBuffer)> record_transfer_command,
 		VkQueue transfer_queue_override)

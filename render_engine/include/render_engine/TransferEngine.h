@@ -49,6 +49,7 @@ namespace RenderEngine
 			std::function<void(VkCommandBuffer)> record_transfer_command,
 			VkQueue transfer_queue_override);
 		uint32_t getQueueFamilyIndex() const { return _queue_family_index; }
+
 	private:
 		Device& _device;
 		uint32_t _queue_family_index{ 0 };

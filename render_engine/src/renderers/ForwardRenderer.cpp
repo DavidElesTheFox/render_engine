@@ -121,14 +121,16 @@ namespace RenderEngine
 			std::vector vertex_buffer = mesh->createVertexBuffer();
 			mesh_buffers.vertex_buffer = _window.getRenderEngine().getGpuResourceManager().createAttributeBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
 				vertex_buffer.size());
-			mesh_buffers.vertex_buffer->uploadUnmapped(std::span{ vertex_buffer.data(), vertex_buffer.size() }, _window.getRenderEngine().getRenderQueue(), _command_pool.command_pool);
+			mesh_buffers.vertex_buffer->uploadUnmapped(std::span{ vertex_buffer.data(), vertex_buffer.size() },
+				_window.getTransferEngine(), _window.getRenderEngine().getQueueFamilyIndex());
 
 		}
 		if (geometry.indexes.empty() == false)
 		{
 			mesh_buffers.index_buffer = _window.getRenderEngine().getGpuResourceManager().createAttributeBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
 				geometry.indexes.size() * sizeof(int16_t));
-			mesh_buffers.index_buffer->uploadUnmapped(std::span{ geometry.indexes.data(), geometry.indexes.size() }, _window.getRenderEngine().getRenderQueue(), _command_pool.command_pool);
+			mesh_buffers.index_buffer->uploadUnmapped(std::span{ geometry.indexes.data(), geometry.indexes.size() }, 
+				_window.getTransferEngine(), _window.getRenderEngine().getQueueFamilyIndex());
 		}
 		_mesh_buffers[mesh_instance->getMesh()] = std::move(mesh_buffers);
 		auto& mesh_group = _meshes[priority][material_instance_id];

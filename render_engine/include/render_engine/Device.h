@@ -1,6 +1,5 @@
 #pragma once
 
-#include <render_engine/resources/Buffer.h>
 
 #include <volk.h>
 #include <memory>

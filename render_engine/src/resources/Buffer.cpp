@@ -67,42 +67,6 @@ namespace
 		vkBindBufferMemory(logical_device, buffer, buffer_memory, 0);
 		return { buffer, buffer_memory };
 	}
-
-	void copyBuffer(VkDevice logical_device, VkQueue upload_queue, VkCommandPool upload_pool, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
-		VkCommandBufferAllocateInfo alloc_info{};
-		alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		alloc_info.commandPool = upload_pool;
-		alloc_info.commandBufferCount = 1;
-
-		VkCommandBuffer command_buffer;
-		vkAllocateCommandBuffers(logical_device, &alloc_info, &command_buffer);
-
-		VkCommandBufferSubmitInfo command_buffer_info{};
-		command_buffer_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
-		command_buffer_info.commandBuffer = command_buffer;
-
-		VkCommandBufferBeginInfo begin_info{};
-		begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-		begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-		vkBeginCommandBuffer(command_buffer, &begin_info);
-
-
-
-		vkEndCommandBuffer(command_buffer);
-
-		VkSubmitInfo2 submitInfo{};
-		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
-		submitInfo.commandBufferInfoCount = 1;
-		submitInfo.pCommandBufferInfos = &command_buffer_info;
-
-		vkQueueSubmit2(upload_queue, 1, &submitInfo, VK_NULL_HANDLE);
-		vkQueueWaitIdle(upload_queue);
-
-		vkFreeCommandBuffers(logical_device, upload_pool, 1, &command_buffer);
-	}
-
 }
 
 namespace RenderEngine
@@ -151,10 +115,6 @@ namespace RenderEngine
 		memcpy(data, data_view.data(), (size_t)_buffer_info.size);
 		vkUnmapMemory(_logical_device, staging_memory);
 
-		/*copyBuffer(_logical_device, upload_queue, command_pool, staging_buffer, _buffer, _buffer_info.size);
-		vkDestroyBuffer(_logical_device, staging_buffer, nullptr);
-		vkFreeMemory(_logical_device, staging_memory, nullptr);*/
-
 		SynchronizationPrimitives synchronization_primitives = SynchronizationPrimitives::CreateWithFence(_logical_device);
 		auto inflight_data = transfer_engine.transfer(synchronization_primitives,
 			[&](VkCommandBuffer command_buffer)
@@ -162,7 +122,7 @@ namespace RenderEngine
 				VkBufferCopy copy_region{};
 				copy_region.size = _buffer_info.size;
 				vkCmdCopyBuffer(command_buffer, staging_buffer, _buffer, 1, &copy_region);
-				if (dst_queue_index != transfer_engine.getQueueFamilyIndex() || true)
+				if (dst_queue_index != transfer_engine.getQueueFamilyIndex())
 				{
 					VkBufferMemoryBarrier2 memory_barrier{};
 					memory_barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;

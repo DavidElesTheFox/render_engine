@@ -34,9 +34,15 @@ namespace RenderEngine
 				VkShaderStageFlags shared_with{ 0 };
 			};
 
+			struct Sampler
+			{
+				int32_t binding{ -1 };
+			};
+
 			uint32_t attributes_stride;
 			std::vector<Attribute> input_attributes;
 			std::unordered_map<int32_t, Uniforms> global_uniform_buffers;
+			std::unordered_map<int32_t, Sampler> samplers;
 			std::optional<PushConstants> push_constants{ std::nullopt };
 		};
 		explicit Shader(std::filesystem::path spriv_path, MetaData meta_data)

@@ -2,11 +2,11 @@
 
 namespace RenderEngine
 {
-	TransferEngine::TransferEngine(Device& device, uint32_t queue_familiy_index, VkQueue transfer_queue)
-		: _device(device)
+	TransferEngine::TransferEngine(VkDevice logical_device, uint32_t queue_familiy_index, VkQueue transfer_queue)
+		: _logical_device(logical_device)
 		, _queue_family_index(queue_familiy_index)
 		, _transfer_queue(transfer_queue)
-		, _command_pool_factory(device, queue_familiy_index)
+		, _command_pool_factory(logical_device, queue_familiy_index)
 	{
 	}
 
@@ -15,7 +15,6 @@ namespace RenderEngine
 		VkQueue transfer_queue_override)
 	{
 		auto command_pool = _command_pool_factory.getCommandPool(VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
-		auto logical_device = _device.getLogicalDevice();
 
 		VkCommandBufferAllocateInfo alloc_info{};
 		alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -24,7 +23,7 @@ namespace RenderEngine
 		alloc_info.commandBufferCount = 1;
 
 		VkCommandBuffer command_buffer;
-		vkAllocateCommandBuffers(logical_device, &alloc_info, &command_buffer);
+		vkAllocateCommandBuffers(_logical_device, &alloc_info, &command_buffer);
 
 		VkCommandBufferSubmitInfo command_buffer_info{};
 		command_buffer_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
@@ -53,7 +52,7 @@ namespace RenderEngine
 
 		vkQueueSubmit2(transfer_queue_override, 1, &submitInfo, synchronization_primitives.on_finished_fence);
 		
-		return { command_buffer, std::move(command_pool),logical_device };
+		return { command_buffer, std::move(command_pool),_logical_device };
 	}
 	TransferEngine::InFlightData::~InFlightData()
 	{
@@ -61,6 +60,10 @@ namespace RenderEngine
 	}
 	void TransferEngine::InFlightData::destroy() noexcept
 	{
+		if (_logical_device == VK_NULL_HANDLE)
+		{
+			return;
+		}
 		vkFreeCommandBuffers(_logical_device, _command_pool.command_pool, 1, &_command_buffer);
 		vkDestroyCommandPool(_logical_device, _command_pool.command_pool, nullptr);
 	}

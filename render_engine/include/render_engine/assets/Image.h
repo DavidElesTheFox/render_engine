@@ -14,7 +14,12 @@ namespace RenderEngine
 		Image(std::filesystem::path path,
 			uint32_t width,
 			uint32_t height,
-			VkFormat format);
+			VkFormat format)
+			: _path(path)
+			, _width(width)
+			, _height(height)
+			, _format(format)
+		{}
 
 		const std::filesystem::path& getPath() const { return _path; }
 		uint32_t getWidth() const { return _width; }

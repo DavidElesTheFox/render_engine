@@ -13,14 +13,14 @@ namespace RenderEngine
 			VkCommandPool command_pool{ VK_NULL_HANDLE };
 		};
 
-		CommandPoolFactory(Device& device, uint32_t queue_family)
-			: _device(device)
+		CommandPoolFactory(VkDevice logical_device, uint32_t queue_family)
+			: _logical_device(logical_device)
 			, _queue_family(queue_family)
 		{}
 
 		CommandPool getCommandPool(VkCommandPoolCreateFlags flags);
 	private:
-		Device& _device;
+		VkDevice _logical_device{ VK_NULL_HANDLE };
 		uint32_t _queue_family{ 0 };
 		
 	};

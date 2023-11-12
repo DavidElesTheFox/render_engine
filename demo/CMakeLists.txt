@@ -38,6 +38,8 @@ src/assets/AssetDatabase.h
 src/assets/NoLitMaterial.h
 src/assets/NoLitMaterial.cpp
 src/assets/NoLitMaterial.h
+src/assets/BillboardMaterial.h
+src/assets/BillboardMaterial.cpp
 )
 
 set(RENDERING_SYSTEM_DEMO_UI_FILE
@@ -71,6 +73,8 @@ endfunction()
 set(RENDERING_SYSTEM_DEMO_SHADER_FILES 
 resources/shaders/nolit.vert
 resources/shaders/nolit.frag
+resources/shaders/billboard.vert
+resources/shaders/billboard.frag
 )
 
 add_custom_target(Shaders 

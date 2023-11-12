@@ -14,9 +14,9 @@ namespace RenderEngine
 		, _logical_device(logical_device)
 		, _uniforms_layout(uniforms_layout)
 	{
-		const auto* material = _material_instance->getMaterial();
-		auto vertex_shader = material->getVertexShader().loadOn(logical_device);
-		auto fragment_shader = material->getFragmentShader().loadOn(logical_device);
+		const auto& material = _material_instance->getMaterial();
+		auto vertex_shader = material.getVertexShader().loadOn(logical_device);
+		auto fragment_shader = material.getFragmentShader().loadOn(logical_device);
 
 		std::vector<VkDescriptorSetLayout> descriptor_set_layouts;
 		if (_uniform_buffers.empty() == false)
@@ -31,7 +31,7 @@ namespace RenderEngine
 
 		std::vector<VkPushConstantRange> push_constants_info_container{};
 
-		for (const auto& [stage, push_constants] : material->getPushConstantsMetaData())
+		for (const auto& [stage, push_constants] : material.getPushConstantsMetaData())
 		{
 			VkPushConstantRange push_constants_info;
 			push_constants_info.offset = push_constants.offset;
@@ -64,12 +64,12 @@ namespace RenderEngine
 		// TODO implement more binding
 		VkVertexInputBindingDescription binding_description{};
 		binding_description.binding = 0;
-		binding_description.stride = material->getVertexShader().getMetaData().attributes_stride;
+		binding_description.stride = material.getVertexShader().getMetaData().attributes_stride;
 		// TODO add support of instanced rendering
 		binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
 		std::vector<VkVertexInputAttributeDescription> attribute_descriptions;
-		for (const auto& attribute : material->getVertexShader().getMetaData().input_attributes)
+		for (const auto& attribute : material.getVertexShader().getMetaData().input_attributes)
 		{
 			VkVertexInputAttributeDescription description{};
 			description.binding = 0;
@@ -175,11 +175,11 @@ namespace RenderEngine
 	VkShaderStageFlags Technique::getPushConstantsUsageFlag() const
 	{
 		VkShaderStageFlags result{ 0 };
-		if (_material_instance->getMaterial()->getVertexShader().getMetaData().push_constants != std::nullopt)
+		if (_material_instance->getMaterial().getVertexShader().getMetaData().push_constants != std::nullopt)
 		{
 			result |= VK_SHADER_STAGE_VERTEX_BIT;
 		}
-		if (_material_instance->getMaterial()->getFragmentShader().getMetaData().push_constants != std::nullopt)
+		if (_material_instance->getMaterial().getFragmentShader().getMetaData().push_constants != std::nullopt)
 		{
 			result |= VK_SHADER_STAGE_FRAGMENT_BIT;
 		}

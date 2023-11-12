@@ -4,6 +4,7 @@
 
 #include <filesystem>
 #include <unordered_map>
+#include <variant>
 
 namespace RenderEngine
 {
@@ -21,7 +22,7 @@ namespace RenderEngine
 				uint32_t offset{ 0 };
 			};
 
-			struct Uniforms
+			struct UniformBuffer
 			{
 				int32_t binding{ -1 };
 				int32_t size{ -1 };
@@ -41,7 +42,7 @@ namespace RenderEngine
 
 			uint32_t attributes_stride;
 			std::vector<Attribute> input_attributes;
-			std::unordered_map<int32_t, Uniforms> global_uniform_buffers;
+			std::unordered_map<int32_t, UniformBuffer> global_uniform_buffers;
 			std::unordered_map<int32_t, Sampler> samplers;
 			std::optional<PushConstants> push_constants{ std::nullopt };
 		};
@@ -55,6 +56,7 @@ namespace RenderEngine
 		{
 			return _meta_data;
 		}
+
 		void addGlobalUniform(int32_t binding, int32_t size)
 		{
 			_meta_data.global_uniform_buffers[binding].binding = binding;
@@ -64,6 +66,7 @@ namespace RenderEngine
 		{
 			_meta_data.push_constants = MetaData::PushConstants{ .size = size };
 		}
+
 	private:
 		std::filesystem::path _spirv_path;
 		MetaData _meta_data;

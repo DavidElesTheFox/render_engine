@@ -2,6 +2,7 @@
 
 #include <render_engine/resources/Buffer.h>
 
+#include <array>
 namespace RenderEngine
 {
 
@@ -22,14 +23,18 @@ namespace RenderEngine
 		, _logical_device(logical_device)
 		, _back_buffer_size(back_buffer_size)
 	{
-		VkDescriptorPoolSize poolSize{};
-		poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		poolSize.descriptorCount = back_buffer_size * max_num_of_resources;
+		std::array<VkDescriptorPoolSize, 2> pool_sizes;
+
+		pool_sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		pool_sizes[0].descriptorCount = back_buffer_size * max_num_of_resources;
+
+		pool_sizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		pool_sizes[1].descriptorCount = back_buffer_size * max_num_of_resources;
 
 		VkDescriptorPoolCreateInfo poolInfo{};
 		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-		poolInfo.poolSizeCount = 1;
-		poolInfo.pPoolSizes = &poolSize;
+		poolInfo.poolSizeCount = pool_sizes.size();
+		poolInfo.pPoolSizes = pool_sizes.data();
 		poolInfo.maxSets = back_buffer_size * max_num_of_resources;
 
 

@@ -1,27 +1,28 @@
-#include "Image.h"
+#include "render_engine/assets/Image.h"
 
 #include <fstream>
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+
 namespace RenderEngine
 {
     std::vector<uint8_t> Image::readData() const
     {
-        std::ifstream file(_path.c_str(), std::ios::ate | std::ios::binary);
-
-        if (!file.is_open()) {
-
-            throw std::runtime_error("failed to open file " + _path.string());
+        int32_t width{ -1 };
+        int32_t height{ -1 };
+        int32_t channels{ -1 };
+        std::string path_str = _path.string();
+        if (_format == VK_FORMAT_R8G8B8A8_SRGB)
+        {
+            stbi_uc* pixels = stbi_load(path_str.c_str(), &width, &height, &channels, STBI_rgb_alpha);
+            std::vector<uint8_t> result(pixels, pixels + (width * height * 4));
+            stbi_image_free(pixels);    
+            return result;
         }
-
-        size_t fileSize = file.tellg();
-        std::vector<uint8_t> buffer(fileSize);
-
-        file.seekg(0);
-        static_assert(sizeof(char) == sizeof(uint8_t));
-        file.read(reinterpret_cast<char*>(buffer.data()), fileSize);
-
-        file.close();
-
-        return buffer;
+        else
+        {
+            throw std::runtime_error("Unsupported image format");
+        }
     }
     BufferInfo Image::createBufferInfo() const
     {

@@ -59,6 +59,7 @@ source_group("include\\resources" FILES ${RENDER_ENGINE_RESOURCES_HEADERS})
 set(RENDER_ENGINE_ASSETS_SRC
 	src/assets/Material.cpp
 	src/assets/Shader.cpp
+	src/assets/Image.cpp
     )
 set(RENDER_ENGINE_ASSETS_HEADERS 
 	${RENDER_ENGINE_HEADER_LOCATION}/assets/Geometry.h

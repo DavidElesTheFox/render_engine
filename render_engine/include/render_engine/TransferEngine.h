@@ -21,7 +21,12 @@ namespace RenderEngine
 				, _logical_device(logical_device)
 			{}
 		public:
-			InFlightData(InFlightData&&) = default;
+			InFlightData(InFlightData&& o)
+			{
+				std::swap(_command_buffer, o._command_buffer);
+				std::swap(_command_pool, o._command_pool);
+				std::swap(_logical_device, o._logical_device);
+			}
 			InFlightData(const InFlightData&) = delete;
 
 			InFlightData operator=(InFlightData&&) = delete;
@@ -30,12 +35,12 @@ namespace RenderEngine
 			~InFlightData();
 			void destroy() noexcept;
 		private:
-			VkCommandBuffer _command_buffer;
+			VkCommandBuffer _command_buffer{ VK_NULL_HANDLE };
 			CommandPoolFactory::CommandPool _command_pool;
-			VkDevice _logical_device;
+			VkDevice _logical_device{ VK_NULL_HANDLE };
 		};
 
-		TransferEngine(Device& device,
+		TransferEngine(VkDevice logical_device,
 			uint32_t queue_familiy_index,
 			VkQueue transfer_queue);
 
@@ -49,9 +54,8 @@ namespace RenderEngine
 			std::function<void(VkCommandBuffer)> record_transfer_command,
 			VkQueue transfer_queue_override);
 		uint32_t getQueueFamilyIndex() const { return _queue_family_index; }
-
 	private:
-		Device& _device;
+		VkDevice _logical_device{ VK_NULL_HANDLE };
 		uint32_t _queue_family_index{ 0 };
 		VkQueue _transfer_queue{ VK_NULL_HANDLE };
 		CommandPoolFactory _command_pool_factory;

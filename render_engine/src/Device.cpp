@@ -4,6 +4,7 @@
 #include <render_engine/RenderContext.h>
 #include <render_engine/RenderEngine.h>
 #include <render_engine/TransferEngine.h>
+#include <render_engine/resources/Texture.h>
 #include <render_engine/GpuResourceManager.h>
 #include <render_engine/window/Window.h>
 
@@ -171,7 +172,15 @@ namespace RenderEngine
 		VkQueue transfer_queue;
 		vkGetDeviceQueue(_logical_device, _queue_family_transfer, 0, &transfer_queue);
 
-		return std::make_unique<TransferEngine>(*this, _queue_family_transfer, transfer_queue);
+		return std::make_unique<TransferEngine>(_logical_device, _queue_family_transfer, transfer_queue);
+	}
+
+	std::unique_ptr<TextureFactory> Device::createTextureFactory(TransferEngine& transfer_engine, std::set<uint32_t> compatible_queue_family_indexes)
+	{
+		return std::make_unique<TextureFactory>(transfer_engine,
+			std::move(compatible_queue_family_indexes),
+			_physical_device,
+			_logical_device);
 	}
 
 }

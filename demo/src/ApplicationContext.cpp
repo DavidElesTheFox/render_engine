@@ -15,23 +15,24 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 	{
 		return;
 	}
-
+	const auto forward = camera->getTransformation().getRotation() * scene->getSceneSetup().forward;
+	const auto up = camera->getTransformation().getRotation() * scene->getSceneSetup().up;
 	if (key == GLFW_KEY_W && action == GLFW_PRESS)
 	{
-		camera->getTransformation().translate(scene->getSceneSetup().forward);
+		camera->getTransformation().translate(forward);
 	}
 	if (key == GLFW_KEY_S && action == GLFW_PRESS)
 	{
-		camera->getTransformation().translate(-scene->getSceneSetup().forward);
+		camera->getTransformation().translate(-forward);
 	}
 	if (key == GLFW_KEY_A && action == GLFW_PRESS)
 	{
-		auto right = glm::cross(scene->getSceneSetup().forward, scene->getSceneSetup().up);
+		auto right = glm::cross(forward, up);
 		camera->getTransformation().translate(-right);
 	}
 	if (key == GLFW_KEY_D && action == GLFW_PRESS)
 	{
-		auto right = glm::cross(scene->getSceneSetup().forward, scene->getSceneSetup().up);
+		auto right = glm::cross(forward, up);
 		camera->getTransformation().translate(right);
 	}
 

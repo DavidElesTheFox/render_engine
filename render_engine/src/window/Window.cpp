@@ -175,6 +175,10 @@ namespace RenderEngine
 	}
 	void Window::present(FrameData& frame_data)
 	{
+		if (glfwGetWindowAttrib(_window, GLFW_ICONIFIED) == GLFW_TRUE)
+		{
+			return;
+		}
 		if (_renderers.empty())
 		{
 			return;

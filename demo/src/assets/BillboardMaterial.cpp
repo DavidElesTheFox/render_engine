@@ -1,4 +1,4 @@
-#include <assets/NoLitMaterial.h>
+#include <assets/BillboardMaterial.h>
 
 #include <data_config.h>
 
@@ -19,33 +19,39 @@
 namespace Assets
 {
 
-	NoLitMaterial::NoLitMaterial(uint32_t id)
+	BillboardMaterial::BillboardMaterial(uint32_t id)
 	{
 		using namespace RenderEngine;
 
-		Shader::MetaData nolit_vertex_meta_data;
-		nolit_vertex_meta_data.attributes_stride = 3 * sizeof(float);
-		nolit_vertex_meta_data.input_attributes.push_back({ .location = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = 0 });
-		nolit_vertex_meta_data.push_constants = Shader::MetaData::PushConstants{ .size = sizeof(VertexPushConstants),.offset = 0 };
+		Shader::MetaData vertex_meta_data;
+		vertex_meta_data.attributes_stride = 5 * sizeof(float);
+		vertex_meta_data.input_attributes.push_back({ .location = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = 0 });
+		vertex_meta_data.input_attributes.push_back({ .location = 1, .format = VK_FORMAT_R32G32_SFLOAT, .offset = 3 * sizeof(float)});
+		vertex_meta_data.push_constants = Shader::MetaData::PushConstants{ .size = sizeof(VertexPushConstants),.offset = 0 };
 
-		Shader::MetaData nolit_frament_meta_data;
-		nolit_frament_meta_data.push_constants = Shader::MetaData::PushConstants{ .size = sizeof(FragmentPushConstants), .offset = sizeof(VertexPushConstants) };
+		Shader::MetaData frament_meta_data;
+		frament_meta_data.samplers = { {1, Shader::MetaData::Sampler{.binding = 1 }} };
+
+
 		std::filesystem::path base_path = SHADER_BASE;
-		Shader nolit_vertex_shader(base_path / "nolit.vert.spv", nolit_vertex_meta_data);
-		Shader nolit_fretment_shader(base_path / "nolit.frag.spv", nolit_frament_meta_data);
+		Shader vertex_shader(base_path / "billboard.vert.spv", vertex_meta_data);
+		Shader fretment_shader(base_path / "billboard.frag.spv", frament_meta_data);
 
-		_material = std::make_unique<Material>(nolit_vertex_shader,
-			nolit_fretment_shader,
+		_material = std::make_unique<Material>(vertex_shader,
+			fretment_shader,
 			Material::CallbackContainer{
 				.create_vertex_buffer = [](const Geometry& geometry, const Material& material)
 				{
 					std::vector<float> vertex_buffer_data;
-					vertex_buffer_data.reserve(geometry.positions.size() * 3);
+					vertex_buffer_data.reserve(geometry.positions.size() * 5);
 					for (uint32_t i = 0; i < geometry.positions.size(); ++i)
 					{
 						vertex_buffer_data.push_back(geometry.positions[i].x);
 						vertex_buffer_data.push_back(geometry.positions[i].y);
 						vertex_buffer_data.push_back(geometry.positions[i].z);
+
+						vertex_buffer_data.push_back(geometry.uv[i].x);
+						vertex_buffer_data.push_back(geometry.uv[i].y);
 					}
 					auto begin = reinterpret_cast<uint8_t*>(vertex_buffer_data.data());
 					std::vector<uint8_t> vertex_buffer(begin, begin + vertex_buffer_data.size() * sizeof(float));
@@ -53,25 +59,22 @@ namespace Assets
 				}
 			}, id);
 	}
-	std::unique_ptr<NoLitMaterial::Instance> NoLitMaterial::createInstance(glm::vec3 instance_color, Scene::Scene* scene, uint32_t id)
+	std::unique_ptr<BillboardMaterial::Instance> BillboardMaterial::createInstance(std::unique_ptr<RenderEngine::TextureView> texture, Scene::Scene* scene, uint32_t id)
 	{
 		using namespace RenderEngine;
 		std::unique_ptr<Instance> result = std::make_unique<Instance>();
-		result->_material_constants.fragment_values.instance_color = instance_color;
+		std::unordered_map<int32_t, std::unique_ptr<TextureView>> texture_map;
+		texture_map[1] = std::move(texture);
+
 		result->_material_instance = std::make_unique<MaterialInstance>(*_material,
-			std::unordered_map<int32_t, std::unique_ptr<TextureView>>{},
+			std::move(texture_map),
 			MaterialInstance::CallbackContainer{
-				.global_ubo_update = [](std::vector<UniformBinding>& , uint32_t ) {},
+				.global_ubo_update = [](std::vector<UniformBinding>& , uint32_t) {},
 				.global_push_constants_update = [material_constants = &result->_material_constants, scene](PushConstantsUpdater& updater) {
 					material_constants->vertex_values.projection = scene->getActiveCamera()->getProjection();
 					{
 						const std::span<const uint8_t> data_view(reinterpret_cast<const uint8_t*>(&material_constants->vertex_values.projection), sizeof(material_constants->vertex_values.projection));
 						updater.update(VK_SHADER_STAGE_VERTEX_BIT, offsetof(VertexPushConstants, projection), data_view);
-					}
-					{
-						const std::span<const uint8_t> data_view(reinterpret_cast<const uint8_t*>(&material_constants->fragment_values.instance_color), sizeof(material_constants->fragment_values.instance_color));
-
-						updater.update(VK_SHADER_STAGE_FRAGMENT_BIT,sizeof(VertexPushConstants) + offsetof(FragmentPushConstants, instance_color), data_view);
 					}
 				},
 				.push_constants_updater = [material_constants = &result->_material_constants, scene](const MeshInstance* mesh, PushConstantsUpdater& updater) {

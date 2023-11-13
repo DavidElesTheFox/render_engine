@@ -39,6 +39,7 @@ set(RENDER_ENGINE_RESOURCES_SRC
 	src/resources/Buffer.cpp
 	src/resources/UniformBinding.cpp
 	src/resources/PushConstantsUpdater.cpp
+	src/resources/Texture.cpp
     )
 set(RENDER_ENGINE_RESOURCES_HEADERS 
 	${RENDER_ENGINE_HEADER_LOCATION}/resources/Buffer.h
@@ -46,6 +47,7 @@ set(RENDER_ENGINE_RESOURCES_HEADERS
 	${RENDER_ENGINE_HEADER_LOCATION}/resources/Technique.h
 	${RENDER_ENGINE_HEADER_LOCATION}/resources/UniformBinding.h
 	${RENDER_ENGINE_HEADER_LOCATION}/resources/PushConstantsUpdater.h
+	${RENDER_ENGINE_HEADER_LOCATION}/resources/Texture.h
 	)
 source_group("src\\resources" FILES ${RENDER_ENGINE_RESOURCES_SRC})
 source_group("include\\resources" FILES ${RENDER_ENGINE_RESOURCES_HEADERS})
@@ -57,12 +59,14 @@ source_group("include\\resources" FILES ${RENDER_ENGINE_RESOURCES_HEADERS})
 set(RENDER_ENGINE_ASSETS_SRC
 	src/assets/Material.cpp
 	src/assets/Shader.cpp
+	src/assets/Image.cpp
     )
 set(RENDER_ENGINE_ASSETS_HEADERS 
 	${RENDER_ENGINE_HEADER_LOCATION}/assets/Geometry.h
 	${RENDER_ENGINE_HEADER_LOCATION}/assets/Material.h
 	${RENDER_ENGINE_HEADER_LOCATION}/assets/Mesh.h
 	${RENDER_ENGINE_HEADER_LOCATION}/assets/Shader.h
+	${RENDER_ENGINE_HEADER_LOCATION}/assets/Image.h
 	)
 source_group("src\\assets" FILES ${RENDER_ENGINE_ASSETS_SRC})
 source_group("include\\assets" FILES ${RENDER_ENGINE_ASSETS_HEADERS})

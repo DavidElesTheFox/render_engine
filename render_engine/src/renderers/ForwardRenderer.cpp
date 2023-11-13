@@ -138,8 +138,6 @@ namespace RenderEngine
 	{
 		FrameData& frame_data = _back_buffer[frame_number];
 
-
-		vkResetCommandBuffer(frame_data.command_buffer, /*VkCommandBufferResetFlagBits*/ 0);
 		VkCommandBufferBeginInfo begin_info{};
 		begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 

@@ -6,12 +6,13 @@
 #include <span>
 #include <stdexcept>
 #include <vector>
-
+#include <set>
 namespace RenderEngine
 {
 	class Window;
 	class RenderEngine;
 	class TransferEngine;
+	class TextureFactory;
 
 	class Device
 	{
@@ -33,6 +34,8 @@ namespace RenderEngine
 		std::unique_ptr<Window> createWindow(std::string_view name, size_t back_buffer_size);
 		std::unique_ptr<RenderEngine> createRenderEngine(size_t back_buffer_size);
 		std::unique_ptr<TransferEngine> createTransferEngine();
+		std::unique_ptr<TextureFactory> createTextureFactory(TransferEngine& transfer_engine,
+			std::set<uint32_t> compatible_queue_family_indexes);
 
 		VkDevice getLogicalDevice() { return _logical_device; }
 		VkPhysicalDevice getPhysicalDevice() { return _physical_device; }

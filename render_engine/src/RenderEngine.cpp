@@ -15,7 +15,7 @@ namespace RenderEngine
 		, _render_queue(render_queue)
 		, _render_queue_family(render_queue_family)
 		, _gpu_resource_manager(device.getPhysicalDevice(), device.getLogicalDevice(), back_buffer_count, kMaxNumOfResources)
-		, _command_pool_factory(device, render_queue_family)
+		, _command_pool_factory(device.getLogicalDevice(), render_queue_family)
 	{
 
 	}

@@ -1,6 +1,8 @@
 #pragma once
 
 #include <render_engine/assets/Shader.h>
+#include <render_engine/assets/Image.h>
+#include <render_engine/resources/Texture.h>
 
 
 #include <volk.h>
@@ -72,8 +74,13 @@ namespace RenderEngine
 			std::function<void(PushConstantsUpdater& updater)> global_push_constants_update;
 			std::function<void(const MeshInstance* mesh_instance, PushConstantsUpdater& updater)> push_constants_updater;
 		};
-		MaterialInstance(Material* material, CallbackContainer callbacks, uint32_t id)
+		
+		MaterialInstance(Material& material,
+			std::unordered_map<int32_t, std::unique_ptr<TextureView>> texture_bindings,
+			CallbackContainer callbacks, 
+			uint32_t id)
 			: _material(material)
+			, _texture_bindings(std::move(texture_bindings))
 			, _callbacks(std::move(callbacks))
 			, _id(id)
 		{}
@@ -95,12 +102,13 @@ namespace RenderEngine
 			_callbacks.push_constants_updater(mesh_instance, updater);
 		}
 		uint32_t getId() const { return _id; }
+		const std::unordered_map<int32_t, std::unique_ptr<TextureView>>& getTextureBindings() const { return _texture_bindings; }
 
-		const Material* getMaterial() const { return _material; }
+		const Material& getMaterial() const { return _material; }
 	private:
 
-
-		Material* _material{ nullptr };
+		Material& _material;
+		std::unordered_map<int32_t, std::unique_ptr<TextureView>> _texture_bindings;
 		CallbackContainer _callbacks;
 		uint32_t _id{ 0 };
 	};

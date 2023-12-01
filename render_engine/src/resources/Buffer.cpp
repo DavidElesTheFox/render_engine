@@ -71,8 +71,6 @@ namespace
 
 namespace RenderEngine
 {
-
-
 	Buffer::Buffer(VkPhysicalDevice physical_device,
 		VkDevice logical_device,
 		BufferInfo&& buffer_info)
@@ -115,38 +113,27 @@ namespace RenderEngine
 		memcpy(data, data_view.data(), (size_t)_buffer_info.size);
 		vkUnmapMemory(_logical_device, staging_memory);
 
+		if(_buffer_state.queue_family_index == std::nullopt)
+		{
+			_buffer_state.queue_family_index = transfer_engine.getQueueFamilyIndex();
+		}
 		SynchronizationPrimitives synchronization_primitives = SynchronizationPrimitives::CreateWithFence(_logical_device);
 		auto inflight_data = transfer_engine.transfer(synchronization_primitives,
 			[&](VkCommandBuffer command_buffer)
 			{
+				ResourceStateMachine state_machine;
+
+				state_machine.recordStateChange(this, 
+												getResourceState().clone().setQueueFamilyIndex(transfer_engine.getQueueFamilyIndex()));
+				state_machine.commitChanges(command_buffer);
+
 				VkBufferCopy copy_region{};
 				copy_region.size = _buffer_info.size;
 				vkCmdCopyBuffer(command_buffer, staging_buffer, _buffer, 1, &copy_region);
-				if (dst_queue_index != transfer_engine.getQueueFamilyIndex())
-				{
-					VkBufferMemoryBarrier2 memory_barrier{};
-					memory_barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
-					memory_barrier.buffer = _buffer;
-
-					memory_barrier.srcStageMask = VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT;
-					memory_barrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
-
-					memory_barrier.dstStageMask = VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT;
-					memory_barrier.dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
-
-					memory_barrier.srcQueueFamilyIndex = transfer_engine.getQueueFamilyIndex();
-					memory_barrier.dstQueueFamilyIndex = dst_queue_index;
-
-					memory_barrier.offset = 0;
-					memory_barrier.size = _buffer_info.size;
-
-					VkDependencyInfo dependency_info{};
-					dependency_info.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
-					dependency_info.bufferMemoryBarrierCount = 1;
-					dependency_info.pBufferMemoryBarriers = &memory_barrier;
-
-					vkCmdPipelineBarrier2(command_buffer, &dependency_info);
-				}
+				
+				state_machine.recordStateChange(this,
+												getResourceState().clone().setQueueFamilyIndex(dst_queue_index));
+				state_machine.commitChanges(command_buffer);				
 			});
 
 		vkWaitForFences(_logical_device, 1, &synchronization_primitives.on_finished_fence, VK_TRUE, UINT64_MAX);

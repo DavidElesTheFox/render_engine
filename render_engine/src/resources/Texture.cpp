@@ -70,6 +70,8 @@ namespace RenderEngine
 		image_info.queueFamilyIndexCount = queue_family_indices.size();
 		image_info.pQueueFamilyIndices = queue_family_indices.data();
 
+		_texture_state.layout = image_info.initialLayout;
+
 		if (vkCreateImage(_logical_device, &image_info, nullptr, &_texture) != VK_SUCCESS) {
 			throw std::runtime_error("Cannot create image");
 		}
@@ -102,26 +104,22 @@ namespace RenderEngine
 		}
 		std::vector<uint8_t> image_data = image.readData();
 		_staging_buffer.uploadMapped(std::span<uint8_t>(image_data.begin(), image_data.end()));
+
+		if(_texture_state.queue_family_index == std::nullopt)
+		{
+			_texture_state.queue_family_index = transfer_engine.getQueueFamilyIndex();
+		}
 		auto result = transfer_engine.transfer(synchronization_primitive,
 			[&](VkCommandBuffer command_buffer)
 			{
-				{
-					VkImageMemoryBarrier2 barrier{};
-					barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
-					barrier.image = _texture;
-					barrier.srcStageMask = VK_PIPELINE_STAGE_2_NONE;
-					barrier.srcAccessMask = VK_ACCESS_2_NONE;
-					barrier.dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-					barrier.dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
-					barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-					barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-					barrier.subresourceRange = createSubresourceRange();
-					VkDependencyInfo dependency{};
-					dependency.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
-					dependency.imageMemoryBarrierCount = 1;
-					dependency.pImageMemoryBarriers = &barrier;
-					vkCmdPipelineBarrier2(command_buffer, &dependency);
-				}
+				ResourceStateMachine state_machine;
+				state_machine.recordStateChange(this,
+												getResourceState().clone()
+												.setPipelineStage(VK_PIPELINE_STAGE_2_TRANSFER_BIT)
+												.setAccessFlag(VK_ACCESS_2_TRANSFER_WRITE_BIT)
+												.setImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+												.setQueueFamilyIndex(transfer_engine.getQueueFamilyIndex()));
+				state_machine.commitChanges(command_buffer);
 				{
 					VkBufferImageCopy copy_region{};
 					copy_region.bufferOffset = 0;
@@ -146,37 +144,31 @@ namespace RenderEngine
 						1, &copy_region);
 				}
 
-				{
-					VkImageMemoryBarrier2 barrier{};
-					barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
-					barrier.image = _texture;
-					barrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-					barrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
-					if (_shader_usage & VK_SHADER_STAGE_VERTEX_BIT)
+				auto getFinalStageMask = [&] 
 					{
-						barrier.dstStageMask |= VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
-					}
-					if (_shader_usage & VK_SHADER_STAGE_FRAGMENT_BIT)
-					{
-						barrier.dstStageMask |= VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
-					}
-					barrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
-					barrier.srcQueueFamilyIndex = transfer_engine.getQueueFamilyIndex();
-					barrier.dstQueueFamilyIndex = dst_queue_family_index;
-					barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-					barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-					barrier.subresourceRange = createSubresourceRange();
-					VkDependencyInfo dependency{};
-					dependency.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
-					dependency.imageMemoryBarrierCount = 1;
-					dependency.pImageMemoryBarriers = &barrier;
-					vkCmdPipelineBarrier2(command_buffer, &dependency);
-				}
+						VkPipelineStageFlagBits2 result{ 0 };
+						if(_shader_usage & VK_SHADER_STAGE_VERTEX_BIT)
+						{
+							result |= VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
+						}
+						if(_shader_usage & VK_SHADER_STAGE_FRAGMENT_BIT)
+						{
+							result |= VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+						}
+						return result;
+					};
+				state_machine.recordStateChange(this,
+												getResourceState().clone()
+												.setPipelineStage(getFinalStageMask())
+												.setAccessFlag(VK_ACCESS_2_SHADER_READ_BIT)
+												.setImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+												.setQueueFamilyIndex(dst_queue_family_index));
+				state_machine.commitChanges(command_buffer);
 			});
 		return result;
 	}
 
-	VkImageSubresourceRange Texture::createSubresourceRange()
+	VkImageSubresourceRange Texture::createSubresourceRange() const
 	{
 		VkImageSubresourceRange result{};
 		result.aspectMask = _aspect;

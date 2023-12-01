@@ -43,6 +43,7 @@ private:
 	void initializeRenderers();
 	void createAssets();
 
+    void onGui();
 	void createWindow();
 
 	Assets::AssetDatabase _assets;

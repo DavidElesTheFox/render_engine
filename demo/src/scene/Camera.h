@@ -37,6 +37,7 @@ namespace Scene
 		void onRegisterToNewLookup(SceneNodeLookup* new_lookup, SceneNodeLookup* old_lookup) override;
 		void onSceneChanged(Scene* new_scene, Scene* old_scene) override;
 
+        void onGui();
 	private:
 		Camera(std::string name, glm::mat4 projection)
 			: SceneObject(std::move(name))

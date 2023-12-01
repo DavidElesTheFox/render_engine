@@ -46,7 +46,7 @@ void DemoApplication::run()
 	while (_window->isClosed() == false)
 	{
 		_window->update();
-
+        ApplicationContext::instance().updateInputEvents();
 	}
 }
 
@@ -273,6 +273,16 @@ void DemoApplication::instantiateMeshes()
 }
 
 
+void DemoApplication::onGui()
+{
+    _asset_browser->onGui();
+    if(_scene->getActiveCamera())
+    {
+        _scene->getActiveCamera()->onGui();
+    }
+    ApplicationContext::instance().onGui();
+}
+
 void DemoApplication::createWindow()
 {
 	using namespace RenderEngine;
@@ -282,7 +292,7 @@ void DemoApplication::createWindow()
 	
 	_window->getRendererAs<UIRenderer>(UIRenderer::kRendererId).setOnGui(
 		[&] {
-			_asset_browser->onGui();
+            onGui();
 		});
 }
 

@@ -16,7 +16,7 @@ namespace RenderEngine
         {
             stbi_uc* pixels = stbi_load(path_str.c_str(), &width, &height, &channels, STBI_rgb_alpha);
             std::vector<uint8_t> result(pixels, pixels + (width * height * 4));
-            stbi_image_free(pixels);    
+            stbi_image_free(pixels);
             return result;
         }
         else
@@ -38,10 +38,10 @@ namespace RenderEngine
         VkDeviceSize result = getWidth() * getHeight();
         switch (_format)
         {
-        case VK_FORMAT_R8G8B8A8_SRGB:
-            return result *= 4;
-        default:
-            throw std::runtime_error("Unhandled image format");
+            case VK_FORMAT_R8G8B8A8_SRGB:
+                return result *= 4;
+            default:
+                throw std::runtime_error("Unhandled image format");
         }
         return result;
     }

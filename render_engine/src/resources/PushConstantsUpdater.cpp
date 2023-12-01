@@ -2,13 +2,13 @@
 
 namespace RenderEngine
 {
-	void PushConstantsUpdater::update(VkShaderStageFlags shader_stages, size_t offset, std::span<const uint8_t> data)
-	{
-		vkCmdPushConstants(_command_buffer,
-			_layout,
-			shader_stages,
-			offset,
-			data.size(),
-			data.data());
-	}
+    void PushConstantsUpdater::update(VkShaderStageFlags shader_stages, size_t offset, std::span<const uint8_t> data)
+    {
+        vkCmdPushConstants(_command_buffer,
+                           _layout,
+                           shader_stages,
+                           offset,
+                           data.size(),
+                           data.data());
+    }
 }

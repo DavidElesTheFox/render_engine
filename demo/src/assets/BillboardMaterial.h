@@ -12,55 +12,55 @@
 namespace Assets
 {
 
-	class BillboardMaterial : public IMaterial
-	{
-	public:
+    class BillboardMaterial : public IMaterial
+    {
+    public:
 
-		class VertexPushConstants
-		{
-			friend class BillboardMaterial;
-		public:
-		private:
-			glm::mat4 projection;
-			glm::mat4 model_view;
-		};
-		
+        class VertexPushConstants
+        {
+            friend class BillboardMaterial;
+        public:
+        private:
+            glm::mat4 projection;
+            glm::mat4 model_view;
+        };
 
-		struct MaterialPushConstants
-		{
-			VertexPushConstants vertex_values;
-		};
-		class Instance : public IInstance
-		{
-			friend class BillboardMaterial;
-		public:
-			Instance() = default;
-			~Instance() override = default;
-			MaterialPushConstants& getMaterialConstants() { return _material_constants; }
-			const MaterialPushConstants& getMaterialConstants() const { return _material_constants; }
-			RenderEngine::MaterialInstance* getMaterialInstance() { return _material_instance.get(); }
-		private:
-			MaterialPushConstants _material_constants;
-			std::unique_ptr<RenderEngine::MaterialInstance> _material_instance;
-		};
-		static const std::string& GetName()
-		{
-			static std::string _name = "Billboard";
-			return _name;
-		}
 
-		explicit BillboardMaterial(uint32_t id);
-		~BillboardMaterial() override = default;
+        struct MaterialPushConstants
+        {
+            VertexPushConstants vertex_values;
+        };
+        class Instance : public IInstance
+        {
+            friend class BillboardMaterial;
+        public:
+            Instance() = default;
+            ~Instance() override = default;
+            MaterialPushConstants& getMaterialConstants() { return _material_constants; }
+            const MaterialPushConstants& getMaterialConstants() const { return _material_constants; }
+            RenderEngine::MaterialInstance* getMaterialInstance() { return _material_instance.get(); }
+        private:
+            MaterialPushConstants _material_constants;
+            std::unique_ptr<RenderEngine::MaterialInstance> _material_instance;
+        };
+        static const std::string& GetName()
+        {
+            static std::string _name = "Billboard";
+            return _name;
+        }
 
-		std::unique_ptr<Instance> createInstance(std::unique_ptr<RenderEngine::TextureView> texture, Scene::Scene* scene, uint32_t id);
+        explicit BillboardMaterial(uint32_t id);
+        ~BillboardMaterial() override = default;
 
-		RenderEngine::Material* getMaterial() { return _material.get(); }
+        std::unique_ptr<Instance> createInstance(std::unique_ptr<RenderEngine::TextureView> texture, Scene::Scene* scene, uint32_t id);
 
-		const std::string& getName() const override
-		{
-			return GetName();
-		}
-	private:
-		std::unique_ptr<RenderEngine::Material> _material;
-	};
+        RenderEngine::Material* getMaterial() { return _material.get(); }
+
+        const std::string& getName() const override
+        {
+            return GetName();
+        }
+    private:
+        std::unique_ptr<RenderEngine::Material> _material;
+    };
 }

@@ -1,15 +1,13 @@
 #pragma once
 
-#include <vector>
 #include <cstdint>
-#include <unordered_map>
 #include <functional>
 #include <memory>
+#include <unordered_map>
+#include <vector>
 
 #include <render_engine/renderers/AbstractRenderer.h>
 #include <render_engine/resources/RenderTarget.h>
-
-
 
 namespace RenderEngine
 {

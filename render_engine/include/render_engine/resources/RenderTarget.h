@@ -2,8 +2,8 @@
 
 #include <volk.h>
 
-#include <vector>
 #include <memory>
+#include <vector>
 namespace RenderEngine
 {
     class SwapChain;

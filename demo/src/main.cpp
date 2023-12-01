@@ -1,8 +1,8 @@
 #define SDL_MAIN_HANDLED
 #include<iostream>
 
-#include "MultiWindowApplication.h"
 #include "DemoApplication.h"
+#include "MultiWindowApplication.h"
 
 void runMultiWindowApplication()
 {

@@ -2,19 +2,19 @@
 
 namespace Assets
 {
-	class IMaterial
-	{
-	public:
+    class IMaterial
+    {
+    public:
 
-		class IInstance
-		{
-		public:
-			virtual ~IInstance() = default;
+        class IInstance
+        {
+        public:
+            virtual ~IInstance() = default;
 
-		};
+        };
 
-		virtual ~IMaterial() = default;
-		virtual const std::string& getName() const = 0;
+        virtual ~IMaterial() = default;
+        virtual const std::string& getName() const = 0;
 
-	};
+    };
 }

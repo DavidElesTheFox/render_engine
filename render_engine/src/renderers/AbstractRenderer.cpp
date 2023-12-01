@@ -9,9 +9,9 @@ namespace RenderEngine
 	{
 		_renderer.beforeReinit();
 	}
-	void AbstractRenderer::ReinitializationCommand::finish(const SwapChain& swap_chain)
+	void AbstractRenderer::ReinitializationCommand::finish(const RenderTarget& render_target)
 	{
-		_renderer.finalizeReinit(swap_chain);
+		_renderer.finalizeReinit(render_target);
 		_finished = true;
 	}
 	AbstractRenderer::ReinitializationCommand::~ReinitializationCommand()

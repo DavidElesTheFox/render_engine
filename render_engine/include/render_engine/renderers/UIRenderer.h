@@ -27,7 +27,7 @@ namespace RenderEngine
 		static constexpr uint32_t kRendererId = 1u;
 
 		UIRenderer(Window& parent,
-			const SwapChain& swap_chain,
+			const RenderTarget& render_target,
 			uint32_t back_buffer_size,
 			bool first_renderer);
 
@@ -59,13 +59,13 @@ namespace RenderEngine
 		static void registerDeletedContext(ImGuiContext* context);
 		static bool isValidContext(ImGuiContext* context);
 
-		void createFrameBuffers(const SwapChain& swap_chain);
-		bool createFrameBuffer(const SwapChain& swap_chain, uint32_t frame_buffer_index);
+		void createFrameBuffers(const RenderTarget&);
+		bool createFrameBuffer(const RenderTarget& render_target, uint32_t frame_buffer_index);
 		void createCommandBuffer();
 		void draw(const VkFramebuffer& frame_buffer, uint32_t frame_number);
 		void resetFrameBuffers();
 		void beforeReinit() override;
-		void finalizeReinit(const SwapChain& swap_chain) override;
+		void finalizeReinit(const RenderTarget& render_target) override;
 		Window& _window;
 		ImGuiContext* _imgui_context{ nullptr };
 		ImGuiContext* _imgui_context_during_init{ nullptr };

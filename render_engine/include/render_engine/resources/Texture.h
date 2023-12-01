@@ -54,6 +54,7 @@ namespace RenderEngine
 		{
 			return _texture_state;
 		}
+
 	private:
 		Texture(Image image,
 			VkPhysicalDevice physical_device,

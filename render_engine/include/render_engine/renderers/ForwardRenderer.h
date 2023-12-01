@@ -40,7 +40,7 @@ namespace RenderEngine
 	public:
 		static constexpr uint32_t kRendererId = 2u;
 		ForwardRenderer(Window& parent,
-			const SwapChain& swap_chain,
+			const RenderTarget& render_target,
 			bool last_renderer);
 		~ForwardRenderer() override;
 		void addMesh(const MeshInstance* mesh_instance, int32_t priority);
@@ -50,13 +50,13 @@ namespace RenderEngine
 			return { _back_buffer[frame_number].command_buffer };
 		}
 	private:
-		void createFrameBuffers(const SwapChain& swap_chain);
-		void createFrameBuffer(const SwapChain& swap_chain, uint32_t frame_buffer_index);
+		void createFrameBuffers(const RenderTarget& render_target);
+		void createFrameBuffer(const RenderTarget& render_target, uint32_t frame_buffer_index);
 		void createCommandBuffer();
 
 		void resetFrameBuffers();
 		void beforeReinit() override;
-		void finalizeReinit(const SwapChain& swap_chain) override;
+		void finalizeReinit(const RenderTarget& render_target) override;
 		void destroy();
 	private:
 		std::map<int32_t, MaterialMeshGroupMap> _meshes;

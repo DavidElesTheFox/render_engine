@@ -7,7 +7,7 @@
 namespace RenderEngine
 {
 
-	class SwapChain;
+	class RenderTarget;
 	class AbstractRenderer
 	{
 	public:
@@ -26,7 +26,7 @@ namespace RenderEngine
 			ReinitializationCommand& operator=(ReinitializationCommand&&) = delete;
 
 
-			void finish(const SwapChain& swap_chain);
+			void finish(const RenderTarget& render_target);
 			~ReinitializationCommand();
 		private:
 			AbstractRenderer& _renderer;
@@ -42,7 +42,7 @@ namespace RenderEngine
 		ReinitializationCommand reinit();
 	private:
 		virtual void beforeReinit() = 0;
-		virtual void finalizeReinit(const SwapChain& swap_chain) = 0;
+		virtual void finalizeReinit(const RenderTarget& render_target) = 0;
 
 	};
 }

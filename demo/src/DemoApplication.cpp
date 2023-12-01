@@ -175,11 +175,11 @@ void DemoApplication::initializeRenderers()
 
 	std::unique_ptr<RendererFeactory> renderers = std::make_unique<RendererFeactory>();
 	renderers->registerRenderer(UIRenderer::kRendererId,
-		[](auto& window, const auto& swap_chain, uint32_t back_buffer_count, AbstractRenderer* previous_renderer, bool) -> std::unique_ptr<AbstractRenderer>
-		{ return std::make_unique<UIRenderer>(window, swap_chain, back_buffer_count, previous_renderer == nullptr); });
+		[](auto& window, const auto& render_target, uint32_t back_buffer_count, AbstractRenderer* previous_renderer, bool) -> std::unique_ptr<AbstractRenderer>
+		{ return std::make_unique<UIRenderer>(window, render_target, back_buffer_count, previous_renderer == nullptr); });
 	renderers->registerRenderer(ForwardRenderer::kRendererId,
-		[&](auto& window, const auto& swap_chain, uint32_t back_buffer_count, AbstractRenderer* previous_renderer, bool has_next) -> std::unique_ptr<AbstractRenderer>
-		{ return std::make_unique<ForwardRenderer>(window, swap_chain, has_next); });
+		[&](auto& window, const auto& render_target, uint32_t back_buffer_count, AbstractRenderer* previous_renderer, bool has_next) -> std::unique_ptr<AbstractRenderer>
+		{ return std::make_unique<ForwardRenderer>(window, render_target, has_next); });
 	RenderContext::initialize({ "VK_LAYER_KHRONOS_validation"}, std::move(renderers));
 }
 

@@ -1,6 +1,7 @@
 #include <render_engine/renderers/UIRenderer.h>
 #include <render_engine/window/Window.h>
 #include <render_engine/Device.h>
+#include <render_engine/resources/RenderTarget.h>
 
 #include <stdexcept>
 #include <fstream>
@@ -11,16 +12,16 @@ namespace
 {
 	using namespace RenderEngine;
 
-	VkRenderPass createRenderPass(const SwapChain& swap_chain, VkDevice logical_device, bool first_renderer) {
+	VkRenderPass createRenderPass(const RenderTarget& render_target, VkDevice logical_device, bool first_renderer) {
 		VkAttachmentDescription color_attachment{};
-		color_attachment.format = swap_chain.getDetails().image_format;
+		color_attachment.format = render_target.getImageFormat();
 		color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
 		color_attachment.loadOp = first_renderer ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
 		color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		color_attachment.initialLayout = first_renderer ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		color_attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		color_attachment.finalLayout = render_target.getLayout();
 
 		VkAttachmentReference colorAttachmentRef{};
 		colorAttachmentRef.attachment = 0;
@@ -94,7 +95,7 @@ namespace RenderEngine
 	std::set<ImGuiContext*> UIRenderer::kInvalidContexts;
 
 	UIRenderer::UIRenderer(Window& window,
-		const SwapChain& swap_chain,
+		const RenderTarget& render_target,
 		uint32_t back_buffer_size,
 		bool first_renderer)
 		: _window(window)
@@ -115,12 +116,12 @@ namespace RenderEngine
 		try
 		{
 			_descriptor_pool = createDescriptorPool(logical_device);
-			_render_pass = createRenderPass(swap_chain, logical_device, first_renderer);
+			_render_pass = createRenderPass(render_target, logical_device, first_renderer);
 
 			_back_buffer.resize(back_buffer_size);
 			_render_area.offset = { 0, 0 };
-			_render_area.extent = swap_chain.getDetails().extent;
-			createFrameBuffers(swap_chain);
+            _render_area.extent = render_target.getExtent();
+			createFrameBuffers(render_target);
 			_command_pool = _window.getRenderEngine().getCommandPoolFactory().getCommandPool(VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 			createCommandBuffer();
 
@@ -200,11 +201,11 @@ namespace RenderEngine
 	{
 		resetFrameBuffers();
 	}
-	void UIRenderer::finalizeReinit(const SwapChain& swap_chain)
+	void UIRenderer::finalizeReinit(const RenderTarget& render_target)
 	{
-		createFrameBuffers(swap_chain);
+		createFrameBuffers(render_target);
 		_render_area.offset = { 0, 0 };
-		_render_area.extent = swap_chain.getDetails().extent;
+        _render_area.extent = render_target.getExtent();;
 	}
 	void UIRenderer::draw(const VkFramebuffer& frame_buffer, uint32_t frame_number)
 	{
@@ -269,14 +270,14 @@ namespace RenderEngine
 		return kInvalidContexts.contains(context) == false;
 	}
 
-	void UIRenderer::createFrameBuffers(const SwapChain& swap_chain)
+	void UIRenderer::createFrameBuffers(const RenderTarget& render_target)
 	{
 		auto logical_device = _window.getDevice().getLogicalDevice();
 
-		_frame_buffers.resize(swap_chain.getDetails().image_views.size());
-		for (uint32_t i = 0; i < swap_chain.getDetails().image_views.size(); ++i)
+		_frame_buffers.resize(render_target.getImageViews().size());
+		for (uint32_t i = 0; i < _frame_buffers.size(); ++i)
 		{
-			if (createFrameBuffer(swap_chain, i) == false)
+			if (createFrameBuffer(render_target, i) == false)
 			{
 				for (uint32_t j = 0; j < i; ++j) {
 					vkDestroyFramebuffer(logical_device, _frame_buffers[j], nullptr);
@@ -286,20 +287,20 @@ namespace RenderEngine
 			}
 		}
 	}
-	bool UIRenderer::createFrameBuffer(const SwapChain& swap_chain, uint32_t frame_buffer_index)
+	bool UIRenderer::createFrameBuffer(const RenderTarget& render_target, uint32_t frame_buffer_index)
 	{
 		auto logical_device = _window.getDevice().getLogicalDevice();
 
 		VkImageView attachments[] = {
-				swap_chain.getDetails().image_views[frame_buffer_index]
+                render_target.getImageViews()[frame_buffer_index]
 		};
 		VkFramebufferCreateInfo framebuffer_info{};
 		framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 		framebuffer_info.renderPass = _render_pass;
 		framebuffer_info.attachmentCount = 1;
 		framebuffer_info.pAttachments = attachments;
-		framebuffer_info.width = swap_chain.getDetails().extent.width;
-		framebuffer_info.height = swap_chain.getDetails().extent.height;
+		framebuffer_info.width = render_target.getWidth();
+		framebuffer_info.height = render_target.getHeight();
 		framebuffer_info.layers = 1;
 
 		return vkCreateFramebuffer(logical_device, &framebuffer_info, nullptr, &_frame_buffers[frame_buffer_index]) == VK_SUCCESS;

@@ -30,7 +30,7 @@ namespace RenderEngine
 		};
 
 		ExampleRenderer(Window& parent,
-			const SwapChain& swap_chain,
+			const RenderTarget& render_target,
 			uint32_t back_buffer_size,
 			bool last_ExampleRenderer);
 
@@ -55,8 +55,8 @@ namespace RenderEngine
 			std::unique_ptr<Buffer> color_offset;
 			VkDescriptorSet descriptor_set;
 		};
-		void createFrameBuffers(const SwapChain& swap_chain);
-		bool createFrameBuffer(const SwapChain& swap_chain, uint32_t frame_buffer_index);
+		void createFrameBuffers(const RenderTarget& swap_chain);
+		bool createFrameBuffer(const RenderTarget& swap_chain, uint32_t frame_buffer_index);
 		void createCommandBuffer();
 		FrameData& getFrameData(uint32_t frame_number)
 		{
@@ -65,7 +65,7 @@ namespace RenderEngine
 		void draw(const VkFramebuffer& frame_buffer, uint32_t frame_number);
 		void resetFrameBuffers();
 		void beforeReinit() override;
-		void finalizeReinit(const SwapChain& swap_chain) override;
+		void finalizeReinit(const RenderTarget& swap_chain) override;
 		Window& _window;
 		VkRenderPass _render_pass;
 		VkPipelineLayout _pipeline_layout;

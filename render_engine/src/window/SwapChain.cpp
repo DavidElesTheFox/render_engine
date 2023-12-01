@@ -1,7 +1,10 @@
 #include <render_engine/window/SwapChain.h>
 
+#include <render_engine/resources/RenderTarget.h>
+
 #include <GLFW/glfw3.h>
 
+#include <volk.h>
 #include <vulkan/vk_enum_string_helper.h>
 
 #include <vector>
@@ -171,14 +174,9 @@ namespace
 		result.image_format = surface_format.format;
 		result.extent = extent;
 		result.surface = std::move(info.surface);
-		try
-		{
-			result.image_views = createImageViews(result.images, result.image_format, info.logical_device);
-		}
-		catch (const std::runtime_error&)
-		{
-			throw;
-		}
+		
+        result.image_views = createImageViews(result.images, result.image_format, info.logical_device);
+		
 		return result;
 	}
 
@@ -215,4 +213,13 @@ namespace RenderEngine
 			vkDestroyImageView(_create_info.logical_device, image_view, nullptr);
 		}
 	}
+
+    RenderTarget SwapChain::createRenderTarget() const
+    {
+        return RenderTarget{ _details.image_views,
+        _details.extent.width,
+        _details.extent.height,
+        _details.image_format,
+        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR };
+    }
 }

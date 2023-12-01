@@ -6,6 +6,7 @@
 
 namespace RenderEngine
 {
+    class RenderTarget;
 	class SwapChain
 	{
 	public:
@@ -33,7 +34,7 @@ namespace RenderEngine
 
 		~SwapChain();
 		const Details& getDetails() const { return _details; }
-
+        RenderTarget createRenderTarget() const;
 		void reinit();
 	private:
 		void resetSwapChain();

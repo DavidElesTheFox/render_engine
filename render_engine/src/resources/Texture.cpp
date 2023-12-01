@@ -95,7 +95,6 @@ namespace RenderEngine
 		destroy();
 	}
 
-
 	TransferEngine::InFlightData Texture::upload(const Image& image, const SynchronizationPrimitives& synchronization_primitive, TransferEngine& transfer_engine, uint32_t dst_queue_family_index)
 	{
 		if (isImageCompatible(image) == false)

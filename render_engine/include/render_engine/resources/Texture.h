@@ -6,15 +6,16 @@
 #include <render_engine/resources/Buffer.h>
 #include <render_engine/SynchronizationPrimitives.h>
 #include <render_engine/TransferEngine.h>
+#include <render_engine/resources/ResourceStateMachine.h>
 
 #include <set>
+
 namespace RenderEngine
 {
-
-	
 	class Texture
 	{
 	public:
+		friend class ResourceStateMachine;
 		friend class TextureFactory;
 		struct ImageViewData
 		{
@@ -46,8 +47,13 @@ namespace RenderEngine
 		VkImageView createImageView(const ImageViewData& data);
 		VkSampler createSampler(const SamplerData& data);
 
-		VkImageSubresourceRange createSubresourceRange();
+		VkImageSubresourceRange createSubresourceRange() const;
+		VkImage getVkImage() const { return _texture; }
 
+		const ResourceStateMachine::TextureState& getResourceState() const
+		{
+			return _texture_state;
+		}
 	private:
 		Texture(Image image,
 			VkPhysicalDevice physical_device,
@@ -56,6 +62,11 @@ namespace RenderEngine
 			VkShaderStageFlags shader_usage,
 			std::set<uint32_t> compatible_queue_family_indexes);
 		void destroy() noexcept;
+
+		void overrideResourceState(ResourceStateMachine::TextureState value)
+		{
+			_texture_state = std::move(value);
+		}
 		VkPhysicalDevice _physical_device{ VK_NULL_HANDLE };
 		VkDevice _logical_device{ VK_NULL_HANDLE };
 		VkImage _texture{ VK_NULL_HANDLE };
@@ -65,6 +76,7 @@ namespace RenderEngine
 		VkImageAspectFlags _aspect{ VK_IMAGE_ASPECT_NONE };
 		VkShaderStageFlags _shader_usage{ VK_SHADER_STAGE_ALL };
 		std::set<uint32_t> _compatible_queue_family_indexes;
+		ResourceStateMachine::TextureState _texture_state;
 	};
 
 	class TextureView

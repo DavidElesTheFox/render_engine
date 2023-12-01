@@ -40,6 +40,7 @@ set(RENDER_ENGINE_RESOURCES_SRC
 	src/resources/UniformBinding.cpp
 	src/resources/PushConstantsUpdater.cpp
 	src/resources/Texture.cpp
+	src/resources/ResourceStateMachine.cpp
     )
 set(RENDER_ENGINE_RESOURCES_HEADERS 
 	${RENDER_ENGINE_HEADER_LOCATION}/resources/Buffer.h
@@ -48,6 +49,7 @@ set(RENDER_ENGINE_RESOURCES_HEADERS
 	${RENDER_ENGINE_HEADER_LOCATION}/resources/UniformBinding.h
 	${RENDER_ENGINE_HEADER_LOCATION}/resources/PushConstantsUpdater.h
 	${RENDER_ENGINE_HEADER_LOCATION}/resources/Texture.h
+	${RENDER_ENGINE_HEADER_LOCATION}/resources/ResourceStateMachine.h
 	)
 source_group("src\\resources" FILES ${RENDER_ENGINE_RESOURCES_SRC})
 source_group("include\\resources" FILES ${RENDER_ENGINE_RESOURCES_HEADERS})
@@ -174,11 +176,10 @@ target_sources(RenderEngine
 ########################
 
 # STB headers #
-add_custom_command(
-	TARGET RenderEngine
-	PRE_BUILD
+add_custom_target(copyStbImage
 	COMMAND ${CMAKE_COMMAND} -E copy_if_different "${STB_LIBRARY_INCLUDE_PATH}/stb_image.h" ${GENERATED_INCLUDE_DIR}
 )
+add_dependencies(RenderEngine copyStbImage)
 
 # Dependencies #
 target_link_libraries(RenderEngine 

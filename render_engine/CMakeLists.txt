@@ -174,11 +174,10 @@ target_sources(RenderEngine
 ########################
 
 # STB headers #
-add_custom_command(
-	TARGET RenderEngine
-	PRE_BUILD
+add_custom_target(copyStbImage
 	COMMAND ${CMAKE_COMMAND} -E copy_if_different "${STB_LIBRARY_INCLUDE_PATH}/stb_image.h" ${GENERATED_INCLUDE_DIR}
 )
+add_dependencies(RenderEngine copyStbImage)
 
 # Dependencies #
 target_link_libraries(RenderEngine 

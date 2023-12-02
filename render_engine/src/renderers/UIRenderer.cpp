@@ -104,7 +104,7 @@ namespace RenderEngine
                            const RenderTarget& render_target,
                            uint32_t back_buffer_size,
                            bool first_renderer)
-        : _window(window)
+        : SingleColorOutputRenderer(window)
     {
         _imgui_context_during_init = ImGui::GetCurrentContext();
         _imgui_context = ImGui::CreateContext();
@@ -115,26 +115,20 @@ namespace RenderEngine
                                            return vkGetInstanceProcAddr(*(reinterpret_cast<VkInstance*>(vulkan_instance)), function_name);
                                        }, &window.getDevice().getVulkanInstance());
 
-        ImGui_ImplGlfw_InitForVulkan(_window.getWindowHandle(), true);
+        ImGui_ImplGlfw_InitForVulkan(getWindow().getWindowHandle(), true);
 
 
         auto logical_device = window.getDevice().getLogicalDevice();
 
         try
         {
+            setRenderPass(createRenderPass(render_target, logical_device, first_renderer));
+            initializeRendererOutput(render_target, back_buffer_size);
             _descriptor_pool = createDescriptorPool(logical_device);
-            _render_pass = createRenderPass(render_target, logical_device, first_renderer);
-
-            _back_buffer.resize(back_buffer_size);
-            _render_area.offset = { 0, 0 };
-            _render_area.extent = render_target.getExtent();
-            createFrameBuffers(render_target);
-            _command_pool = _window.getRenderEngine().getCommandPoolFactory().getCommandPool(VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
-            createCommandBuffer();
 
             ImGui_ImplVulkan_InitInfo init_info = {};
-            init_info.Instance = _window.getDevice().getVulkanInstance();
-            init_info.PhysicalDevice = _window.getDevice().getPhysicalDevice();
+            init_info.Instance = window.getDevice().getVulkanInstance();
+            init_info.PhysicalDevice = window.getDevice().getPhysicalDevice();
             init_info.Device = logical_device;
             init_info.Queue = window.getRenderEngine().getRenderQueue();
             init_info.DescriptorPool = _descriptor_pool;
@@ -142,17 +136,17 @@ namespace RenderEngine
             init_info.ImageCount = back_buffer_size;
             init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
 
-            ImGui_ImplVulkan_Init(&init_info, _render_pass);
+            ImGui_ImplVulkan_Init(&init_info, getRenderPass());
             {
                 SynchronizationPrimitives synchronization_primitives = SynchronizationPrimitives::CreateWithFence(logical_device);
 
                 // Use the render queue to upload the data, while queue ownership transfer cannot be defined for ImGui.
-                auto inflight_data = _window.getTransferEngine().transfer(synchronization_primitives,
-                                                                          [transfer_queue_index = _window.getTransferEngine().getQueueFamilyIndex(), render_queue_index = window.getRenderEngine().getQueueFamilyIndex()](VkCommandBuffer command_buffer)
-                                                                          {
-                                                                              ImGui_ImplVulkan_CreateFontsTexture(command_buffer);
-                                                                          },
-                                                                          _window.getRenderEngine().getRenderQueue());
+                auto inflight_data = window.getTransferEngine().transfer(synchronization_primitives,
+                                                                         [transfer_queue_index = window.getTransferEngine().getQueueFamilyIndex(), render_queue_index = window.getRenderEngine().getQueueFamilyIndex()](VkCommandBuffer command_buffer)
+                                                                         {
+                                                                             ImGui_ImplVulkan_CreateFontsTexture(command_buffer);
+                                                                         },
+                                                                         window.getRenderEngine().getRenderQueue());
 
                 vkWaitForFences(logical_device, 1, &synchronization_primitives.on_finished_fence, VK_TRUE, UINT64_MAX);
 
@@ -163,29 +157,15 @@ namespace RenderEngine
         }
         catch (const std::runtime_error&)
         {
-            auto logical_device = window.getDevice().getLogicalDevice();
-            vkDestroyCommandPool(logical_device, _command_pool.command_pool, nullptr);
-
-            for (auto framebuffer : _frame_buffers)
-            {
-                vkDestroyFramebuffer(logical_device, framebuffer, nullptr);
-            }
-            vkDestroyRenderPass(logical_device, _render_pass, nullptr);
-            throw;
+            destroyRenderOutput();
+            vkDestroyDescriptorPool(getLogicalDevice(), _descriptor_pool, nullptr);
         }
     }
 
     UIRenderer::~UIRenderer()
     {
         ImGui::SetCurrentContext(_imgui_context);
-        auto logical_device = _window.getDevice().getLogicalDevice();
-        vkDestroyCommandPool(logical_device, _command_pool.command_pool, nullptr);
 
-        resetFrameBuffers();
-
-        vkDestroyDescriptorPool(logical_device, _descriptor_pool, nullptr);
-
-        vkDestroyRenderPass(logical_device, _render_pass, nullptr);
         ImGui_ImplVulkan_Shutdown();
         ImGui_ImplGlfw_Shutdown();
 
@@ -195,34 +175,16 @@ namespace RenderEngine
         {
             ImGui::SetCurrentContext(_imgui_context_during_init);
         }
+        vkDestroyDescriptorPool(getLogicalDevice(), _descriptor_pool, nullptr);
+    }
 
-    }
-    void UIRenderer::resetFrameBuffers()
-    {
-        auto logical_device = _window.getDevice().getLogicalDevice();
-
-        for (auto framebuffer : _frame_buffers)
-        {
-            vkDestroyFramebuffer(logical_device, framebuffer, nullptr);
-        }
-    }
-    void UIRenderer::beforeReinit()
-    {
-        resetFrameBuffers();
-    }
-    void UIRenderer::finalizeReinit(const RenderTarget& render_target)
-    {
-        createFrameBuffers(render_target);
-        _render_area.offset = { 0, 0 };
-        _render_area.extent = render_target.getExtent();;
-    }
     void UIRenderer::draw(const VkFramebuffer& frame_buffer, uint32_t frame_number)
     {
         if (_on_gui == nullptr)
         {
             return;
         }
-        int focused = glfwGetWindowAttrib(_window.getWindowHandle(), GLFW_FOCUSED);
+        int focused = glfwGetWindowAttrib(getWindow().getWindowHandle(), GLFW_FOCUSED);
 
 
         if (focused)
@@ -248,9 +210,9 @@ namespace RenderEngine
 
         VkRenderPassBeginInfo render_pass_info{};
         render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        render_pass_info.renderPass = _render_pass;
+        render_pass_info.renderPass = getRenderPass();
         render_pass_info.framebuffer = frame_buffer;
-        render_pass_info.renderArea = _render_area;
+        render_pass_info.renderArea = getRenderArea();
 
         VkClearValue clearColor = { {{0.0f, 0.0f, 0.0f, 1.0f}} };
         render_pass_info.clearValueCount = 1;
@@ -281,59 +243,4 @@ namespace RenderEngine
         return kInvalidContexts.contains(context) == false;
     }
 
-    void UIRenderer::createFrameBuffers(const RenderTarget& render_target)
-    {
-        auto logical_device = _window.getDevice().getLogicalDevice();
-
-        _frame_buffers.resize(render_target.getImageViews().size());
-        for (uint32_t i = 0; i < _frame_buffers.size(); ++i)
-        {
-            if (createFrameBuffer(render_target, i) == false)
-            {
-                for (uint32_t j = 0; j < i; ++j)
-                {
-                    vkDestroyFramebuffer(logical_device, _frame_buffers[j], nullptr);
-                }
-                _frame_buffers.clear();
-                throw std::runtime_error("failed to create framebuffer!");
-            }
-        }
-    }
-    bool UIRenderer::createFrameBuffer(const RenderTarget& render_target, uint32_t frame_buffer_index)
-    {
-        auto logical_device = _window.getDevice().getLogicalDevice();
-
-        VkImageView attachments[] = {
-                render_target.getImageViews()[frame_buffer_index]
-        };
-        VkFramebufferCreateInfo framebuffer_info{};
-        framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-        framebuffer_info.renderPass = _render_pass;
-        framebuffer_info.attachmentCount = 1;
-        framebuffer_info.pAttachments = attachments;
-        framebuffer_info.width = render_target.getWidth();
-        framebuffer_info.height = render_target.getHeight();
-        framebuffer_info.layers = 1;
-
-        return vkCreateFramebuffer(logical_device, &framebuffer_info, nullptr, &_frame_buffers[frame_buffer_index]) == VK_SUCCESS;
-    }
-
-    void UIRenderer::createCommandBuffer()
-    {
-        auto logical_device = _window.getDevice().getLogicalDevice();
-
-        for (FrameData& frame_data : _back_buffer)
-        {
-            VkCommandBufferAllocateInfo allocInfo{};
-            allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-            allocInfo.commandPool = _command_pool.command_pool;
-            allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-            allocInfo.commandBufferCount = 1;
-
-            if (vkAllocateCommandBuffers(logical_device, &allocInfo, &frame_data.command_buffer) != VK_SUCCESS)
-            {
-                throw std::runtime_error("failed to allocate command buffers!");
-            }
-        }
-    }
 }

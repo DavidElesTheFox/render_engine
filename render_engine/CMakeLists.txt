@@ -19,12 +19,16 @@ set(RENDER_ENGINE_RENDERS_SRC
 	src/renderers/ExampleRenderer.cpp
 	src/renderers/ForwardRenderer.cpp
 	src/renderers/UIRenderer.cpp
+   # src/renderers/ImageStreamRenderer.cpp
+    src/renderers/SingleColorOutputRenderer.cpp
     )
 set(RENDER_ENGINE_RENDERERS_HEADERS 
 	${RENDER_ENGINE_HEADER_LOCATION}/renderers/AbstractRenderer.h
 	${RENDER_ENGINE_HEADER_LOCATION}/renderers/ExampleRenderer.h
 	${RENDER_ENGINE_HEADER_LOCATION}/renderers/ForwardRenderer.h
 	${RENDER_ENGINE_HEADER_LOCATION}/renderers/UIRenderer.h
+   # ${RENDER_ENGINE_HEADER_LOCATION}/renderers/ImageStreamRenderer.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/renderers/SingleColorOutputRenderer.h
 	)
 source_group("src\\renderers" FILES ${RENDER_ENGINE_RENDERS_SRC})
 source_group("include\\renderers" FILES ${RENDER_ENGINE_RENDERERS_HEADERS})
@@ -81,6 +85,7 @@ source_group("include\\assets" FILES ${RENDER_ENGINE_ASSETS_HEADERS})
 
 set(RENDER_ENGINE_CONTAINERS_HEADERS 
 	${RENDER_ENGINE_HEADER_LOCATION}/containers/BackBuffer.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/containers/ImageStream.h
 	)
 source_group("include\\containers" FILES ${RENDER_ENGINE_CONTAINERS_HEADERS})
 
@@ -91,10 +96,12 @@ source_group("include\\containers" FILES ${RENDER_ENGINE_CONTAINERS_HEADERS})
 set(RENDER_ENGINE_WINDOW_SRC
 	src/window/Window.cpp
     src/window/SwapChain.cpp
+ #   src/window/OffScreenWindow.cpp
 	)
 set(RENDER_ENGINE_WINDOW_HEADERS 
 	${RENDER_ENGINE_HEADER_LOCATION}/window/Window.h
 	${RENDER_ENGINE_HEADER_LOCATION}/window/SwapChain.h
+ #   ${RENDER_ENGINE_HEADER_LOCATION}/window/OffScreenWindow.h
 	)
 
 source_group("src\\window" FILES ${RENDER_ENGINE_WINDOW_SRC})

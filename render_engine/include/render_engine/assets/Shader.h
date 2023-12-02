@@ -1,5 +1,12 @@
 #pragma once
 
+#include <volk.h>
+
+#include <filesystem>
+#include <optional>
+#include <unordered_map>
+#include <vector>
+
 namespace RenderEngine
 {
     class ShaderModule;

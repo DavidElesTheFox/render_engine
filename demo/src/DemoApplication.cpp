@@ -5,6 +5,7 @@
 
 #include <iostream>
 
+#include <render_engine/renderers/UIRenderer.h>
 #include <render_engine/resources/PushConstantsUpdater.h>
 
 #include <scene/Camera.h>

@@ -50,9 +50,11 @@ namespace RenderEngine
         {
             return transfer(synchronization_primitives, record_transfer_command, _transfer_queue);
         }
+        [[nodiscard]]
         InFlightData transfer(const SynchronizationPrimitives& synchronization_primitives,
                               std::function<void(VkCommandBuffer)> record_transfer_command,
                               VkQueue transfer_queue_override);
+
         uint32_t getQueueFamilyIndex() const { return _queue_family_index; }
     private:
         VkDevice _logical_device{ VK_NULL_HANDLE };

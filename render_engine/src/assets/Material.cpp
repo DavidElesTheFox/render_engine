@@ -4,13 +4,15 @@
 #include <render_engine/assets/Shader.h>
 #include <render_engine/resources/Technique.h>
 
+#include <render_engine/Device.h>
+#include <render_engine/GpuResourceManager.h>
+
 
 #include <functional>
 #include <numeric>
 #include <ranges>
-#include <render_engine/Device.h>
-#include <render_engine/GpuResourceManager.h>
 #include <set>
+#include <variant>
 
 namespace RenderEngine
 {
@@ -249,8 +251,6 @@ namespace RenderEngine
         }
         return true;
     }
-
-
 
     std::unique_ptr<Technique> MaterialInstance::createTechnique(GpuResourceManager& gpu_resource_manager,
                                                                  VkRenderPass render_pass) const

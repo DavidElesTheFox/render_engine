@@ -19,15 +19,11 @@
 
 namespace RenderEngine
 {
-    ForwardRenderer::ForwardRenderer(Window& parent,
+    ForwardRenderer::ForwardRenderer(Window& window,
                                      const RenderTarget& render_target,
                                      bool last_renderer)
-        try : _window(parent)
-        , _back_buffer(parent.getRenderEngine().getGpuResourceManager().getBackBufferSize())
+        try : SingleColorOutputRenderer(window)
     {
-
-        _render_area.offset = { 0, 0 };
-        _render_area.extent = render_target.getExtent();
 
         VkAttachmentDescription color_attachment{};
         color_attachment.format = render_target.getImageFormat();
@@ -56,53 +52,23 @@ namespace RenderEngine
         renderPassInfo.pSubpasses = &subpass;
         renderPassInfo.dependencyCount = 0;
 
-        auto logical_device = _window.getDevice().getLogicalDevice();
-        if (vkCreateRenderPass(logical_device, &renderPassInfo, nullptr, &_render_pass) != VK_SUCCESS)
+        auto logical_device = window.getDevice().getLogicalDevice();
+        VkRenderPass render_pass{ VK_NULL_HANDLE };
+        if (vkCreateRenderPass(logical_device, &renderPassInfo, nullptr, &render_pass) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to create render pass!");
         }
-
-        createFrameBuffers(render_target);
-        _command_pool = _window.getRenderEngine().getCommandPoolFactory().getCommandPool(VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
-        createCommandBuffer();
+        setRenderPass(render_pass);
+        initializeRendererOutput(render_target, window.getRenderEngine().getGpuResourceManager().getBackBufferSize());
     }
     catch (const std::exception&)
     {
-        destroy();
+        destroyRenderOutput();
     }
 
     ForwardRenderer::~ForwardRenderer()
-    {
-        destroy();
-    }
-    void ForwardRenderer::destroy()
-    {
-        auto logical_device = _window.getDevice().getLogicalDevice();
-        resetFrameBuffers();
+    {}
 
-        vkDestroyRenderPass(logical_device, _render_pass, nullptr);
-        vkDestroyCommandPool(logical_device, _command_pool.command_pool, nullptr);
-    }
-
-    void ForwardRenderer::resetFrameBuffers()
-    {
-        auto logical_device = _window.getDevice().getLogicalDevice();
-
-        for (auto framebuffer : _frame_buffers)
-        {
-            vkDestroyFramebuffer(logical_device, framebuffer, nullptr);
-        }
-    }
-    void ForwardRenderer::beforeReinit()
-    {
-        resetFrameBuffers();
-    }
-    void ForwardRenderer::finalizeReinit(const RenderTarget& render_target)
-    {
-        createFrameBuffers(render_target);
-        _render_area.offset = { 0, 0 };
-        _render_area.extent = render_target.getExtent();
-    }
     void ForwardRenderer::addMesh(const MeshInstance* mesh_instance, int32_t priority)
     {
         const auto* mesh = mesh_instance->getMesh();
@@ -113,21 +79,24 @@ namespace RenderEngine
 
         const Shader::MetaData& vertex_shader_meta_data = material.getVertexShader().getMetaData();
         MeshBuffers mesh_buffers;
+        auto& transfer_engine = getWindow().getTransferEngine();
+        auto& gpu_resource_manager = getWindow().getRenderEngine().getGpuResourceManager();
+        uint32_t render_queue_family_index = getWindow().getRenderEngine().getQueueFamilyIndex();
         if (geometry.positions.empty() == false)
         {
             std::vector vertex_buffer = mesh->createVertexBuffer();
-            mesh_buffers.vertex_buffer = _window.getRenderEngine().getGpuResourceManager().createAttributeBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                                                                                                                 vertex_buffer.size());
+            mesh_buffers.vertex_buffer = gpu_resource_manager.createAttributeBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                                                                                    vertex_buffer.size());
             mesh_buffers.vertex_buffer->uploadUnmapped(std::span{ vertex_buffer.data(), vertex_buffer.size() },
-                                                       _window.getTransferEngine(), _window.getRenderEngine().getQueueFamilyIndex());
+                                                       transfer_engine, render_queue_family_index);
 
         }
         if (geometry.indexes.empty() == false)
         {
-            mesh_buffers.index_buffer = _window.getRenderEngine().getGpuResourceManager().createAttributeBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                                                                                                                geometry.indexes.size() * sizeof(int16_t));
+            mesh_buffers.index_buffer = gpu_resource_manager.createAttributeBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                                                                                   geometry.indexes.size() * sizeof(int16_t));
             mesh_buffers.index_buffer->uploadUnmapped(std::span{ geometry.indexes.data(), geometry.indexes.size() },
-                                                      _window.getTransferEngine(), _window.getRenderEngine().getQueueFamilyIndex());
+                                                      transfer_engine, render_queue_family_index);
         }
         _mesh_buffers[mesh_instance->getMesh()] = std::move(mesh_buffers);
         auto& mesh_group = _meshes[priority][material_instance_id];
@@ -135,14 +104,14 @@ namespace RenderEngine
         if (mesh_group.technique == nullptr)
         {
             auto& material = mesh->getMaterial();
-            _meshes[priority][material_instance_id].technique = mesh_instance->getMaterialInstance()->createTechnique(_window.getRenderEngine().getGpuResourceManager(),
-                                                                                                                      _render_pass);
+            _meshes[priority][material_instance_id].technique = mesh_instance->getMaterialInstance()->createTechnique(gpu_resource_manager,
+                                                                                                                      getRenderPass());
         }
     }
 
     void ForwardRenderer::draw(uint32_t swap_chain_image_index, uint32_t frame_number)
     {
-        FrameData& frame_data = _back_buffer[frame_number];
+        FrameData& frame_data = getFrameData(frame_number);
 
         VkCommandBufferBeginInfo begin_info{};
         begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -152,11 +121,12 @@ namespace RenderEngine
             throw std::runtime_error("failed to begin recording command buffer!");
         }
 
+        auto render_area = getRenderArea();
         VkRenderPassBeginInfo render_pass_info{};
         render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        render_pass_info.renderPass = _render_pass;
-        render_pass_info.framebuffer = _frame_buffers[swap_chain_image_index];
-        render_pass_info.renderArea = _render_area;
+        render_pass_info.renderPass = getRenderPass();
+        render_pass_info.framebuffer = getFrameBuffer(swap_chain_image_index);
+        render_pass_info.renderArea = render_area;
 
         VkClearValue clearColor = { {{0.0f, 0.0f, 0.0f, 1.0f}} };
         render_pass_info.clearValueCount = 1;
@@ -177,15 +147,15 @@ namespace RenderEngine
                 VkViewport viewport{};
                 viewport.x = 0.0f;
                 viewport.y = 0.0f;
-                viewport.width = (float)_render_area.extent.width;
-                viewport.height = (float)_render_area.extent.height;
+                viewport.width = (float)render_area.extent.width;
+                viewport.height = (float)render_area.extent.height;
                 viewport.minDepth = 0.0f;
                 viewport.maxDepth = 1.0f;
                 vkCmdSetViewport(frame_data.command_buffer, 0, 1, &viewport);
 
                 VkRect2D scissor{};
                 scissor.offset = { 0, 0 };
-                scissor.extent = _render_area.extent;
+                scissor.extent = render_area.extent;
                 vkCmdSetScissor(frame_data.command_buffer, 0, 1, &scissor);
                 auto descriptor_sets = mesh_group.technique->collectDescriptorSets(frame_number);
 
@@ -219,57 +189,6 @@ namespace RenderEngine
         if (vkEndCommandBuffer(frame_data.command_buffer) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to record command buffer!");
-        }
-    }
-
-    void ForwardRenderer::createFrameBuffers(const RenderTarget& render_target)
-    {
-        auto logical_device = _window.getDevice().getLogicalDevice();
-
-        _frame_buffers.resize(render_target.getImageViews().size(), VK_NULL_HANDLE);
-        for (uint32_t i = 0; i < _frame_buffers.size(); ++i)
-        {
-            createFrameBuffer(render_target, i);
-        }
-    }
-    void ForwardRenderer::createFrameBuffer(const RenderTarget& render_target, uint32_t frame_buffer_index)
-    {
-        auto logical_device = _window.getDevice().getLogicalDevice();
-
-        VkImageView attachments[] = {
-                render_target.getImageViews()[frame_buffer_index]
-        };
-        VkFramebufferCreateInfo framebuffer_info{};
-        framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-        framebuffer_info.renderPass = _render_pass;
-        framebuffer_info.attachmentCount = 1;
-        framebuffer_info.pAttachments = attachments;
-        framebuffer_info.width = render_target.getWidth();
-        framebuffer_info.height = render_target.getHeight();
-        framebuffer_info.layers = 1;
-
-        if (vkCreateFramebuffer(logical_device, &framebuffer_info, nullptr, &_frame_buffers[frame_buffer_index]) != VK_SUCCESS)
-        {
-            throw std::runtime_error("failed to create framebuffer!");
-        }
-    }
-
-    void ForwardRenderer::createCommandBuffer()
-    {
-        auto logical_device = _window.getDevice().getLogicalDevice();
-
-        for (FrameData& frame_data : _back_buffer)
-        {
-            VkCommandBufferAllocateInfo allocInfo{};
-            allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-            allocInfo.commandPool = _command_pool.command_pool;
-            allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-            allocInfo.commandBufferCount = 1;
-
-            if (vkAllocateCommandBuffers(logical_device, &allocInfo, &frame_data.command_buffer) != VK_SUCCESS)
-            {
-                throw std::runtime_error("failed to allocate command buffers!");
-            }
         }
     }
 }

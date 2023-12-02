@@ -1,15 +1,17 @@
 #pragma once
 
+#include <memory>
 #include <unordered_map>
 #include <vector>
 
 #include <scene/SceneNode.h>
 #include <scene/SceneNodeLookup.h>
 
+#include <glm/vec3.hpp>
 
 namespace Scene
 {
-
+    class SceneNode;
     class Camera;
     class Scene
     {

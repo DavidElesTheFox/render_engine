@@ -35,13 +35,17 @@ namespace RenderEngine
         UniformBinding& operator=(const UniformBinding&) = delete;
         UniformBinding& operator=(UniformBinding&&) = default;
 
-        Buffer& getBuffer(size_t frame_number)
+        Buffer& getBuffer(size_t frame_number) const
         {
             return *_back_buffer[frame_number].buffer;
         }
         VkDescriptorSet getDescriptorSet(size_t frame_number)
         {
             return _back_buffer[frame_number].descriptor_set;
+        }
+        Texture* getTextureForFrame(size_t frame_number) const
+        {
+            return _back_buffer[frame_number].texture;
         }
     private:
         VkDevice _logical_device;

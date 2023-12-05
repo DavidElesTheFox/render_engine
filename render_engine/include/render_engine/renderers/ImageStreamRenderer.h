@@ -34,6 +34,7 @@ namespace RenderEngine
             {}
         };
         void destroy() noexcept;
+        void onFrameBegin(uint32_t frame_number) override;
         void draw(uint32_t swap_chain_image_index, uint32_t frame_number) override;
         bool skipDrawCall(uint32_t frame_number) const override;
         uint32_t getRenderTextureIndex(uint32_t frame_number) const

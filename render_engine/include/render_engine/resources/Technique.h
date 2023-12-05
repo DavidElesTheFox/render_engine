@@ -53,6 +53,8 @@ namespace RenderEngine
             _material_instance->updateGlobalPushConstants(updater);
         }
 
+        const std::vector<UniformBinding>& getUniformBindings() const { return _uniform_buffers; }
+
     private:
         void destroy();
         VkShaderStageFlags getPushConstantsUsageFlag() const;

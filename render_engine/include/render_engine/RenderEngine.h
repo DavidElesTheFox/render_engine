@@ -24,6 +24,14 @@ namespace RenderEngine
 
         VkQueue& getRenderQueue() { return _render_queue; }
         uint32_t getQueueFamilyIndex() const { return _render_queue_family; }
+
+        void onFrameBegin(const std::ranges::input_range auto& renderers, uint32_t frame_id)
+        {
+            for (auto* renderer : renderers)
+            {
+                renderer->onFrameBegin(frame_id);
+            }
+        }
         [[nodiscard]]
         bool render(SynchronizationPrimitives* synchronization_primitives,
                     const std::ranges::input_range auto& renderers,

@@ -35,7 +35,7 @@ namespace RenderEngine
                         bool last_ExampleRenderer);
 
         void init(const std::vector<Vertex>& vertices, const std::vector<uint16_t>& indicies);
-
+        void onFrameBegin(uint32_t frame_number) override {}
         void draw(uint32_t swap_chain_image_index, uint32_t frame_number) override
         {
             draw(_frame_buffers[swap_chain_image_index], frame_number);

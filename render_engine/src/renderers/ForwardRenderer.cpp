@@ -190,4 +190,25 @@ namespace RenderEngine
             throw std::runtime_error("failed to record command buffer!");
         }
     }
+
+    void ForwardRenderer::onFrameBegin(uint32_t frame_number)
+    {
+        for (auto& mesh_group_map : _meshes | std::views::values)
+        {
+            for (auto& mesh_group : mesh_group_map | std::views::values)
+            {
+                for (const auto& uniform_binding : mesh_group.technique->getUniformBindings())
+                {
+                    if (auto texture = uniform_binding.getTextureForFrame(frame_number); texture != nullptr)
+                    {
+                        ResourceStateMachine::resetStages(*texture);
+                    }
+                    if (auto buffer = uniform_binding.getTextureForFrame(frame_number); buffer != nullptr)
+                    {
+                        ResourceStateMachine::resetStages(*buffer);
+                    }
+                }
+            }
+        }
+    }
 }

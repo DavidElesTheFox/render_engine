@@ -10,9 +10,9 @@
 #include <render_engine/renderers/ExampleRenderer.h>
 #include <render_engine/renderers/UIRenderer.h>
 
-#define ENABLE_WINDOW_0 false
-#define ENABLE_WINDOW_1 false
-#define ENABLE_WINDOW_2 false
+#define ENABLE_WINDOW_0 true
+#define ENABLE_WINDOW_1 true
+#define ENABLE_WINDOW_2 true
 #define ENABLE_WINDOW_3 true
 
 class MultiWindowApplication

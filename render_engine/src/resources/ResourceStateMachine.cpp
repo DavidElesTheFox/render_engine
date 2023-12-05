@@ -7,7 +7,19 @@
 #include <stdexcept>
 namespace RenderEngine
 {
+    void ResourceStateMachine::resetStages(Texture& texture)
+    {
+        texture.overrideResourceState(texture.getResourceState().clone()
+                                      .setPipelineStage(VK_PIPELINE_STAGE_2_NONE)
+                                      .setAccessFlag(VK_ACCESS_2_NONE));
+    }
 
+    void ResourceStateMachine::resetStages(Buffer& texture)
+    {
+        texture.overrideResourceState(texture.getResourceState().clone()
+                                      .setPipelineStage(VK_PIPELINE_STAGE_2_NONE)
+                                      .setAccessFlag(VK_ACCESS_2_NONE));
+    }
     void ResourceStateMachine::recordStateChange(Texture* image, TextureState next_state)
     {
         _images[image] = std::move(next_state);

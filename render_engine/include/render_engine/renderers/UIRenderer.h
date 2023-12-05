@@ -30,7 +30,7 @@ namespace RenderEngine
                    const RenderTarget& render_target,
                    uint32_t back_buffer_size,
                    bool first_renderer);
-
+        void onFrameBegin(uint32_t frame_number) override {}
         void draw(uint32_t swap_chain_image_index, uint32_t frame_number) override
         {
             draw(getFrameBuffer(swap_chain_image_index), frame_number);

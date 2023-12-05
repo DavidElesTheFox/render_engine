@@ -165,6 +165,10 @@ namespace RenderEngine
                 for (size_t i = 0; i < back_buffer_size; ++i)
                 {
                     back_buffer[i].descriptor_set = descriptor_sets[i];
+                    if (buffer_meta_data.texture_view != nullptr)
+                    {
+                        back_buffer[i].texture = &buffer_meta_data.texture_view->getTexture();
+                    }
 
                     std::visit(overloaded{
                         [&](const Shader::MetaData::Sampler& sampler)

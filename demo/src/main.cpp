@@ -22,7 +22,7 @@ int main()
 {
     try
     {
-        runMultiWindowApplication();
+        runDemoApplication();
         RenderEngine::RenderContext::context().reset();
         return 0;
     }

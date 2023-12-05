@@ -230,11 +230,7 @@ namespace RenderEngine
                                                               std::move(fragment_shader),
                                                               Material::CallbackContainer{},
                                                               material_id);
-            // vertex shader creates the points in a counter clockwise fation.
-            _fullscreen_material->setRasterizationInfo(_fullscreen_material->getRasterizationInfo()
-                                                       .clone()
-                                                       .setFrontFace(VK_FRONT_FACE_COUNTER_CLOCKWISE)
-                                                       .setCullMode(VK_CULL_MODE_FRONT_BIT));
+
             Texture::SamplerData sampler_data{};
             sampler_data.anisotroy_filter_enabled = false;
             sampler_data.border_color = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
@@ -268,6 +264,19 @@ namespace RenderEngine
     {
         destroyRenderOutput();
         destroy();
+    }
+
+    void ImageStreamRenderer::onFrameBegin(uint32_t frame_number)
+    {
+        if (const auto& texture = _texture_container[getRenderTextureIndex(frame_number)]; texture != nullptr)
+        {
+            ResourceStateMachine::resetStages(*texture);
+        }
+
+        if (const auto& texture = _texture_container[getUploadTextureIndex(frame_number)]; texture != nullptr)
+        {
+            ResourceStateMachine::resetStages(*texture);
+        }
     }
 
     std::vector<VkSemaphoreSubmitInfo> ImageStreamRenderer::getWaitSemaphores(uint32_t frame_number)

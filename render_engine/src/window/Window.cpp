@@ -182,7 +182,8 @@ namespace RenderEngine
         {
             return;
         }
-
+        auto renderers = _renderers | std::views::transform([](const auto& ptr) { return ptr.get(); });
+        _render_engine->onFrameBegin(renderers, _frame_counter);
         auto logical_device = _device.getLogicalDevice();
         if (_swap_chain_image_index == std::nullopt)
         {
@@ -228,7 +229,7 @@ namespace RenderEngine
         synchronization_primitives.on_finished_fence = frame_data.in_flight_fence;
 
         bool draw_call_recorded = _render_engine->render(&synchronization_primitives,
-                                                         _renderers | std::views::transform([](const auto& ptr) { return ptr.get(); }),
+                                                         renderers,
                                                          *_swap_chain_image_index,
                                                          _frame_counter);
         if (draw_call_recorded)

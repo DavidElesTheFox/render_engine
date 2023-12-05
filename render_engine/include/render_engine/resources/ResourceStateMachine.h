@@ -98,6 +98,10 @@ namespace RenderEngine
                 return ((*this) == o) == false;
             }
         };
+
+        static void resetStages(Texture& texture);
+        static void resetStages(Buffer& texture);
+
         ResourceStateMachine() = default;
 
 

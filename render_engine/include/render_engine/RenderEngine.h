@@ -25,21 +25,20 @@ namespace RenderEngine
         VkQueue& getRenderQueue() { return _render_queue; }
         uint32_t getQueueFamilyIndex() const { return _render_queue_family; }
 
-        void onFrameBegin(const std::ranges::input_range auto& renderers, uint32_t frame_id)
+        void onFrameBegin(const std::ranges::input_range auto& renderers, uint32_t image_index)
         {
             for (auto* renderer : renderers)
             {
-                renderer->onFrameBegin(frame_id);
+                renderer->onFrameBegin(image_index);
             }
         }
         [[nodiscard]]
         bool render(SynchronizationPrimitives* synchronization_primitives,
                     const std::ranges::input_range auto& renderers,
-                    uint32_t image_index,
-                    uint32_t frame_id)
+                    uint32_t image_index)
         {
-            std::vector<VkCommandBufferSubmitInfo> command_buffer_infos = executeDrawCalls(renderers, image_index, frame_id);
-            addWaitSemaphoresFromRenderers(renderers, synchronization_primitives, frame_id);
+            std::vector<VkCommandBufferSubmitInfo> command_buffer_infos = executeDrawCalls(renderers, image_index);
+            addWaitSemaphoresFromRenderers(renderers, synchronization_primitives, image_index);
             if (command_buffer_infos.empty() == false)
             {
                 submitDrawCalls(command_buffer_infos, *synchronization_primitives);
@@ -52,14 +51,13 @@ namespace RenderEngine
         CommandPoolFactory& getCommandPoolFactory() { return _command_pool_factory; }
     private:
         std::vector<VkCommandBufferSubmitInfo> executeDrawCalls(const std::ranges::input_range auto& renderers,
-                                                                uint32_t image_index,
-                                                                uint32_t frame_id)
+                                                                uint32_t image_index)
         {
             std::vector<VkCommandBufferSubmitInfo> command_buffers;
             for (AbstractRenderer* drawer : renderers)
             {
-                drawer->draw(image_index, frame_id);
-                auto current_command_buffers = drawer->getCommandBuffers(frame_id);
+                drawer->draw(image_index);
+                auto current_command_buffers = drawer->getCommandBuffers(image_index);
                 std::ranges::transform(current_command_buffers,
                                        std::back_inserter(command_buffers),
                                        [](const auto& command_buffer)
@@ -76,11 +74,11 @@ namespace RenderEngine
 
         void addWaitSemaphoresFromRenderers(const std::ranges::input_range auto& renderers,
                                             SynchronizationPrimitives* synchronization_primitives,
-                                            uint32_t frame_id)
+                                            uint32_t image_index)
         {
             for (AbstractRenderer* drawer : renderers)
             {
-                auto wait_semaphores = drawer->getWaitSemaphores(frame_id);
+                auto wait_semaphores = drawer->getWaitSemaphores(image_index);
                 std::ranges::copy(wait_semaphores,
                                   std::back_inserter(synchronization_primitives->wait_semaphores));
             }

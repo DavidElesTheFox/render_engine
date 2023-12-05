@@ -108,9 +108,9 @@ namespace RenderEngine
         }
     }
 
-    void ForwardRenderer::draw(uint32_t swap_chain_image_index, uint32_t frame_number)
+    void ForwardRenderer::draw(uint32_t swap_chain_image_index)
     {
-        FrameData& frame_data = getFrameData(frame_number);
+        FrameData& frame_data = getFrameData(swap_chain_image_index);
 
         VkCommandBufferBeginInfo begin_info{};
         begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -138,7 +138,7 @@ namespace RenderEngine
             {
                 auto push_constants_updater = mesh_group.technique->createPushConstantsUpdater(frame_data.command_buffer);
 
-                mesh_group.technique->updateGlobalUniformBuffer(frame_number);
+                mesh_group.technique->updateGlobalUniformBuffer(swap_chain_image_index);
                 mesh_group.technique->updateGlobalPushConstants(push_constants_updater);
 
                 vkCmdBindPipeline(frame_data.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_group.technique->getPipeline());
@@ -156,7 +156,7 @@ namespace RenderEngine
                 scissor.offset = { 0, 0 };
                 scissor.extent = render_area.extent;
                 vkCmdSetScissor(frame_data.command_buffer, 0, 1, &scissor);
-                auto descriptor_sets = mesh_group.technique->collectDescriptorSets(frame_number);
+                auto descriptor_sets = mesh_group.technique->collectDescriptorSets(swap_chain_image_index);
 
                 if (descriptor_sets.empty() == false)
                 {

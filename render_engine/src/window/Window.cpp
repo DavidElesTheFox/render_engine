@@ -183,7 +183,6 @@ namespace RenderEngine
             return;
         }
         auto renderers = _renderers | std::views::transform([](const auto& ptr) { return ptr.get(); });
-        _render_engine->onFrameBegin(renderers, _frame_counter);
         auto logical_device = _device.getLogicalDevice();
         if (_swap_chain_image_index == std::nullopt)
         {
@@ -209,6 +208,7 @@ namespace RenderEngine
             _swap_chain_image_index = image_index;
         }
         vkResetFences(logical_device, 1, &frame_data.in_flight_fence);
+        _render_engine->onFrameBegin(renderers, *_swap_chain_image_index);
 
         SynchronizationPrimitives synchronization_primitives{};
         {
@@ -227,11 +227,9 @@ namespace RenderEngine
             synchronization_primitives.signal_semaphores.push_back(signal_semaphore_info);
         }
         synchronization_primitives.on_finished_fence = frame_data.in_flight_fence;
-
         bool draw_call_recorded = _render_engine->render(&synchronization_primitives,
                                                          renderers,
-                                                         *_swap_chain_image_index,
-                                                         _frame_counter);
+                                                         *_swap_chain_image_index);
         if (draw_call_recorded)
         {
             VkPresentInfoKHR presentInfo{};

@@ -14,29 +14,29 @@ namespace RenderEngine
     public:
         explicit SingleColorOutputRenderer(Window& parent);
         ~SingleColorOutputRenderer() override;
-        std::vector<VkCommandBuffer> getCommandBuffers(uint32_t frame_number) override final
+        std::vector<VkCommandBuffer> getCommandBuffers(uint32_t image_index) override final
         {
-            if (skipDrawCall(frame_number))
+            if (skipDrawCall(image_index))
             {
                 return{};
             }
-            return { getFrameData(frame_number).command_buffer };
+            return { getFrameData(image_index).command_buffer };
         }
     protected:
         struct FrameData
         {
             VkCommandBuffer command_buffer;
         };
-        virtual bool skipDrawCall(uint32_t frame_number) const { return false; }
+        virtual bool skipDrawCall(uint32_t image_index) const { return false; }
         void initializeRendererOutput(const RenderTarget& render_target,
                                       VkRenderPass render_pass,
                                       size_t back_buffer_size);
         void destroyRenderOutput();
         Window& getWindow() { return _window; }
         VkDevice getLogicalDevice() { return _window.getDevice().getLogicalDevice(); }
-        FrameData& getFrameData(uint32_t frame_number)
+        FrameData& getFrameData(uint32_t image_index)
         {
-            return _back_buffer[frame_number % _back_buffer.size()];
+            return _back_buffer[image_index];
         }
         VkRenderPass getRenderPass() { return _render_pass; }
         VkFramebuffer getFrameBuffer(uint32_t swap_chain_image_index) { return _frame_buffers[swap_chain_image_index]; }

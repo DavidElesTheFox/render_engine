@@ -36,20 +36,20 @@ namespace RenderEngine
 
         void init(const std::vector<Vertex>& vertices, const std::vector<uint16_t>& indicies);
         void onFrameBegin(uint32_t frame_number) override {}
-        void draw(uint32_t swap_chain_image_index, uint32_t frame_number) override
+        void draw(uint32_t swap_chain_image_index) override
         {
-            draw(_frame_buffers[swap_chain_image_index], frame_number);
+            draw(_frame_buffers[swap_chain_image_index], getFrameData(swap_chain_image_index));
         }
-        std::vector<VkCommandBuffer> getCommandBuffers(uint32_t frame_number) override
+        std::vector<VkCommandBuffer> getCommandBuffers(uint32_t image_index) override
         {
-            return { getFrameData(frame_number).command_buffer };
+            return { getFrameData(image_index).command_buffer };
         }
 
         ColorOffset& getColorOffset() { return _color_offset; }
 
         ~ExampleRenderer() override;
 
-        std::vector<VkSemaphoreSubmitInfo> getWaitSemaphores(uint32_t frame_number) override
+        std::vector<VkSemaphoreSubmitInfo> getWaitSemaphores(uint32_t image_index) override
         {
             return {};
         }
@@ -63,11 +63,11 @@ namespace RenderEngine
         void createFrameBuffers(const RenderTarget& swap_chain);
         bool createFrameBuffer(const RenderTarget& swap_chain, uint32_t frame_buffer_index);
         void createCommandBuffer();
-        FrameData& getFrameData(uint32_t frame_number)
+        FrameData& getFrameData(uint32_t image_index)
         {
-            return _back_buffer[frame_number % _back_buffer.size()];
+            return _back_buffer[image_index];
         }
-        void draw(const VkFramebuffer& frame_buffer, uint32_t frame_number);
+        void draw(const VkFramebuffer& frame_buffer, FrameData& frame_data);
         void resetFrameBuffers();
         void beforeReinit() override;
         void finalizeReinit(const RenderTarget& swap_chain) override;

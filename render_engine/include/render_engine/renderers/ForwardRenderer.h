@@ -39,10 +39,10 @@ namespace RenderEngine
                         const RenderTarget& render_target,
                         bool last_renderer);
         ~ForwardRenderer() override;
-        void onFrameBegin(uint32_t frame_number) override;
+        void onFrameBegin(uint32_t image_index) override;
         void addMesh(const MeshInstance* mesh_instance, int32_t priority);
-        void draw(uint32_t swap_chain_image_index, uint32_t frame_number) override;
-        std::vector<VkSemaphoreSubmitInfo> getWaitSemaphores(uint32_t frame_number) override
+        void draw(uint32_t swap_chain_image_index) override;
+        std::vector<VkSemaphoreSubmitInfo> getWaitSemaphores(uint32_t image_index) override
         {
             return {};
         }

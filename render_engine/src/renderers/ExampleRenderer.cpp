@@ -427,10 +427,8 @@ namespace RenderEngine
         }
     }
 
-    void ExampleRenderer::draw(const VkFramebuffer& frame_buffer, uint32_t frame_number)
+    void ExampleRenderer::draw(const VkFramebuffer& frame_buffer, FrameData& frame_data)
     {
-        FrameData& frame_data = getFrameData(frame_number);
-
         frame_data.color_offset->uploadMapped(std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(&_color_offset), sizeof(ColorOffset)));
 
         vkResetCommandBuffer(frame_data.command_buffer, /*VkCommandBufferResetFlagBits*/ 0);

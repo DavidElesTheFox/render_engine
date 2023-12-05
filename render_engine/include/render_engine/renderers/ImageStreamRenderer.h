@@ -35,16 +35,9 @@ namespace RenderEngine
         };
         void destroy() noexcept;
         void onFrameBegin(uint32_t frame_number) override;
-        void draw(uint32_t swap_chain_image_index, uint32_t frame_number) override;
+        void draw(uint32_t swap_chain_image_index) override;
         bool skipDrawCall(uint32_t frame_number) const override;
-        uint32_t getRenderTextureIndex(uint32_t frame_number) const
-        {
-            return (frame_number + _texture_container.size() - 1) % _texture_container.size();
-        }
-        uint32_t getUploadTextureIndex(uint32_t frame_number) const
-        {
-            return frame_number % _texture_container.size();
-        }
+
         ImageStream& _image_stream;
         Image _image_cache;
         std::unordered_map<Texture*, UploadData> _upload_data;

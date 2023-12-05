@@ -31,9 +31,9 @@ namespace RenderEngine
                    uint32_t back_buffer_size,
                    bool first_renderer);
         void onFrameBegin(uint32_t frame_number) override {}
-        void draw(uint32_t swap_chain_image_index, uint32_t frame_number) override
+        void draw(uint32_t swap_chain_image_index) override
         {
-            draw(getFrameBuffer(swap_chain_image_index), frame_number);
+            draw(getFrameBuffer(swap_chain_image_index), getFrameData(swap_chain_image_index));
         }
 
         void setOnGui(std::function<void()> on_gui) { _on_gui = on_gui; }
@@ -51,7 +51,7 @@ namespace RenderEngine
         static bool isValidContext(ImGuiContext* context);
 
 
-        void draw(const VkFramebuffer& frame_buffer, uint32_t frame_number);
+        void draw(const VkFramebuffer& frame_buffer, FrameData& frame_data);
 
         ImGuiContext* _imgui_context{ nullptr };
         ImGuiContext* _imgui_context_during_init{ nullptr };

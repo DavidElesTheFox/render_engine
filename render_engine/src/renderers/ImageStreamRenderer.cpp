@@ -266,26 +266,26 @@ namespace RenderEngine
         destroy();
     }
 
-    void ImageStreamRenderer::onFrameBegin(uint32_t frame_number)
+    void ImageStreamRenderer::onFrameBegin(uint32_t image_index)
     {
-        if (const auto& texture = _texture_container[getRenderTextureIndex(frame_number)]; texture != nullptr)
+        if (const auto& texture = _texture_container[image_index]; texture != nullptr)
         {
             ResourceStateMachine::resetStages(*texture);
         }
 
-        if (const auto& texture = _texture_container[getUploadTextureIndex(frame_number)]; texture != nullptr)
+        if (const auto& texture = _texture_container[image_index]; texture != nullptr)
         {
             ResourceStateMachine::resetStages(*texture);
         }
     }
 
-    std::vector<VkSemaphoreSubmitInfo> ImageStreamRenderer::getWaitSemaphores(uint32_t frame_number)
+    std::vector<VkSemaphoreSubmitInfo> ImageStreamRenderer::getWaitSemaphores(uint32_t image_index)
     {
-        if (skipDrawCall(frame_number))
+        if (skipDrawCall(image_index))
         {
             return {};
         }
-        auto& texture = _texture_container[getRenderTextureIndex(frame_number)];
+        auto& texture = _texture_container[image_index];
         auto it = _upload_data.find(texture.get());
         if (it == _upload_data.end())
         {
@@ -316,7 +316,7 @@ namespace RenderEngine
         }
     }
 
-    void ImageStreamRenderer::draw(uint32_t swap_chain_image_index, uint32_t frame_number)
+    void ImageStreamRenderer::draw(uint32_t swap_chain_image_index)
     {
         static std::vector<uint8_t> image_data;
         image_data.clear();
@@ -335,7 +335,7 @@ namespace RenderEngine
         VkDevice logical_device = getLogicalDevice();
 
         {
-            auto& upload_texture = _texture_container[getUploadTextureIndex(frame_number)];
+            auto& upload_texture = _texture_container[swap_chain_image_index];
             auto it = _upload_data.find(upload_texture.get());
             if (it == _upload_data.end())
             {
@@ -374,11 +374,11 @@ namespace RenderEngine
             }
         }
         _draw_call_recorded = false;
-        auto& render_texture = _texture_container[getRenderTextureIndex(frame_number)];
+        auto& render_texture = _texture_container[swap_chain_image_index];
         if (_upload_data.contains(render_texture.get()))
         {
             _draw_call_recorded = true;
-            FrameData& frame_data = getFrameData(frame_number);
+            FrameData& frame_data = getFrameData(swap_chain_image_index);
 
             VkCommandBufferBeginInfo begin_info{};
             begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -419,7 +419,7 @@ namespace RenderEngine
             scissor.offset = { 0, 0 };
             scissor.extent = render_area.extent;
             vkCmdSetScissor(frame_data.command_buffer, 0, 1, &scissor);
-            auto descriptor_sets = technique->collectDescriptorSets(frame_number);
+            auto descriptor_sets = technique->collectDescriptorSets(swap_chain_image_index);
 
             if (descriptor_sets.empty() == false)
             {

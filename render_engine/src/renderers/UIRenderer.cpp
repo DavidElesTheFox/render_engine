@@ -178,7 +178,7 @@ namespace RenderEngine
         vkDestroyDescriptorPool(getLogicalDevice(), _descriptor_pool, nullptr);
     }
 
-    void UIRenderer::draw(const VkFramebuffer& frame_buffer, uint32_t frame_number)
+    void UIRenderer::draw(const VkFramebuffer& frame_buffer, FrameData& frame_data)
     {
         if (_on_gui == nullptr)
         {
@@ -197,7 +197,6 @@ namespace RenderEngine
             ImGui_ImplGlfw_NewFrame();
             ImGui::NewFrame();
         }
-        FrameData& frame_data = getFrameData(frame_number);
 
         vkResetCommandBuffer(frame_data.command_buffer, /*VkCommandBufferResetFlagBits*/ 0);
         VkCommandBufferBeginInfo begin_info{};

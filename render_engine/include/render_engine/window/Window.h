@@ -5,12 +5,12 @@
 #include <render_engine/Device.h>
 #include <render_engine/RenderEngine.h>
 #include <render_engine/renderers/AbstractRenderer.h>
-#include <render_engine/renderers/UIRenderer.h>
 #include <render_engine/TransferEngine.h>
 #include <render_engine/window/SwapChain.h>
 
 #include <array>
 #include <memory>
+#include <optional>
 
 #include <GLFW/glfw3.h>
 
@@ -76,7 +76,10 @@ namespace RenderEngine
         std::vector<std::unique_ptr<AbstractRenderer>> _renderers;
         std::unordered_map<uint32_t, AbstractRenderer*> _renderer_map;
         uint32_t _frame_counter{ 0 };
+        uint32_t _presented_frame_counter{ 0 };
         size_t _back_buffer_size{ 2 };
         void* _renderdoc_api{ nullptr };
+        std::optional<uint32_t> _swap_chain_image_index;
+        bool _new_swap_chain_image_is_required{ true };
     };
 }

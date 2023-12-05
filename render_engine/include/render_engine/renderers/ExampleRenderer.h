@@ -48,6 +48,11 @@ namespace RenderEngine
         ColorOffset& getColorOffset() { return _color_offset; }
 
         ~ExampleRenderer() override;
+
+        std::vector<VkSemaphoreSubmitInfo> getWaitSemaphores(uint32_t frame_number) override
+        {
+            return {};
+        }
     private:
         struct FrameData
         {

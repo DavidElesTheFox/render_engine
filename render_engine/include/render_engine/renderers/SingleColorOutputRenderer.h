@@ -16,6 +16,10 @@ namespace RenderEngine
         ~SingleColorOutputRenderer() override;
         std::vector<VkCommandBuffer> getCommandBuffers(uint32_t frame_number) override final
         {
+            if (skipDrawCall(frame_number))
+            {
+                return{};
+            }
             return { getFrameData(frame_number).command_buffer };
         }
     protected:
@@ -23,8 +27,9 @@ namespace RenderEngine
         {
             VkCommandBuffer command_buffer;
         };
-
+        virtual bool skipDrawCall(uint32_t frame_number) const { return false; }
         void initializeRendererOutput(const RenderTarget& render_target,
+                                      VkRenderPass render_pass,
                                       size_t back_buffer_size);
         void destroyRenderOutput();
         Window& getWindow() { return _window; }
@@ -33,7 +38,6 @@ namespace RenderEngine
         {
             return _back_buffer[frame_number % _back_buffer.size()];
         }
-        void setRenderPass(VkRenderPass render_pass) { _render_pass = render_pass; }
         VkRenderPass getRenderPass() { return _render_pass; }
         VkFramebuffer getFrameBuffer(uint32_t swap_chain_image_index) { return _frame_buffers[swap_chain_image_index]; }
         const VkRect2D& getRenderArea() const { return _render_area; }

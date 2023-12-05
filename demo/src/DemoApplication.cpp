@@ -213,11 +213,12 @@ void DemoApplication::instantiateMaterials()
             auto physical_device = device.getPhysicalDevice();
             RenderEngine::SynchronizationPrimitives synchronization_primitives =
                 RenderEngine::SynchronizationPrimitives::CreateWithFence(logical_device);
-            RenderEngine::Image image(std::filesystem::path{ IMAGE_BASE } / "statue.jpg", 640, 580, VK_FORMAT_R8G8B8A8_SRGB);
+            RenderEngine::Image image(std::filesystem::path{ IMAGE_BASE } / "statue.jpg");
             auto [texture, transfer_data] = _texture_factory->create(image, VK_IMAGE_ASPECT_COLOR_BIT,
                                                                      VK_SHADER_STAGE_FRAGMENT_BIT,
                                                                      synchronization_primitives,
-                                                                     _window->getRenderEngine().getQueueFamilyIndex());
+                                                                     _window->getRenderEngine().getQueueFamilyIndex(),
+                                                                     VK_IMAGE_USAGE_SAMPLED_BIT);
             vkWaitForFences(logical_device, 1, &synchronization_primitives.on_finished_fence, VK_TRUE, UINT64_MAX);
             vkDestroyFence(logical_device, synchronization_primitives.on_finished_fence, nullptr);
 

@@ -1,5 +1,6 @@
 #include <render_engine/resources/Texture.h>
 
+#include <cassert>
 #include <span>
 
 namespace RenderEngine
@@ -41,7 +42,8 @@ namespace RenderEngine
                      VkDevice logical_device,
                      VkImageAspectFlags aspect,
                      VkShaderStageFlags shader_usage,
-                     std::set<uint32_t> compatible_queue_family_indexes)
+                     std::set<uint32_t> compatible_queue_family_indexes,
+                     VkImageUsageFlags image_usage)
         try : _physical_device(physical_device)
         , _logical_device(logical_device)
         , _staging_buffer(physical_device, logical_device, image.createBufferInfo())
@@ -61,10 +63,12 @@ namespace RenderEngine
         image_info.extent.width = _image.getWidth();
         image_info.extent.height = _image.getHeight();
 
-        image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED; // TODO add initial layout for opimization
         image_info.imageType = VK_IMAGE_TYPE_2D;
         image_info.tiling = VK_IMAGE_TILING_OPTIMAL;
-        image_info.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+        image_info.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT // for download
+            | VK_BUFFER_USAGE_TRANSFER_DST_BIT // for upload
+            | image_usage;
         image_info.sharingMode = queue_family_indices.size() > 1
             ? VK_SHARING_MODE_CONCURRENT
             : VK_SHARING_MODE_EXCLUSIVE; // due to upload queue
@@ -104,70 +108,129 @@ namespace RenderEngine
         {
             throw std::runtime_error("Input image is incompatible with the texture");
         }
-        std::vector<uint8_t> image_data = image.readData();
-        _staging_buffer.uploadMapped(std::span<uint8_t>(image_data.begin(), image_data.end()));
+        const std::vector<uint8_t>& image_data = image.getData();
+        _staging_buffer.uploadMapped(std::span<const uint8_t>(image_data.begin(), image_data.end()));
 
         if (_texture_state.queue_family_index == std::nullopt)
         {
             _texture_state.queue_family_index = transfer_engine.getQueueFamilyIndex();
         }
-        auto result = transfer_engine.transfer(synchronization_primitive,
-                                               [&](VkCommandBuffer command_buffer)
-                                               {
-                                                   ResourceStateMachine state_machine;
-                                                   state_machine.recordStateChange(this,
-                                                                                   getResourceState().clone()
-                                                                                   .setPipelineStage(VK_PIPELINE_STAGE_2_TRANSFER_BIT)
-                                                                                   .setAccessFlag(VK_ACCESS_2_TRANSFER_WRITE_BIT)
-                                                                                   .setImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
-                                                                                   .setQueueFamilyIndex(transfer_engine.getQueueFamilyIndex()));
-                                                   state_machine.commitChanges(command_buffer);
-                                                   {
-                                                       VkBufferImageCopy copy_region{};
-                                                       copy_region.bufferOffset = 0;
-                                                       copy_region.bufferRowLength = 0;
-                                                       copy_region.bufferImageHeight = 0;
+        auto upload_command = [&](VkCommandBuffer command_buffer)
+            {
+                ResourceStateMachine state_machine;
+                state_machine.recordStateChange(this,
+                                                getResourceState().clone()
+                                                .setPipelineStage(VK_PIPELINE_STAGE_2_TRANSFER_BIT)
+                                                .setAccessFlag(VK_ACCESS_2_TRANSFER_WRITE_BIT)
+                                                .setImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+                                                .setQueueFamilyIndex(transfer_engine.getQueueFamilyIndex()));
+                state_machine.commitChanges(command_buffer);
+                {
+                    VkBufferImageCopy copy_region{};
+                    copy_region.bufferOffset = 0;
+                    copy_region.bufferRowLength = 0;
+                    copy_region.bufferImageHeight = 0;
 
-                                                       copy_region.imageSubresource.aspectMask = _aspect;
-                                                       copy_region.imageSubresource.mipLevel = 0;
-                                                       copy_region.imageSubresource.baseArrayLayer = 0;
-                                                       copy_region.imageSubresource.layerCount = 1;
+                    copy_region.imageSubresource.aspectMask = _aspect;
+                    copy_region.imageSubresource.mipLevel = 0;
+                    copy_region.imageSubresource.baseArrayLayer = 0;
+                    copy_region.imageSubresource.layerCount = 1;
 
-                                                       copy_region.imageOffset = { 0, 0, 0 };
-                                                       copy_region.imageExtent = {
-                                                           .width = _image.getWidth(),
-                                                           .height = _image.getHeight(),
-                                                           .depth = kDepth
-                                                       };
-                                                       vkCmdCopyBufferToImage(command_buffer,
-                                                                              _staging_buffer.getBuffer(),
-                                                                              _texture,
-                                                                              VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                                                              1, &copy_region);
-                                                   }
+                    copy_region.imageOffset = { 0, 0, 0 };
+                    copy_region.imageExtent = {
+                        .width = _image.getWidth(),
+                        .height = _image.getHeight(),
+                        .depth = kDepth
+                    };
+                    vkCmdCopyBufferToImage(command_buffer,
+                                           _staging_buffer.getBuffer(),
+                                           _texture,
+                                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                           1, &copy_region);
+                }
 
-                                                   auto getFinalStageMask = [&]
-                                                       {
-                                                           VkPipelineStageFlagBits2 result{ 0 };
-                                                           if (_shader_usage & VK_SHADER_STAGE_VERTEX_BIT)
-                                                           {
-                                                               result |= VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
-                                                           }
-                                                           if (_shader_usage & VK_SHADER_STAGE_FRAGMENT_BIT)
-                                                           {
-                                                               result |= VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
-                                                           }
-                                                           return result;
-                                                       };
-                                                   state_machine.recordStateChange(this,
-                                                                                   getResourceState().clone()
-                                                                                   .setPipelineStage(getFinalStageMask())
-                                                                                   .setAccessFlag(VK_ACCESS_2_SHADER_READ_BIT)
-                                                                                   .setImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-                                                                                   .setQueueFamilyIndex(dst_queue_family_index));
-                                                   state_machine.commitChanges(command_buffer);
-                                               });
+                auto getFinalStageMask = [&]
+                    {
+                        VkPipelineStageFlagBits2 result{ 0 };
+                        if (_shader_usage & VK_SHADER_STAGE_VERTEX_BIT)
+                        {
+                            result |= VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
+                        }
+                        if (_shader_usage & VK_SHADER_STAGE_FRAGMENT_BIT)
+                        {
+                            result |= VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+                        }
+                        return result;
+                    };
+                state_machine.recordStateChange(this,
+                                                getResourceState().clone()
+                                                .setPipelineStage(getFinalStageMask())
+                                                .setAccessFlag(VK_ACCESS_2_SHADER_READ_BIT)
+                                                .setImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+                                                .setQueueFamilyIndex(dst_queue_family_index));
+                state_machine.commitChanges(command_buffer);
+            };
+        auto result = transfer_engine.transfer(synchronization_primitive, upload_command);
         return result;
+    }
+
+    std::vector<uint8_t> Texture::download(const SynchronizationPrimitives& synchronization_primitive,
+                                           TransferEngine& transfer_engine)
+    {
+        if (_texture_state.queue_family_index == std::nullopt)
+        {
+            _texture_state.queue_family_index = transfer_engine.getQueueFamilyIndex();
+        }
+        assert(synchronization_primitive.on_finished_fence != VK_NULL_HANDLE);
+
+        auto download_command = [&](VkCommandBuffer command_buffer)
+            {
+                ResourceStateMachine state_machine;
+                auto old_state = getResourceState();
+                state_machine.recordStateChange(this,
+                                                getResourceState().clone()
+                                                .setPipelineStage(VK_PIPELINE_STAGE_2_TRANSFER_BIT)
+                                                .setAccessFlag(VK_ACCESS_2_TRANSFER_READ_BIT)
+                                                .setImageLayout(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
+                                                .setQueueFamilyIndex(transfer_engine.getQueueFamilyIndex()));
+                state_machine.commitChanges(command_buffer);
+                {
+                    VkBufferImageCopy copy_region{};
+                    copy_region.bufferOffset = 0;
+                    copy_region.bufferRowLength = 0;
+                    copy_region.bufferImageHeight = 0;
+
+                    copy_region.imageSubresource.aspectMask = _aspect;
+                    copy_region.imageSubresource.mipLevel = 0;
+                    copy_region.imageSubresource.baseArrayLayer = 0;
+                    copy_region.imageSubresource.layerCount = 1;
+
+                    copy_region.imageOffset = { 0, 0, 0 };
+                    copy_region.imageExtent = {
+                        .width = _image.getWidth(),
+                        .height = _image.getHeight(),
+                        .depth = kDepth
+                    };
+                    vkCmdCopyImageToBuffer(command_buffer,
+                                           _texture,
+                                           VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                                           _staging_buffer.getBuffer(),
+                                           1, &copy_region);
+                }
+
+                state_machine.recordStateChange(this, old_state);
+                state_machine.commitChanges(command_buffer);
+            };
+        auto result = transfer_engine.transfer(synchronization_primitive,
+                                               download_command);
+
+        vkWaitForFences(_logical_device, 1, &synchronization_primitive.on_finished_fence, true, UINT64_MAX);
+
+        std::vector<uint8_t> data(_staging_buffer.getDeviceSize());
+        const uint8_t* staging_memory = static_cast<const uint8_t*>(_staging_buffer.getMemory());
+        std::copy(staging_memory,
+                  staging_memory + data.size(), data.data());
+        return data;
     }
 
     VkImageSubresourceRange Texture::createSubresourceRange() const
@@ -251,17 +314,33 @@ namespace RenderEngine
                                                                                               VkImageAspectFlags aspect,
                                                                                               VkShaderStageFlags shader_usage,
                                                                                               const SynchronizationPrimitives& synchronization_primitive,
-                                                                                              uint32_t dst_queue_family_index)
+                                                                                              uint32_t dst_queue_family_index,
+                                                                                              VkImageUsageFlagBits image_usage)
     {
         std::unique_ptr<Texture> result{ new Texture(image,
             _physical_device, _logical_device,
             aspect,
             shader_usage,
-            _compatible_queue_family_indexes) };
+            _compatible_queue_family_indexes,
+            image_usage) };
         auto inflight_data = result->upload(image,
                                             synchronization_primitive,
                                             _transfer_engine,
                                             dst_queue_family_index);
         return { std::move(result), std::move(inflight_data) };
+    }
+
+    std::unique_ptr<Texture> TextureFactory::createNoUpload(Image image,
+                                                            VkImageAspectFlags aspect,
+                                                            VkShaderStageFlags shader_usage,
+                                                            VkImageUsageFlags image_usage)
+    {
+        std::unique_ptr<Texture> result{ new Texture(image,
+            _physical_device, _logical_device,
+            aspect,
+            shader_usage,
+            _compatible_queue_family_indexes,
+            image_usage) };
+        return result;
     }
 }

@@ -61,14 +61,17 @@ namespace RenderEngine
 
         VkPipelineShaderStageCreateInfo shader_stages[] = { vert_shader_stage_info, frag_shader_tage_info };
 
-
-        // TODO implement more binding
-        VkVertexInputBindingDescription binding_description{};
-        binding_description.binding = 0;
-        binding_description.stride = material.getVertexShader().getMetaData().attributes_stride;
-        // TODO add support of instanced rendering
-        binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
+        std::vector<VkVertexInputBindingDescription> attribute_bindings;
+        if (material.getVertexShader().getMetaData().attributes_stride > 0)
+        {
+            // TODO implement more binding
+            VkVertexInputBindingDescription binding_description{};
+            binding_description.binding = 0;
+            binding_description.stride = material.getVertexShader().getMetaData().attributes_stride;
+            // TODO add support of instanced rendering
+            binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+            attribute_bindings.emplace_back(std::move(binding_description));
+        }
         std::vector<VkVertexInputAttributeDescription> attribute_descriptions;
         for (const auto& attribute : material.getVertexShader().getMetaData().input_attributes)
         {
@@ -81,9 +84,9 @@ namespace RenderEngine
         }
         VkPipelineVertexInputStateCreateInfo vertex_input_info{};
         vertex_input_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-        vertex_input_info.vertexBindingDescriptionCount = 1;
+        vertex_input_info.vertexBindingDescriptionCount = attribute_bindings.size();
         vertex_input_info.vertexAttributeDescriptionCount = static_cast<uint32_t>(attribute_descriptions.size());
-        vertex_input_info.pVertexBindingDescriptions = &binding_description;
+        vertex_input_info.pVertexBindingDescriptions = attribute_bindings.data();
         vertex_input_info.pVertexAttributeDescriptions = attribute_descriptions.data();
 
         VkPipelineInputAssemblyStateCreateInfo input_assembly{};
@@ -103,8 +106,8 @@ namespace RenderEngine
         rasterizer.rasterizerDiscardEnable = VK_FALSE;
         rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
         rasterizer.lineWidth = 1.0f;
-        rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-        rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+        rasterizer.cullMode = material.getRasterizationInfo().cull_mode;
+        rasterizer.frontFace = material.getRasterizationInfo().front_face;
         rasterizer.depthBiasEnable = VK_FALSE;
 
         VkPipelineMultisampleStateCreateInfo multisampling{};

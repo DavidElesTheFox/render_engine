@@ -21,7 +21,7 @@ namespace RenderEngine
                 , _logical_device(logical_device)
             {}
         public:
-            InFlightData(InFlightData&& o)
+            InFlightData(InFlightData&& o) noexcept
             {
                 std::swap(_command_buffer, o._command_buffer);
                 std::swap(_command_pool, o._command_pool);
@@ -29,8 +29,15 @@ namespace RenderEngine
             }
             InFlightData(const InFlightData&) = delete;
 
-            InFlightData operator=(InFlightData&&) = delete;
-            InFlightData operator=(const InFlightData&) = delete;
+            InFlightData& operator=(InFlightData&& o) noexcept
+            {
+                destroy();
+                std::swap(_command_buffer, o._command_buffer);
+                std::swap(_command_pool, o._command_pool);
+                std::swap(_logical_device, o._logical_device);
+                return *this;
+            }
+            InFlightData& operator=(const InFlightData&) = delete;
 
             ~InFlightData();
             void destroy() noexcept;

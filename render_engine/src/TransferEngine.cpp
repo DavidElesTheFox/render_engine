@@ -65,5 +65,8 @@ namespace RenderEngine
         }
         vkFreeCommandBuffers(_logical_device, _command_pool.command_pool, 1, &_command_buffer);
         vkDestroyCommandPool(_logical_device, _command_pool.command_pool, nullptr);
+        _command_pool = {};
+        _command_buffer = VK_NULL_HANDLE;
+        _logical_device = VK_NULL_HANDLE;
     }
 }

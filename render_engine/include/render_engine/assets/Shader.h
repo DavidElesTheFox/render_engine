@@ -4,6 +4,7 @@
 
 #include <filesystem>
 #include <optional>
+#include <span>
 #include <unordered_map>
 #include <vector>
 
@@ -47,9 +48,14 @@ namespace RenderEngine
             std::unordered_map<int32_t, Sampler> samplers;
             std::optional<PushConstants> push_constants{ std::nullopt };
         };
-        explicit Shader(std::filesystem::path spriv_path, MetaData meta_data)
-            : _spirv_path(std::move(spriv_path))
-            , _meta_data(std::move(meta_data))
+        Shader(const std::filesystem::path& spriv_path, MetaData meta_data)
+            : _meta_data(std::move(meta_data))
+        {
+            readFromFile(spriv_path);
+        }
+        Shader(std::span<const uint32_t> spirv_code, MetaData meta_data)
+            : _meta_data(std::move(meta_data))
+            , _spirv_code(spirv_code.begin(), spirv_code.end())
         {}
 
         ShaderModule loadOn(VkDevice logical_device) const;
@@ -69,7 +75,8 @@ namespace RenderEngine
         }
 
     private:
-        std::filesystem::path _spirv_path;
+        void readFromFile(const std::filesystem::path& spriv_path);
         MetaData _meta_data;
+        std::vector<uint32_t> _spirv_code;
     };
 }

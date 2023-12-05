@@ -41,10 +41,10 @@ namespace RenderEngine
         ~ForwardRenderer() override;
         void addMesh(const MeshInstance* mesh_instance, int32_t priority);
         void draw(uint32_t swap_chain_image_index, uint32_t frame_number) override;
-
-    private:
-
-        void destroy();
+        std::vector<VkSemaphoreSubmitInfo> getWaitSemaphores(uint32_t frame_number) override
+        {
+            return {};
+        }
     private:
         std::map<int32_t, MaterialMeshGroupMap> _meshes;
         std::map<const Mesh*, MeshBuffers> _mesh_buffers;

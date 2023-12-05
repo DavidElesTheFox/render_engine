@@ -44,11 +44,16 @@ namespace RenderEngine
                                             TransferEngine& transfer_engine,
                                             uint32_t dst_queue_family_index);
 
+        [[nodiscard]]
+        std::vector<uint8_t> download(const SynchronizationPrimitives& synchronization_primitive,
+                                      TransferEngine& transfer_engine);
+
         VkImageView createImageView(const ImageViewData& data);
         VkSampler createSampler(const SamplerData& data);
 
         VkImageSubresourceRange createSubresourceRange() const;
         VkImage getVkImage() const { return _texture; }
+        const Image& getImage() const { return _image; }
 
         const ResourceStateMachine::TextureState& getResourceState() const
         {
@@ -61,7 +66,8 @@ namespace RenderEngine
                 VkDevice logical_device,
                 VkImageAspectFlags aspect,
                 VkShaderStageFlags shader_usage,
-                std::set<uint32_t> compatible_queue_family_indexes);
+                std::set<uint32_t> compatible_queue_family_indexes,
+                VkImageUsageFlags image_usage);
         void destroy() noexcept;
 
         void overrideResourceState(ResourceStateMachine::TextureState value)
@@ -128,12 +134,19 @@ namespace RenderEngine
                                                                                   VkImageAspectFlags aspect,
                                                                                   VkShaderStageFlags shader_usage,
                                                                                   const SynchronizationPrimitives& synchronization_primitive,
-                                                                                  uint32_t dst_queue_family_index);
+                                                                                  uint32_t dst_queue_family_index,
+                                                                                  VkImageUsageFlagBits image_usage);
+
+        [[nodiscar]]
+        std::unique_ptr<Texture> createNoUpload(Image image,
+                                                VkImageAspectFlags aspect,
+                                                VkShaderStageFlags shader_usage,
+                                                VkImageUsageFlags image_usage);
     private:
+
         TransferEngine& _transfer_engine;
         std::set<uint32_t> _compatible_queue_family_indexes;
         VkPhysicalDevice _physical_device{ VK_NULL_HANDLE };
         VkDevice _logical_device{ VK_NULL_HANDLE };
-
     };
 }

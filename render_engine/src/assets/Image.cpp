@@ -6,17 +6,37 @@
 
 namespace RenderEngine
 {
-    std::vector<uint8_t> Image::readData() const
+    Image::Image(const std::filesystem::path& path)
     {
         int32_t width{ -1 };
         int32_t height{ -1 };
         int32_t channels{ -1 };
-        std::string path_str = _path.string();
+        std::string path_str = path.string();
+        stbi_uc* pixels = stbi_load(path_str.c_str(), &width, &height, &channels, STBI_rgb_alpha);
+
+        if (channels >= 3)
+        {
+            _width = width;
+            _height = height;
+            _format = VK_FORMAT_R8G8B8A8_SRGB;
+            _data = std::vector<uint8_t>(pixels, pixels + (width * height * 4));
+            stbi_image_free(pixels);
+        }
+        else
+        {
+            throw std::runtime_error("Unsupported image format");
+        }
+    }
+
+
+    std::vector<uint8_t> Image::createEmptyData() const
+    {
+        int32_t width{ -1 };
+        int32_t height{ -1 };
+        int32_t channels{ -1 };
         if (_format == VK_FORMAT_R8G8B8A8_SRGB)
         {
-            stbi_uc* pixels = stbi_load(path_str.c_str(), &width, &height, &channels, STBI_rgb_alpha);
-            std::vector<uint8_t> result(pixels, pixels + (width * height * 4));
-            stbi_image_free(pixels);
+            std::vector<uint8_t> result(width * height * 4, static_cast<uint8_t>(0u));
             return result;
         }
         else

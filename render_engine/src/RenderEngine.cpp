@@ -3,7 +3,6 @@
 #include <render_engine/RenderContext.h>
 #include <render_engine/RendererFactory.h>
 
-
 namespace RenderEngine
 {
     namespace

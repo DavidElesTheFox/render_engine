@@ -122,8 +122,8 @@ namespace RenderEngine
 
         try
         {
-            setRenderPass(createRenderPass(render_target, logical_device, first_renderer));
-            initializeRendererOutput(render_target, back_buffer_size);
+            auto render_pass = createRenderPass(render_target, logical_device, first_renderer);
+            initializeRendererOutput(render_target, render_pass, back_buffer_size);
             _descriptor_pool = createDescriptorPool(logical_device);
 
             ImGui_ImplVulkan_InitInfo init_info = {};

@@ -19,7 +19,7 @@ set(RENDER_ENGINE_RENDERS_SRC
 	src/renderers/ExampleRenderer.cpp
 	src/renderers/ForwardRenderer.cpp
 	src/renderers/UIRenderer.cpp
-   # src/renderers/ImageStreamRenderer.cpp
+    src/renderers/ImageStreamRenderer.cpp
     src/renderers/SingleColorOutputRenderer.cpp
     )
 set(RENDER_ENGINE_RENDERERS_HEADERS 
@@ -27,7 +27,7 @@ set(RENDER_ENGINE_RENDERERS_HEADERS
 	${RENDER_ENGINE_HEADER_LOCATION}/renderers/ExampleRenderer.h
 	${RENDER_ENGINE_HEADER_LOCATION}/renderers/ForwardRenderer.h
 	${RENDER_ENGINE_HEADER_LOCATION}/renderers/UIRenderer.h
-   # ${RENDER_ENGINE_HEADER_LOCATION}/renderers/ImageStreamRenderer.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/renderers/ImageStreamRenderer.h
     ${RENDER_ENGINE_HEADER_LOCATION}/renderers/SingleColorOutputRenderer.h
 	)
 source_group("src\\renderers" FILES ${RENDER_ENGINE_RENDERS_SRC})
@@ -141,7 +141,7 @@ set(RENDER_ENGINE_SRC
 	${RENDER_ENGINE_WINDOW_SRC}
 	${RENDER_ENGINE_MEMORY_SRC}
 	${RENDER_ENGINE_ROOT_SRC}
-)
+ )
 
 set(RENDER_ENGINE_HEADERS 
     ${RENDER_ENGINE_RENDERERS_HEADERS}
@@ -207,6 +207,8 @@ target_compile_definitions(RenderEngine
 		GLFW_EXPOSE_NATIVE_WIN32)
 
 target_include_directories(RenderEngine 
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/
 	PUBLIC
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 		$<INSTALL_INTERFACE:include>

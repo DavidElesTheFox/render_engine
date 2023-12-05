@@ -58,8 +58,7 @@ namespace RenderEngine
         {
             throw std::runtime_error("failed to create render pass!");
         }
-        setRenderPass(render_pass);
-        initializeRendererOutput(render_target, window.getRenderEngine().getGpuResourceManager().getBackBufferSize());
+        initializeRendererOutput(render_target, render_pass, window.getRenderEngine().getGpuResourceManager().getBackBufferSize());
     }
     catch (const std::exception&)
     {

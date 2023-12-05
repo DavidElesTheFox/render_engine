@@ -15,8 +15,10 @@ namespace RenderEngine
         destroyRenderOutput();
     }
     void SingleColorOutputRenderer::initializeRendererOutput(const RenderTarget& render_target,
+                                                             VkRenderPass render_pass,
                                                              size_t back_buffer_size)
     {
+        _render_pass = render_pass;
         _back_buffer.resize(back_buffer_size);
 
         _render_area.offset = { 0, 0 };

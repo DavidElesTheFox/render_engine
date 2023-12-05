@@ -28,7 +28,6 @@ namespace RenderEngine
 
         void uploadMapped(std::span<const uint8_t> data_view);
 
-
         void uploadUnmapped(std::span<const uint8_t> data_view, TransferEngine& transfer_engine, uint32_t dst_queue_index);
         template<typename T>
         void uploadUnmapped(std::span<const T> data_view, TransferEngine& transfer_engine, uint32_t dst_queue_index)
@@ -42,6 +41,7 @@ namespace RenderEngine
         {
             return _buffer_state;
         }
+        const void* getMemory() const { return _mapped_memory; }
     private:
 
         bool isMapped() const { return _buffer_info.mapped; }

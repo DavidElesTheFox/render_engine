@@ -38,6 +38,7 @@ namespace RenderEngine
 
         virtual void draw(uint32_t swap_chain_image_index, uint32_t frame_number) = 0;
         virtual std::vector<VkCommandBuffer> getCommandBuffers(uint32_t frame_number) = 0;
+        virtual std::vector<VkSemaphoreSubmitInfo> getWaitSemaphores(uint32_t frame_number) = 0;
         [[nodiscard]]
         ReinitializationCommand reinit();
     private:

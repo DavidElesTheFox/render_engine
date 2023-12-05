@@ -39,6 +39,11 @@ namespace RenderEngine
         void setOnGui(std::function<void()> on_gui) { _on_gui = on_gui; }
 
         ~UIRenderer();
+
+        std::vector<VkSemaphoreSubmitInfo> getWaitSemaphores(uint32_t frame_number) override
+        {
+            return {};
+        }
     private:
 
 

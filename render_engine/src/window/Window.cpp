@@ -127,10 +127,10 @@ namespace RenderEngine
     {
         if (_renderdoc_api) ((RENDERDOC_API_1_1_2*)_renderdoc_api)->StartFrameCapture(NULL, NULL);
 
-        present(_back_buffer[_frame_counter % _back_buffer.size()]);
+        present(_back_buffer[_presented_frame_counter % _back_buffer.size()]);
         if (_renderdoc_api) ((RENDERDOC_API_1_1_2*)_renderdoc_api)->EndFrameCapture(NULL, NULL);
-
         _frame_counter++;
+
     }
     void Window::reinitSwapChain()
     {
@@ -182,10 +182,12 @@ namespace RenderEngine
         {
             return;
         }
+
         auto logical_device = _device.getLogicalDevice();
-        vkWaitForFences(logical_device, 1, &frame_data.in_flight_fence, VK_TRUE, UINT64_MAX);
-        uint32_t image_index = 0;
+        if (_swap_chain_image_index == std::nullopt)
         {
+            uint32_t image_index = 0;
+            vkWaitForFences(logical_device, 1, &frame_data.in_flight_fence, VK_TRUE, UINT64_MAX);
             auto call_result = vkAcquireNextImageKHR(logical_device,
                                                      _swap_chain->getDetails().swap_chain,
                                                      UINT64_MAX,
@@ -203,6 +205,7 @@ namespace RenderEngine
                 default:
                     throw std::runtime_error("Failed to query swap chain image");
             }
+            _swap_chain_image_index = image_index;
         }
         vkResetFences(logical_device, 1, &frame_data.in_flight_fence);
 
@@ -224,24 +227,29 @@ namespace RenderEngine
         }
         synchronization_primitives.on_finished_fence = frame_data.in_flight_fence;
 
-        _render_engine->render(synchronization_primitives,
-                               _renderers | std::views::transform([](const auto& ptr) { return ptr.get(); }),
-                               image_index,
-                               _frame_counter);
+        bool draw_call_recorded = _render_engine->render(&synchronization_primitives,
+                                                         _renderers | std::views::transform([](const auto& ptr) { return ptr.get(); }),
+                                                         *_swap_chain_image_index,
+                                                         _frame_counter);
+        if (draw_call_recorded)
+        {
+            VkPresentInfoKHR presentInfo{};
+            presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 
-        VkPresentInfoKHR presentInfo{};
-        presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 
-        presentInfo.waitSemaphoreCount = 1;
-        presentInfo.pWaitSemaphores = &frame_data.render_finished_semaphore;
+            presentInfo.waitSemaphoreCount = 1;
+            presentInfo.pWaitSemaphores = &frame_data.render_finished_semaphore;
+            VkSwapchainKHR swapChains[] = { _swap_chain->getDetails().swap_chain };
+            presentInfo.swapchainCount = 1;
+            presentInfo.pSwapchains = swapChains;
 
-        VkSwapchainKHR swapChains[] = { _swap_chain->getDetails().swap_chain };
-        presentInfo.swapchainCount = 1;
-        presentInfo.pSwapchains = swapChains;
+            presentInfo.pImageIndices = &*_swap_chain_image_index;
 
-        presentInfo.pImageIndices = &image_index;
+            vkQueuePresentKHR(_present_queue, &presentInfo);
+            _swap_chain_image_index = std::nullopt;
+            _presented_frame_counter++;
+        }
 
-        vkQueuePresentKHR(_present_queue, &presentInfo);
     }
 
 }

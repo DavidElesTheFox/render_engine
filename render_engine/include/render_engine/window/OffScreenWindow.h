@@ -51,12 +51,12 @@ namespace RenderEngine
         };
         void initSynchronizationObjects();
         void present();
-        void present(FrameData& current_frame_data);
+        void present(FrameData& current_frame_data) const;
         void readBack(FrameData& frame);
         void destroy();
         RenderTarget createRenderTarget();
-        uint32_t getCurrentImageIndex() { return _current_render_target_index; }
-        uint32_t getOldestImageIndex() { return (_current_render_target_index + 1) % _textures.size(); }
+        uint32_t getCurrentImageIndex() const { return _current_render_target_index; }
+        uint32_t getOldestImageIndex() const { return (_current_render_target_index + 1) % _textures.size(); }
 
         Device& _device;
         std::unique_ptr<RenderEngine> _render_engine;

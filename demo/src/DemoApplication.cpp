@@ -50,8 +50,10 @@ void DemoApplication::run()
 {
     while (getUiWindow().isClosed() == false)
     {
+        ApplicationContext::instance().onFrameBegin();
         _window_setup->update();
         ApplicationContext::instance().updateInputEvents();
+        ApplicationContext::instance().onFrameEnd();
     }
 }
 
@@ -137,7 +139,7 @@ DemoApplication::SingleWindowSetup::SingleWindowSetup()
 {
     using namespace RenderEngine;
 
-    _window = RenderContext::context().getDevice(0).createWindow("Demo window", 3);
+    _window = RenderContext::context().getDevice(0).createWindow("Demo window", 2);
     _window->registerRenderers({ ForwardRenderer::kRendererId, UIRenderer::kRendererId });
 }
 
@@ -145,8 +147,8 @@ DemoApplication::OffScreenWindowSetup::OffScreenWindowSetup()
 {
     using namespace RenderEngine;
     {
-        auto graphics_window = RenderContext::context().getDevice(0).createOffScreenWindow("Demo window (render)", 3);
-        auto ui_window = RenderContext::context().getDevice(0).createWindow("Demo window", 3);
+        auto graphics_window = RenderContext::context().getDevice(0).createOffScreenWindow("Demo window (render)", 2);
+        auto ui_window = RenderContext::context().getDevice(0).createWindow("Demo window", 2);
         _window_tunnel = std::make_unique<WindowTunnel>(std::move(graphics_window), std::move(ui_window));
     }
     _window_tunnel->getOriginWindow().registerRenderers({ ForwardRenderer::kRendererId });

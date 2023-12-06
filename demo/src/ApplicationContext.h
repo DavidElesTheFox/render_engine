@@ -4,6 +4,7 @@
 
 #include <scene/Scene.h>
 
+#include <chrono>
 #include <set>
 
 class ApplicationContext
@@ -45,8 +46,13 @@ public:
     float getMouseSensitivity() const { return _mouse_sensitivity; }
     uint32_t generateId() { return _id_generator.generateId(); }
 
+    void onFrameBegin();
     void onGui();
+    void onFrameEnd();
+
 private:
+    using ApplicationClock = std::chrono::steady_clock;
+
     void updateKeyboardEvent();
     Scene::Scene* getScene() { return _scene; }
 
@@ -59,4 +65,6 @@ private:
     GLFWmousebuttonfun original_mouse_button_callback{ nullptr };
     GLFWkeyfun originak_key_callback{ nullptr };
     IdGenerator _id_generator;
+    float _current_fps{ 0.0f };
+    ApplicationClock::time_point _frame_start_time{};
 };

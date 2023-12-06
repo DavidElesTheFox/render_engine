@@ -37,7 +37,7 @@ namespace RenderEngine
             }
             auto result = _image_data_container.front();
             _image_data_container.pop_front();
-            std::copy(result.begin(), result.end(), std::back_inserter(output));
+            output = std::move(result);
             return *this;
 
         }

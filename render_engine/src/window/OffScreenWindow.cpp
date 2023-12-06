@@ -147,7 +147,7 @@ namespace RenderEngine
         _frame_counter++;
     }
 
-    void OffScreenWindow::present(FrameData& frame_data)
+    void OffScreenWindow::present(FrameData& frame_data) const
     {
         if (_renderers.empty())
         {
@@ -155,6 +155,8 @@ namespace RenderEngine
         }
         auto renderers = _renderers | std::views::transform([](const auto& ptr) { return ptr.get(); });
 
+        // TODO this fance basically doesn't necessary because download is a blocking command.
+        // Using a concurent queue in ImageStream and using there a future can obsolate this call.
         auto logical_device = _device.getLogicalDevice();
         vkWaitForFences(logical_device, 1, &frame_data.in_flight_fence, VK_TRUE, UINT64_MAX);
 

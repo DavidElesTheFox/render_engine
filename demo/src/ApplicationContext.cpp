@@ -92,12 +92,30 @@ void ApplicationContext::updateInputEvents()
     updateKeyboardEvent();
 }
 
+void ApplicationContext::onFrameBegin()
+{
+    _frame_start_time = ApplicationClock::now();
+}
+
 void ApplicationContext::onGui()
 {
     ImGui::Begin("Application");
     ImGui::SliderFloat("Mouse Sensitivity", &_mouse_sensitivity, 0.0f, 1.0f);
     ImGui::SliderFloat("Keyboard Sensitivity", &_keyboard_sensitivity, 0.0f, 1.0f);
+    ImGui::Text("FPS: %06.1f", _current_fps);
     ImGui::End();
+}
+
+void ApplicationContext::onFrameEnd()
+{
+    const auto frame_time = std::chrono::steady_clock::now() - _frame_start_time;
+    const auto frame_time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(frame_time).count();
+    if (frame_time_ms == 0)
+    {
+        return;
+    }
+    auto fps = 1000 / static_cast<float>(frame_time_ms);
+    _current_fps = (_current_fps + fps) / 2.0f;
 }
 
 void ApplicationContext::updateKeyboardEvent()

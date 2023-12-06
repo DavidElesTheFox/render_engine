@@ -22,3 +22,5 @@ Library uses
   - [Object initialization](render_engine/documentation/object-initializations.md)
   - [Objects responsibility](render_engine/documentation/objects-responsibility.md)
   - [Singletons](render_engine/documentation/singletons.md)
+  - [Resource State Machine](render_engine/documentation/resource-state-machine.md)
+   - [Off-Screen Rendering](render_engine/documentation/offscreen-rendering.md)

@@ -161,7 +161,7 @@ namespace RenderEngine
  0x00000009,0x00000013,0x000100fd,0x00010038 }
         ;
     }
-    ImageStreamRenderer::ImageStreamRenderer(Window& window,
+    ImageStreamRenderer::ImageStreamRenderer(IWindow& window,
                                              ImageStream& image_stream,
                                              const RenderTarget& render_target,
                                              uint32_t back_buffer_size, bool last_renderer)

@@ -7,6 +7,7 @@
 #include <render_engine/RenderEngine.h>
 #include <render_engine/resources/Texture.h>
 #include <render_engine/TransferEngine.h>
+#include <render_engine/window/OffScreenWindow.h>
 #include <render_engine/window/Window.h>
 
 #include <GLFW/glfw3native.h>
@@ -163,6 +164,39 @@ namespace RenderEngine
             glfwDestroyWindow(window);
             throw;
         }
+    }
+
+    std::unique_ptr<OffScreenWindow> Device::createOffScreenWindow(std::string_view name, size_t back_buffer_size)
+    {
+        VkQueue render_queue;
+        VkQueue present_queue;
+        vkGetDeviceQueue(_logical_device, _queue_family_graphics, 0, &render_queue);
+        vkGetDeviceQueue(_logical_device, _queue_family_present, 0, &present_queue);
+
+        constexpr auto width = 1024;
+        constexpr auto height = 764;
+
+
+
+        std::unique_ptr<RenderEngine> render_engine = createRenderEngine(back_buffer_size);
+        std::unique_ptr<TransferEngine> transfer_engine = createTransferEngine();
+        TextureFactory texture_factory(*transfer_engine,
+                                       { render_engine->getQueueFamilyIndex(), transfer_engine->getQueueFamilyIndex() },
+                                       _physical_device,
+                                       _logical_device);
+        Image render_target_image(width, height, VK_FORMAT_R8G8B8A8_SRGB);
+        std::vector<std::unique_ptr<Texture>> render_target_textures;
+        for (size_t i = 0; i < back_buffer_size; ++i)
+        {
+            render_target_textures.push_back(texture_factory.createNoUpload(render_target_image,
+                                                                            VK_IMAGE_ASPECT_COLOR_BIT,
+                                                                            VK_SHADER_STAGE_ALL,
+                                                                            VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT));
+        }
+        return std::make_unique<OffScreenWindow>(*this,
+                                                 std::move(render_engine),
+                                                 std::move(transfer_engine),
+                                                 std::move(render_target_textures));
     }
 
     std::unique_ptr<RenderEngine> Device::createRenderEngine(size_t back_buffer_size)

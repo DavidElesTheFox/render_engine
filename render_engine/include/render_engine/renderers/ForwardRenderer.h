@@ -35,7 +35,7 @@ namespace RenderEngine
         using MaterialMeshGroupMap = std::unordered_map<uint32_t, MeshGroup>;
     public:
         static constexpr uint32_t kRendererId = 2u;
-        ForwardRenderer(Window& parent,
+        ForwardRenderer(IWindow& parent,
                         const RenderTarget& render_target,
                         bool last_renderer);
         ~ForwardRenderer() override;

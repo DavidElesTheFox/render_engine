@@ -346,7 +346,7 @@ namespace
 
 namespace RenderEngine
 {
-    ExampleRenderer::ExampleRenderer(Window& window,
+    ExampleRenderer::ExampleRenderer(IWindow& window,
                                      const RenderTarget& render_target,
                                      uint32_t back_buffer_size,
                                      bool last_ExampleRenderer)

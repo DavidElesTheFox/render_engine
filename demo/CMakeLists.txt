@@ -13,6 +13,10 @@ src/MultiWindowApplication.h
 src/MultiWindowApplication.cpp
 src/ApplicationContext.h
 src/ApplicationContext.cpp
+src/OffScreenTestApplication.h
+src/OffScreenTestApplication.cpp
+src/DemoSceneBuilder.h
+src/DemoSceneBuilder.cpp
 )
 
 set(RENDERING_SYSTEM_DEMO_SCENE_FILE
@@ -60,7 +64,11 @@ add_executable(RenderingSystemDemo ${RENDERING_SYSTEM_DEMO_SRC} ${RENDERING_SYST
 set_property(TARGET RenderingSystemDemo PROPERTY CXX_STANDARD 20)
 target_include_directories(RenderingSystemDemo PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(RenderingSystemDemo PUBLIC RenderEngine)
-
+# STB headers #
+add_custom_target(copyStbImageWriteToDemo
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different "${STB_LIBRARY_INCLUDE_PATH}/stb_image_write.h" ${GENERATED_INCLUDE_DIR}
+)
+add_dependencies(RenderingSystemDemo copyStbImageWriteToDemo)
 ########################
 # Shaders              #
 ########################

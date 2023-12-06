@@ -5,7 +5,7 @@
 
 namespace RenderEngine
 {
-    SingleColorOutputRenderer::SingleColorOutputRenderer(Window& parent)
+    SingleColorOutputRenderer::SingleColorOutputRenderer(IWindow& parent)
         : _window(parent)
     {
 

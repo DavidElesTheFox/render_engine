@@ -19,7 +19,7 @@
 
 namespace RenderEngine
 {
-    ForwardRenderer::ForwardRenderer(Window& window,
+    ForwardRenderer::ForwardRenderer(IWindow& window,
                                      const RenderTarget& render_target,
                                      bool last_renderer)
         try : SingleColorOutputRenderer(window)

@@ -3,6 +3,7 @@
 
 #include "DemoApplication.h"
 #include "MultiWindowApplication.h"
+#include "OffScreenTestApplication.h"
 
 void runMultiWindowApplication()
 {
@@ -17,12 +18,18 @@ void runDemoApplication()
     application.init();
     application.run();
 }
+void runOffScreenApplication()
+{
+    OffScreenTestApplication application;
+    application.init();
+    application.run();
+}
 
 int main()
 {
     try
     {
-        runDemoApplication();
+        runOffScreenApplication();
         RenderEngine::RenderContext::context().reset();
         return 0;
     }

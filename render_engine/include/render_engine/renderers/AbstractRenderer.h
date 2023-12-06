@@ -18,7 +18,7 @@ namespace RenderEngine
             ReinitializationCommand(const ReinitializationCommand&) = delete;
             ReinitializationCommand& operator=(const ReinitializationCommand&) = delete;
 
-            ReinitializationCommand(ReinitializationCommand&& o)
+            ReinitializationCommand(ReinitializationCommand&& o) noexcept
                 : _renderer(o._renderer)
             {
                 o._finished = true;

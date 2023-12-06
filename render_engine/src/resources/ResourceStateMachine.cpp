@@ -22,6 +22,11 @@ namespace RenderEngine
     }
     void ResourceStateMachine::recordStateChange(Texture* image, TextureState next_state)
     {
+        if (next_state.layout == VK_IMAGE_LAYOUT_UNDEFINED)
+        {
+            assert(image->getResourceState().layout != VK_IMAGE_LAYOUT_UNDEFINED);
+            next_state.layout = image->getResourceState().layout;
+        }
         _images[image] = std::move(next_state);
     }
 

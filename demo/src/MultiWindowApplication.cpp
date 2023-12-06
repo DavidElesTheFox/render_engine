@@ -107,7 +107,7 @@ void MultiWindowApplication::initEngine()
     renderers->registerRenderer(UIRenderer::kRendererId,
                                 [](auto& window, const auto& render_target, uint32_t back_buffer_count, AbstractRenderer* previous_renderer, bool) -> std::unique_ptr<AbstractRenderer>
                                 {
-                                    return std::make_unique<UIRenderer>(window, render_target, back_buffer_count, previous_renderer == nullptr);
+                                    return std::make_unique<UIRenderer>(static_cast<Window&>(window), render_target, back_buffer_count, previous_renderer == nullptr);
                                 });
 
     renderers->registerRenderer(ExampleRenderer::kRendererId,

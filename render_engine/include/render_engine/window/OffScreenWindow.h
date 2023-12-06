@@ -1,51 +1,31 @@
 #pragma once
 
-#include <volk.h>
-
-#include <render_engine/Device.h>
-#include <render_engine/RenderEngine.h>
+#include <render_engine/containers/ImageStream.h>
 #include <render_engine/renderers/AbstractRenderer.h>
-#include <render_engine/TransferEngine.h>
+#include <render_engine/resources/Texture.h>
 #include <render_engine/window/IWindow.h>
-#include <render_engine/window/SwapChain.h>
 
-#include <array>
-#include <memory>
-#include <optional>
-
-#include <GLFW/glfw3.h>
-
-struct ImGuiContext;
+#include <vector>
 namespace RenderEngine
 {
-    class Device;
-    class GpuResourceManager;
-    class Window : public IWindow
+    class OffScreenWindow : public IWindow
     {
+
     public:
-
-        static constexpr std::array<const char*, 1> kDeviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
-        Window(Device& device,
-               std::unique_ptr<RenderEngine>&& render_engine,
-               std::unique_ptr<TransferEngine>&& transfer_engine,
-               GLFWwindow* window,
-               std::unique_ptr<SwapChain> swap_chain,
-               VkQueue present_queue,
-               size_t back_buffer_size);
-        ~Window();
-
+        OffScreenWindow(Device& device,
+                        std::unique_ptr<RenderEngine>&& render_engine,
+                        std::unique_ptr<TransferEngine>&& transfer_engine,
+                        std::vector<std::unique_ptr<Texture>>&& textures);
+        ~OffScreenWindow();
         void update() override final;
-        bool isClosed() const override final { return _closed; }
-
         void registerRenderers(const std::vector<uint32_t>& renderer_ids) override final;
-
-        Device& getDevice() override final { return _device; }
+        Device& getDevice()  override final { return _device; }
         void enableRenderdocCapture() override final;
         void disableRenderdocCapture() override final;
         RenderEngine& getRenderEngine()  override final { return *_render_engine; }
         TransferEngine& getTransferEngine()  override final { return *_transfer_engine; }
+        bool isClosed() const override final { return false; }
 
-        GLFWwindow* getWindowHandle() { return _window; }
         template<typename T>
         T& getRendererAs(uint32_t renderer_id)
         {
@@ -57,38 +37,40 @@ namespace RenderEngine
             return it != _renderer_map.end() ? it->second : nullptr;
         }
 
+        ImageStream& getImageStream() { return _image_stream; }
+        uint32_t getFrameCounter() const { return _frame_counter; }
     private:
         struct FrameData
         {
             VkSemaphore image_available_semaphore{ VK_NULL_HANDLE };
             VkSemaphore render_finished_semaphore{ VK_NULL_HANDLE };
             VkFence in_flight_fence{ VK_NULL_HANDLE };
+            bool contains_image{ false };
         };
         void initSynchronizationObjects();
-        void handleEvents();
         void present();
         void present(FrameData& current_frame_data);
-        void reinitSwapChain();
+        void readBack(FrameData& frame);
         void destroy();
-        bool _closed = false;
-        VkQueue _present_queue;
-
-        GLFWwindow* _window{ nullptr };
-        std::unique_ptr<SwapChain> _swap_chain;
+        RenderTarget createRenderTarget();
+        uint32_t getCurrentImageIndex() { return _current_render_target_index; }
+        uint32_t getOldestImageIndex() { return (_current_render_target_index + 1) % _textures.size(); }
 
         Device& _device;
         std::unique_ptr<RenderEngine> _render_engine;
         std::unique_ptr<TransferEngine> _transfer_engine;
+        std::vector<std::unique_ptr<Texture>> _textures;
+        std::vector<std::unique_ptr<TextureView>> _texture_views;
+
         std::vector<FrameData> _back_buffer;
         uint32_t _render_queue_family{ 0 };
 
         std::vector<std::unique_ptr<AbstractRenderer>> _renderers;
         std::unordered_map<uint32_t, AbstractRenderer*> _renderer_map;
         uint32_t _frame_counter{ 0 };
-        uint32_t _presented_frame_counter{ 0 };
+        uint32_t _current_render_target_index = 0;
         size_t _back_buffer_size{ 2 };
         void* _renderdoc_api{ nullptr };
-        std::optional<uint32_t> _swap_chain_image_index;
-        bool _new_swap_chain_image_is_required{ true };
+        ImageStream _image_stream;
     };
 }

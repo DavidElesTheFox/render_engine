@@ -19,6 +19,7 @@
 
 #include <assets/AssetDatabase.h>
 #include <assets/NoLitMaterial.h>
+#include <DemoSceneBuilder.h>
 #include <ui/AssetBrowserUi.h>
 
 
@@ -32,16 +33,9 @@ public:
     ~DemoApplication();
 
 private:
-    void createGeometries();
-    void createBaseMesh();
-    void createBaseMaterials();
     void createScene();
-    void loadScene();
-    void instantiateMaterials();
-    void instantiateMeshes();
 
     void initializeRenderers();
-    void createAssets();
 
     void onGui();
     void createWindow();
@@ -54,6 +48,6 @@ private:
 
     std::unique_ptr<Scene::SceneRenderManager> _render_manager;
     std::unique_ptr<Ui::AssetBrowserUi> _asset_browser;
-    std::unique_ptr<RenderEngine::Texture> _statue_texture;
+    DemoSceneBuilder::CreationResult _scene_resources;
     std::unique_ptr<RenderEngine::TextureFactory> _texture_factory;
 };

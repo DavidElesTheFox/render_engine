@@ -11,6 +11,7 @@ namespace RenderEngine
 {
     class Window;
     class RenderEngine;
+    class OffScreenWindow;
     class TransferEngine;
     class TextureFactory;
 
@@ -32,6 +33,7 @@ namespace RenderEngine
 
         ~Device();
         std::unique_ptr<Window> createWindow(std::string_view name, size_t back_buffer_size);
+        std::unique_ptr<OffScreenWindow> createOffScreenWindow(std::string_view name, size_t back_buffer_size);
         std::unique_ptr<RenderEngine> createRenderEngine(size_t back_buffer_size);
         std::unique_ptr<TransferEngine> createTransferEngine();
         std::unique_ptr<TextureFactory> createTextureFactory(TransferEngine& transfer_engine,

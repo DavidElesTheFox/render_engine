@@ -13,8 +13,9 @@
 #include <vector>
 
 #include <backends/imgui_impl_vulkan.h>
+#include <data_config.h>
 
-#ifdef RENDERDOC_ENABLED
+#ifdef ENABLE_RENDERDOC
 #	include <renderdoc_app.h>
 #else
 struct NullRenderdocApi

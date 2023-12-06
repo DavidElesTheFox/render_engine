@@ -109,13 +109,14 @@ namespace RenderEngine
         _imgui_context_during_init = ImGui::GetCurrentContext();
         _imgui_context = ImGui::CreateContext();
         ImGui::SetCurrentContext(_imgui_context);
+        _window_handle = window.getWindowHandle();
 
         ImGui_ImplVulkan_LoadFunctions([](const char* function_name, void* vulkan_instance)
                                        {
                                            return vkGetInstanceProcAddr(*(reinterpret_cast<VkInstance*>(vulkan_instance)), function_name);
                                        }, &window.getDevice().getVulkanInstance());
 
-        ImGui_ImplGlfw_InitForVulkan(getWindow().getWindowHandle(), true);
+        ImGui_ImplGlfw_InitForVulkan(_window_handle, true);
 
 
         auto logical_device = window.getDevice().getLogicalDevice();
@@ -184,7 +185,7 @@ namespace RenderEngine
         {
             return;
         }
-        int focused = glfwGetWindowAttrib(getWindow().getWindowHandle(), GLFW_FOCUSED);
+        int focused = glfwGetWindowAttrib(_window_handle, GLFW_FOCUSED);
 
 
         if (focused)

@@ -2,6 +2,7 @@
 #include <render_engine/CommandPoolFactory.h>
 #include <render_engine/renderers/AbstractRenderer.h>
 #include <render_engine/resources/Buffer.h>
+#include <render_engine/window/IWindow.h>
 #include <render_engine/window/SwapChain.h>
 
 #include <volk.h>
@@ -29,7 +30,7 @@ namespace RenderEngine
             float r;
         };
 
-        ExampleRenderer(Window& parent,
+        ExampleRenderer(IWindow& parent,
                         const RenderTarget& render_target,
                         uint32_t back_buffer_size,
                         bool last_ExampleRenderer);
@@ -71,7 +72,7 @@ namespace RenderEngine
         void resetFrameBuffers();
         void beforeReinit() override;
         void finalizeReinit(const RenderTarget& swap_chain) override;
-        Window& _window;
+        IWindow& _window;
         VkRenderPass _render_pass;
         VkPipelineLayout _pipeline_layout;
         VkPipeline _pipeline;

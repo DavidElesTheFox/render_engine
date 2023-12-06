@@ -12,7 +12,7 @@ namespace RenderEngine
     class SingleColorOutputRenderer : public AbstractRenderer
     {
     public:
-        explicit SingleColorOutputRenderer(Window& parent);
+        explicit SingleColorOutputRenderer(IWindow& parent);
         ~SingleColorOutputRenderer() override;
         std::vector<VkCommandBuffer> getCommandBuffers(uint32_t image_index) override final
         {
@@ -32,7 +32,7 @@ namespace RenderEngine
                                       VkRenderPass render_pass,
                                       size_t back_buffer_size);
         void destroyRenderOutput();
-        Window& getWindow() { return _window; }
+        IWindow& getWindow() { return _window; }
         VkDevice getLogicalDevice() { return _window.getDevice().getLogicalDevice(); }
         FrameData& getFrameData(uint32_t image_index)
         {
@@ -49,7 +49,7 @@ namespace RenderEngine
         void beforeReinit() override final;
         void finalizeReinit(const RenderTarget& render_target) override final;
 
-        Window& _window;
+        IWindow& _window;
         std::vector<VkFramebuffer> _frame_buffers;
         CommandPoolFactory::CommandPool _command_pool;
         std::vector<FrameData> _back_buffer;

@@ -12,7 +12,7 @@ namespace RenderEngine
     {
     public:
         static constexpr uint32_t kRendererId = 3u;
-        ImageStreamRenderer(Window& window,
+        ImageStreamRenderer(IWindow& window,
                             ImageStream& image_stream,
                             const RenderTarget& render_target,
                             uint32_t back_buffer_size,

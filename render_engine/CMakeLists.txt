@@ -96,12 +96,13 @@ source_group("include\\containers" FILES ${RENDER_ENGINE_CONTAINERS_HEADERS})
 set(RENDER_ENGINE_WINDOW_SRC
 	src/window/Window.cpp
     src/window/SwapChain.cpp
- #   src/window/OffScreenWindow.cpp
+    src/window/OffScreenWindow.cpp
 	)
 set(RENDER_ENGINE_WINDOW_HEADERS 
 	${RENDER_ENGINE_HEADER_LOCATION}/window/Window.h
 	${RENDER_ENGINE_HEADER_LOCATION}/window/SwapChain.h
- #   ${RENDER_ENGINE_HEADER_LOCATION}/window/OffScreenWindow.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/window/OffScreenWindow.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/window/IWindow.h
 	)
 
 source_group("src\\window" FILES ${RENDER_ENGINE_WINDOW_SRC})
@@ -151,7 +152,7 @@ set(RENDER_ENGINE_HEADERS
 	${RENDER_ENGINE_WINDOW_HEADERS}
 	${RENDER_ENGINE_MEMORY_HEADERS}
 	${RENDER_ENGINE_ROOT_HEADERS}
-)
+ )
 
 add_library(RenderEngine STATIC ${RENDER_ENGINE_SRC} ${RENDER_ENGINE_HEADERS})
 set_property(TARGET RenderEngine PROPERTY CXX_STANDARD 20)

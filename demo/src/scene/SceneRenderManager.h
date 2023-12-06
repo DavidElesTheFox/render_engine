@@ -9,7 +9,7 @@ namespace Scene
     {
     public:
         SceneRenderManager(const SceneNodeLookup& scene_lookup,
-                           RenderEngine::Window& window)
+                           RenderEngine::IWindow& window)
             : _scene_lookup(scene_lookup)
             , _window(window)
         {}
@@ -17,6 +17,6 @@ namespace Scene
         void registerMeshesForRender();
     private:
         const SceneNodeLookup& _scene_lookup;
-        RenderEngine::Window& _window;
+        RenderEngine::IWindow& _window;
     };
 }

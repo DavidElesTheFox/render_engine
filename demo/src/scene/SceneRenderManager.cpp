@@ -8,10 +8,14 @@ namespace Scene
 {
     void SceneRenderManager::registerMeshesForRender()
     {
-        auto& renderer = _window.getRendererAs<RenderEngine::ForwardRenderer>(RenderEngine::ForwardRenderer::kRendererId);
+        auto* renderer = static_cast<RenderEngine::ForwardRenderer*>(_window.findRenderer(RenderEngine::ForwardRenderer::kRendererId));
+        if (renderer == nullptr)
+        {
+            throw std::runtime_error("Couldn't find renderer to register meshes");
+        }
         for (auto mesh : _scene_lookup.getMeshes())
         {
-            renderer.addMesh(mesh->getMesh(), mesh->getRenderingPriority());
+            renderer->addMesh(mesh->getMesh(), mesh->getRenderingPriority());
         }
     }
 

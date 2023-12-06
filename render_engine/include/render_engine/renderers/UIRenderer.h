@@ -56,7 +56,7 @@ namespace RenderEngine
         ImGuiContext* _imgui_context{ nullptr };
         ImGuiContext* _imgui_context_during_init{ nullptr };
         VkDescriptorPool _descriptor_pool{ VK_NULL_HANDLE };
-
+        GLFWwindow* _window_handle{ nullptr };
 
         std::function<void()> _on_gui;
 

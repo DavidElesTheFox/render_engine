@@ -1,7 +1,7 @@
 #pragma once
 
-#include <render_engine/assets/Shader.h>
 #include <render_engine/assets/Image.h>
+#include <render_engine/assets/Shader.h>
 #include <render_engine/resources/Texture.h>
 
 
@@ -13,103 +13,119 @@
 
 namespace RenderEngine
 {
-	class GpuResourceManager;
-	class Technique;
-	class UniformBinding;
-	class PushConstantsUpdater;
-	class Mesh;
-	class MeshInstance;
-	struct Geometry;
+    class GpuResourceManager;
+    class Technique;
+    class UniformBinding;
+    class PushConstantsUpdater;
+    class Mesh;
+    class MeshInstance;
+    struct Geometry;
 
-	class Material
-	{
-	public:
-		struct CallbackContainer
-		{
-			std::function<std::vector<uint8_t>(const Geometry& geometry, const Material& material)> create_vertex_buffer;
-		};
-		Material(Shader verted_shader,
-			Shader fragment_shader,
-			CallbackContainer callbacks,
-			uint32_t id);
-		const Shader& getVertexShader() const { return _vertex_shader; }
-		const Shader& getFragmentShader() const { return _fragment_shader; }
+    class Material
+    {
+    public:
+        struct CallbackContainer
+        {
+            std::function<std::vector<uint8_t>(const Geometry& geometry, const Material& material)> create_vertex_buffer;
+        };
+        struct RasterizationInfo
+        {
+            VkFrontFace front_face{ VK_FRONT_FACE_CLOCKWISE };
+            VkCullModeFlags cull_mode{ VK_CULL_MODE_BACK_BIT };
 
-		uint32_t getId() const { return _id; }
+            RasterizationInfo clone() const
+            {
+                return { .front_face = front_face };
+            }
 
-		std::vector<uint8_t> createVertexBufferFromGeometry(const Geometry& geometry) const
-		{
-			return _callbacks.create_vertex_buffer(geometry, *this);
-		}
+            RasterizationInfo&& setFrontFace(VkFrontFace value)&& { front_face = value; return std::move(*this); }
+            RasterizationInfo&& setCullMode(VkCullModeFlags value)&& { cull_mode = value; return std::move(*this); }
+        };
+        Material(Shader verted_shader,
+                 Shader fragment_shader,
+                 CallbackContainer callbacks,
+                 uint32_t id);
+        const Shader& getVertexShader() const { return _vertex_shader; }
+        const Shader& getFragmentShader() const { return _fragment_shader; }
 
-		std::unordered_map<VkShaderStageFlags, Shader::MetaData::PushConstants> getPushConstantsMetaData() const
-		{
-			std::unordered_map<VkShaderStageFlags, Shader::MetaData::PushConstants> result;
-			if (_vertex_shader.getMetaData().push_constants != std::nullopt)
-			{
-				result.insert({ VK_SHADER_STAGE_VERTEX_BIT | _vertex_shader.getMetaData().push_constants->shared_with,*_vertex_shader.getMetaData().push_constants });
-			}
-			if (_fragment_shader.getMetaData().push_constants != std::nullopt)
-			{
-				result.insert({ VK_SHADER_STAGE_FRAGMENT_BIT | _fragment_shader.getMetaData().push_constants->shared_with, *_fragment_shader.getMetaData().push_constants });
-			}
-			return result;
-		}
-	private:
+        uint32_t getId() const { return _id; }
 
-		bool checkPushConstantsConsistency() const;
+        std::vector<uint8_t> createVertexBufferFromGeometry(const Geometry& geometry) const
+        {
+            return _callbacks.create_vertex_buffer(geometry, *this);
+        }
 
-		Shader _vertex_shader;
-		Shader _fragment_shader;
-		uint32_t _id;
-		CallbackContainer _callbacks;
-	};
+        std::unordered_map<VkShaderStageFlags, Shader::MetaData::PushConstants> getPushConstantsMetaData() const
+        {
+            std::unordered_map<VkShaderStageFlags, Shader::MetaData::PushConstants> result;
+            if (_vertex_shader.getMetaData().push_constants != std::nullopt)
+            {
+                result.insert({ VK_SHADER_STAGE_VERTEX_BIT | _vertex_shader.getMetaData().push_constants->shared_with,*_vertex_shader.getMetaData().push_constants });
+            }
+            if (_fragment_shader.getMetaData().push_constants != std::nullopt)
+            {
+                result.insert({ VK_SHADER_STAGE_FRAGMENT_BIT | _fragment_shader.getMetaData().push_constants->shared_with, *_fragment_shader.getMetaData().push_constants });
+            }
+            return result;
+        }
+        const RasterizationInfo& getRasterizationInfo() const { return _rasterization_info; }
+        void setRasterizationInfo(RasterizationInfo value) { _rasterization_info = std::move(value); }
+    private:
 
-	class MaterialInstance
-	{
-	public:
-		struct CallbackContainer
-		{
-			std::function<void(std::vector<UniformBinding>& ubo_container, uint32_t frame_number)> global_ubo_update;
-			std::function<void(PushConstantsUpdater& updater)> global_push_constants_update;
-			std::function<void(const MeshInstance* mesh_instance, PushConstantsUpdater& updater)> push_constants_updater;
-		};
-		
-		MaterialInstance(Material& material,
-			std::unordered_map<int32_t, std::unique_ptr<TextureView>> texture_bindings,
-			CallbackContainer callbacks, 
-			uint32_t id)
-			: _material(material)
-			, _texture_bindings(std::move(texture_bindings))
-			, _callbacks(std::move(callbacks))
-			, _id(id)
-		{}
+        bool checkPushConstantsConsistency() const;
 
-		std::unique_ptr<Technique> createTechnique(GpuResourceManager& gpu_resource_manager,
-			VkRenderPass render_pass) const;
+        Shader _vertex_shader;
+        Shader _fragment_shader;
+        uint32_t _id;
+        CallbackContainer _callbacks;
+        RasterizationInfo _rasterization_info{};
+    };
 
-		void updateGlobalUniformBuffer(std::vector<UniformBinding>& ubo_container, uint32_t frame_number) const
-		{
-			_callbacks.global_ubo_update(ubo_container, frame_number);
-		}
+    class MaterialInstance
+    {
+    public:
+        struct CallbackContainer
+        {
+            std::function<void(std::vector<UniformBinding>& ubo_container, uint32_t frame_number)> global_ubo_update;
+            std::function<void(PushConstantsUpdater& updater)> global_push_constants_update;
+            std::function<void(const MeshInstance* mesh_instance, PushConstantsUpdater& updater)> push_constants_updater;
+        };
 
-		void updateGlobalPushConstants(PushConstantsUpdater& updater) const
-		{
-			_callbacks.global_push_constants_update(updater);
-		}
-		void updatePushConstants(const MeshInstance* mesh_instance, PushConstantsUpdater& updater) const
-		{
-			_callbacks.push_constants_updater(mesh_instance, updater);
-		}
-		uint32_t getId() const { return _id; }
-		const std::unordered_map<int32_t, std::unique_ptr<TextureView>>& getTextureBindings() const { return _texture_bindings; }
+        MaterialInstance(Material& material,
+                         std::unordered_map<int32_t, std::unique_ptr<TextureView>> texture_bindings,
+                         CallbackContainer callbacks,
+                         uint32_t id)
+            : _material(material)
+            , _texture_bindings(std::move(texture_bindings))
+            , _callbacks(std::move(callbacks))
+            , _id(id)
+        {}
 
-		const Material& getMaterial() const { return _material; }
-	private:
+        std::unique_ptr<Technique> createTechnique(GpuResourceManager& gpu_resource_manager,
+                                                   VkRenderPass render_pass) const;
 
-		Material& _material;
-		std::unordered_map<int32_t, std::unique_ptr<TextureView>> _texture_bindings;
-		CallbackContainer _callbacks;
-		uint32_t _id{ 0 };
-	};
+        void updateGlobalUniformBuffer(std::vector<UniformBinding>& ubo_container, uint32_t frame_number) const
+        {
+            _callbacks.global_ubo_update(ubo_container, frame_number);
+        }
+
+        void updateGlobalPushConstants(PushConstantsUpdater& updater) const
+        {
+            _callbacks.global_push_constants_update(updater);
+        }
+        void updatePushConstants(const MeshInstance* mesh_instance, PushConstantsUpdater& updater) const
+        {
+            _callbacks.push_constants_updater(mesh_instance, updater);
+        }
+        uint32_t getId() const { return _id; }
+        const std::unordered_map<int32_t, std::unique_ptr<TextureView>>& getTextureBindings() const { return _texture_bindings; }
+
+        const Material& getMaterial() const { return _material; }
+    private:
+
+        Material& _material;
+        std::unordered_map<int32_t, std::unique_ptr<TextureView>> _texture_bindings;
+        CallbackContainer _callbacks;
+        uint32_t _id{ 0 };
+    };
 }

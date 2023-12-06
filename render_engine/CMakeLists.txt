@@ -19,12 +19,16 @@ set(RENDER_ENGINE_RENDERS_SRC
 	src/renderers/ExampleRenderer.cpp
 	src/renderers/ForwardRenderer.cpp
 	src/renderers/UIRenderer.cpp
+    src/renderers/ImageStreamRenderer.cpp
+    src/renderers/SingleColorOutputRenderer.cpp
     )
 set(RENDER_ENGINE_RENDERERS_HEADERS 
 	${RENDER_ENGINE_HEADER_LOCATION}/renderers/AbstractRenderer.h
 	${RENDER_ENGINE_HEADER_LOCATION}/renderers/ExampleRenderer.h
 	${RENDER_ENGINE_HEADER_LOCATION}/renderers/ForwardRenderer.h
 	${RENDER_ENGINE_HEADER_LOCATION}/renderers/UIRenderer.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/renderers/ImageStreamRenderer.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/renderers/SingleColorOutputRenderer.h
 	)
 source_group("src\\renderers" FILES ${RENDER_ENGINE_RENDERS_SRC})
 source_group("include\\renderers" FILES ${RENDER_ENGINE_RENDERERS_HEADERS})
@@ -41,6 +45,7 @@ set(RENDER_ENGINE_RESOURCES_SRC
 	src/resources/PushConstantsUpdater.cpp
 	src/resources/Texture.cpp
 	src/resources/ResourceStateMachine.cpp
+    src/resources/RenderTarget.cpp
     )
 set(RENDER_ENGINE_RESOURCES_HEADERS 
 	${RENDER_ENGINE_HEADER_LOCATION}/resources/Buffer.h
@@ -50,6 +55,7 @@ set(RENDER_ENGINE_RESOURCES_HEADERS
 	${RENDER_ENGINE_HEADER_LOCATION}/resources/PushConstantsUpdater.h
 	${RENDER_ENGINE_HEADER_LOCATION}/resources/Texture.h
 	${RENDER_ENGINE_HEADER_LOCATION}/resources/ResourceStateMachine.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/resources/RenderTarget.h
 	)
 source_group("src\\resources" FILES ${RENDER_ENGINE_RESOURCES_SRC})
 source_group("include\\resources" FILES ${RENDER_ENGINE_RESOURCES_HEADERS})
@@ -79,6 +85,7 @@ source_group("include\\assets" FILES ${RENDER_ENGINE_ASSETS_HEADERS})
 
 set(RENDER_ENGINE_CONTAINERS_HEADERS 
 	${RENDER_ENGINE_HEADER_LOCATION}/containers/BackBuffer.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/containers/ImageStream.h
 	)
 source_group("include\\containers" FILES ${RENDER_ENGINE_CONTAINERS_HEADERS})
 
@@ -89,10 +96,15 @@ source_group("include\\containers" FILES ${RENDER_ENGINE_CONTAINERS_HEADERS})
 set(RENDER_ENGINE_WINDOW_SRC
 	src/window/Window.cpp
     src/window/SwapChain.cpp
+    src/window/OffScreenWindow.cpp
+    src/window/WindowTunnel.cpp
 	)
 set(RENDER_ENGINE_WINDOW_HEADERS 
 	${RENDER_ENGINE_HEADER_LOCATION}/window/Window.h
 	${RENDER_ENGINE_HEADER_LOCATION}/window/SwapChain.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/window/OffScreenWindow.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/window/IWindow.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/window/WindowTunnel.h
 	)
 
 source_group("src\\window" FILES ${RENDER_ENGINE_WINDOW_SRC})
@@ -132,7 +144,7 @@ set(RENDER_ENGINE_SRC
 	${RENDER_ENGINE_WINDOW_SRC}
 	${RENDER_ENGINE_MEMORY_SRC}
 	${RENDER_ENGINE_ROOT_SRC}
-	)
+ )
 
 set(RENDER_ENGINE_HEADERS 
     ${RENDER_ENGINE_RENDERERS_HEADERS}
@@ -142,7 +154,7 @@ set(RENDER_ENGINE_HEADERS
 	${RENDER_ENGINE_WINDOW_HEADERS}
 	${RENDER_ENGINE_MEMORY_HEADERS}
 	${RENDER_ENGINE_ROOT_HEADERS}
-	)
+ )
 
 add_library(RenderEngine STATIC ${RENDER_ENGINE_SRC} ${RENDER_ENGINE_HEADERS})
 set_property(TARGET RenderEngine PROPERTY CXX_STANDARD 20)
@@ -198,6 +210,8 @@ target_compile_definitions(RenderEngine
 		GLFW_EXPOSE_NATIVE_WIN32)
 
 target_include_directories(RenderEngine 
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/
 	PUBLIC
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 		$<INSTALL_INTERFACE:include>

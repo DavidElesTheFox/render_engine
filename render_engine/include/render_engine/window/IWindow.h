@@ -3,6 +3,7 @@
 #include <render_engine/RenderEngine.h>
 namespace RenderEngine
 {
+    class WindowTunnel;
 
     class IWindow
     {
@@ -18,5 +19,7 @@ namespace RenderEngine
         virtual RenderEngine& getRenderEngine() = 0;
         virtual TransferEngine& getTransferEngine() = 0;
         virtual AbstractRenderer* findRenderer(uint32_t renderer_id) const = 0;
+        virtual WindowTunnel* getTunnel() = 0;
+        virtual void registerTunnel(WindowTunnel&) = 0;
     };
 }

@@ -29,7 +29,7 @@ int main()
 {
     try
     {
-        runOffScreenApplication();
+        runDemoApplication();
         RenderEngine::RenderContext::context().reset();
         return 0;
     }

@@ -10,6 +10,7 @@
 #include <render_engine/renderers/ForwardRenderer.h>
 #include <render_engine/resources/Texture.h>
 #include <render_engine/resources/UniformBinding.h>
+#include <render_engine/window/WindowTunnel.h>
 
 #include <scene/Scene.h>
 #include <scene/SceneRenderManager.h>
@@ -33,16 +34,54 @@ public:
     ~DemoApplication();
 
 private:
+    class IWindowSetup
+    {
+    public:
+        virtual ~IWindowSetup() = default;
+        virtual RenderEngine::IWindow& getRenderingWindow() = 0;
+        virtual RenderEngine::Window& getUiWindow() = 0;
+        virtual void update() = 0;
+    };
+
+    class SingleWindowSetup : public IWindowSetup
+    {
+    public:
+        SingleWindowSetup();
+        ~SingleWindowSetup() override = default;
+        RenderEngine::IWindow& getRenderingWindow() override { return *_window; }
+        RenderEngine::Window& getUiWindow() override { return *_window; };
+        void update() override { _window->update(); }
+    private:
+        std::unique_ptr<RenderEngine::Window> _window;
+    };
+
+    class OffScreenWindowSetup : public IWindowSetup
+    {
+    public:
+        OffScreenWindowSetup();
+        ~OffScreenWindowSetup() override = default;
+        RenderEngine::IWindow& getRenderingWindow() override { return _window_tunnel->getOriginWindow(); }
+        RenderEngine::Window& getUiWindow() override
+        {
+            return static_cast<RenderEngine::Window&>(_window_tunnel->getDestinationWindow());
+        }
+        void update() override { _window_tunnel->update(); }
+    private:
+        std::unique_ptr<RenderEngine::WindowTunnel> _window_tunnel;
+    };
     void createScene();
 
     void initializeRenderers();
 
     void onGui();
-    void createWindow();
+    void createWindowSetup();
+
+    RenderEngine::IWindow& getRenderingWindow() { return _window_setup->getRenderingWindow(); }
+    RenderEngine::Window& getUiWindow() { return _window_setup->getUiWindow(); }
 
     Assets::AssetDatabase _assets;
 
-    std::unique_ptr<RenderEngine::Window> _window;
+    std::unique_ptr<IWindowSetup> _window_setup;
 
     std::unique_ptr<Scene::Scene> _scene;
 

@@ -39,6 +39,8 @@ namespace RenderEngine
 
         ImageStream& getImageStream() { return _image_stream; }
         uint32_t getFrameCounter() const { return _frame_counter; }
+        void registerTunnel(WindowTunnel& tunnel) override final;
+        WindowTunnel* getTunnel() override final;
     private:
         struct FrameData
         {
@@ -72,5 +74,6 @@ namespace RenderEngine
         size_t _back_buffer_size{ 2 };
         void* _renderdoc_api{ nullptr };
         ImageStream _image_stream;
+        WindowTunnel* _tunnel{ nullptr };
     };
 }

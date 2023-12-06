@@ -141,7 +141,7 @@ namespace
         VkPresentModeKHR present_mode = chooseSwapPresentMode(swap_chain_support.present_modes);
         VkExtent2D extent = chooseSwapExtent(swap_chain_support.capabilities, info.window);
 
-        uint32_t image_count = swap_chain_support.capabilities.minImageCount + 1;
+        uint32_t image_count = info.back_buffer_size;
         if (0 < swap_chain_support.capabilities.maxImageCount && swap_chain_support.capabilities.maxImageCount < image_count)
         {
             image_count = swap_chain_support.capabilities.maxImageCount;

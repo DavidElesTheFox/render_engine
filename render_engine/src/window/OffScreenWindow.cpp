@@ -208,6 +208,22 @@ namespace RenderEngine
         }
         std::vector<uint8_t> image_data = _textures[getOldestImageIndex()]->download(synchronization_primitives,
                                                                                      *_transfer_engine);
+
+        vkDestroyFence(_device.getLogicalDevice(), synchronization_primitives.on_finished_fence, nullptr);
         _image_stream << std::move(image_data);
+    }
+
+    void OffScreenWindow::registerTunnel(WindowTunnel& tunnel)
+    {
+        if (_tunnel != nullptr)
+        {
+            throw std::runtime_error("Cannot register tunnel. This window already has one.");
+        }
+        _tunnel = &tunnel;
+    }
+
+    WindowTunnel* OffScreenWindow::getTunnel()
+    {
+        return _tunnel;
     }
 }

@@ -57,6 +57,8 @@ namespace RenderEngine
             return it != _renderer_map.end() ? it->second : nullptr;
         }
 
+        void registerTunnel(WindowTunnel& tunnel) override final;
+        WindowTunnel* getTunnel() override final;
     private:
         struct FrameData
         {
@@ -90,5 +92,6 @@ namespace RenderEngine
         void* _renderdoc_api{ nullptr };
         std::optional<uint32_t> _swap_chain_image_index;
         bool _new_swap_chain_image_is_required{ true };
+        WindowTunnel* _tunnel{ nullptr };
     };
 }

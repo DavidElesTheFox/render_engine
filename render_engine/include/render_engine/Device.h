@@ -32,7 +32,7 @@ namespace RenderEngine
         Device& operator=(Device&&) = delete;
 
         ~Device();
-        std::unique_ptr<Window> createWindow(std::string_view name, size_t back_buffer_size);
+        std::unique_ptr<Window> createWindow(std::string_view name, uint32_t back_buffer_size);
         std::unique_ptr<OffScreenWindow> createOffScreenWindow(std::string_view name, size_t back_buffer_size);
         std::unique_ptr<RenderEngine> createRenderEngine(size_t back_buffer_size);
         std::unique_ptr<TransferEngine> createTransferEngine();

@@ -97,12 +97,14 @@ set(RENDER_ENGINE_WINDOW_SRC
 	src/window/Window.cpp
     src/window/SwapChain.cpp
     src/window/OffScreenWindow.cpp
+    src/window/WindowTunnel.cpp
 	)
 set(RENDER_ENGINE_WINDOW_HEADERS 
 	${RENDER_ENGINE_HEADER_LOCATION}/window/Window.h
 	${RENDER_ENGINE_HEADER_LOCATION}/window/SwapChain.h
     ${RENDER_ENGINE_HEADER_LOCATION}/window/OffScreenWindow.h
     ${RENDER_ENGINE_HEADER_LOCATION}/window/IWindow.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/window/WindowTunnel.h
 	)
 
 source_group("src\\window" FILES ${RENDER_ENGINE_WINDOW_SRC})

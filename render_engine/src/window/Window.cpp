@@ -251,5 +251,22 @@ namespace RenderEngine
         }
 
     }
+    void Window::registerTunnel(WindowTunnel& tunnel)
+    {
+        if (_tunnel == &tunnel)
+        {
+            return;
+        }
+        if (_tunnel != nullptr)
+        {
+            throw std::runtime_error("Cannot register tunnel. This window already has one.");
+        }
+        _tunnel = &tunnel;
+    }
+
+    WindowTunnel* Window::getTunnel()
+    {
+        return _tunnel;
+    }
 
 }

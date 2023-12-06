@@ -129,7 +129,7 @@ namespace RenderEngine
     {
         vkDestroyDevice(_logical_device, nullptr);
     }
-    std::unique_ptr<Window> Device::createWindow(std::string_view name, size_t back_buffer_size)
+    std::unique_ptr<Window> Device::createWindow(std::string_view name, uint32_t back_buffer_size)
     {
         VkQueue render_queue;
         VkQueue present_queue;
@@ -154,7 +154,7 @@ namespace RenderEngine
         }
         try
         {
-            std::unique_ptr<SwapChain> swap_chain = std::make_unique<SwapChain>(SwapChain::CreateInfo{ window, _instance, _physical_device, _logical_device, std::move(surface), _queue_family_graphics, _queue_family_present });
+            std::unique_ptr<SwapChain> swap_chain = std::make_unique<SwapChain>(SwapChain::CreateInfo{ window, _instance, _physical_device, _logical_device, std::move(surface), _queue_family_graphics, _queue_family_present, back_buffer_size });
             std::unique_ptr<RenderEngine> render_engine = createRenderEngine(back_buffer_size);
             std::unique_ptr<TransferEngine> transfer_engine = createTransferEngine();
             return std::make_unique<Window>(*this, std::move(render_engine), std::move(transfer_engine), window, std::move(swap_chain), present_queue, back_buffer_size);

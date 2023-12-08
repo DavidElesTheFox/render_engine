@@ -42,8 +42,8 @@ namespace RenderEngine
         Image _image_cache;
         std::unordered_map<Texture*, UploadData> _upload_data;
         std::unique_ptr<Material> _fullscreen_material;
-        std::unordered_map<Texture*, std::unique_ptr<MaterialInstance>> _material_instances;
-        std::unordered_map<Texture*, std::unique_ptr<Technique>> _techniques;
+        std::unique_ptr<MaterialInstance> _material_instance;
+        std::unique_ptr<Technique> _technique;
         std::vector<std::unique_ptr<Texture>> _texture_container;
         bool _draw_call_recorded{ true };
     };

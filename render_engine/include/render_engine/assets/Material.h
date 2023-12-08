@@ -7,6 +7,7 @@
 
 #include <volk.h>
 
+#include <cassert>
 #include <functional>
 #include <memory>
 #include <vector>
@@ -35,7 +36,7 @@ namespace RenderEngine
 
             RasterizationInfo clone() const
             {
-                return { .front_face = front_face };
+                return { .front_face = front_face, .cull_mode = cull_mode };
             }
 
             RasterizationInfo&& setFrontFace(VkFrontFace value)&& { front_face = value; return std::move(*this); }
@@ -45,6 +46,7 @@ namespace RenderEngine
                  Shader fragment_shader,
                  CallbackContainer callbacks,
                  uint32_t id);
+        virtual ~Material() = default;
         const Shader& getVertexShader() const { return _vertex_shader; }
         const Shader& getFragmentShader() const { return _fragment_shader; }
 
@@ -91,8 +93,26 @@ namespace RenderEngine
             std::function<void(const MeshInstance* mesh_instance, PushConstantsUpdater& updater)> push_constants_updater;
         };
 
+        class TextureBindingData
+        {
+        public:
+            TextureBindingData() = default;
+            explicit TextureBindingData(std::unordered_map<int32_t, std::unique_ptr<TextureView>> general_bindings)
+                : _general_texture_bindings(std::move(general_bindings))
+            {}
+            explicit TextureBindingData(std::unordered_map<int32_t, std::vector<std::unique_ptr<TextureView>>> back_buffered_bindings)
+                : _back_buffered_texture_bindings(std::move(back_buffered_bindings))
+            {}
+
+            std::unordered_map<int32_t, std::vector<TextureView*>> createTextureViews(int32_t back_buffer_size) const;
+
+        private:
+            std::unordered_map<int32_t, std::unique_ptr<TextureView>> _general_texture_bindings;
+            std::unordered_map<int32_t, std::vector<std::unique_ptr<TextureView>>> _back_buffered_texture_bindings;
+        };
+
         MaterialInstance(Material& material,
-                         std::unordered_map<int32_t, std::unique_ptr<TextureView>> texture_bindings,
+                         TextureBindingData texture_bindings,
                          CallbackContainer callbacks,
                          uint32_t id)
             : _material(material)
@@ -100,6 +120,8 @@ namespace RenderEngine
             , _callbacks(std::move(callbacks))
             , _id(id)
         {}
+
+        virtual ~MaterialInstance() = default;
 
         std::unique_ptr<Technique> createTechnique(GpuResourceManager& gpu_resource_manager,
                                                    VkRenderPass render_pass) const;
@@ -118,13 +140,12 @@ namespace RenderEngine
             _callbacks.push_constants_updater(mesh_instance, updater);
         }
         uint32_t getId() const { return _id; }
-        const std::unordered_map<int32_t, std::unique_ptr<TextureView>>& getTextureBindings() const { return _texture_bindings; }
 
         const Material& getMaterial() const { return _material; }
     private:
 
         Material& _material;
-        std::unordered_map<int32_t, std::unique_ptr<TextureView>> _texture_bindings;
+        TextureBindingData _texture_bindings;
         CallbackContainer _callbacks;
         uint32_t _id{ 0 };
     };

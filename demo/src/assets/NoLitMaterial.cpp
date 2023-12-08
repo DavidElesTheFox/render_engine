@@ -59,7 +59,7 @@ namespace Assets
         std::unique_ptr<Instance> result = std::make_unique<Instance>();
         result->_material_constants.fragment_values.instance_color = instance_color;
         result->_material_instance = std::make_unique<MaterialInstance>(*_material,
-                                                                        std::unordered_map<int32_t, std::unique_ptr<TextureView>>{},
+                                                                        MaterialInstance::TextureBindingData{},
                                                                         MaterialInstance::CallbackContainer{
                                                                             .global_ubo_update = [](std::vector<UniformBinding>& , uint32_t) {},
                                                                             .global_push_constants_update = [material_constants = &result->_material_constants, scene](PushConstantsUpdater& updater)

@@ -15,7 +15,7 @@ namespace Scene
         }
         for (auto mesh : _scene_lookup.getMeshes())
         {
-            renderer->addMesh(mesh->getMesh(), mesh->getRenderingPriority());
+            renderer->addMesh(mesh->getMesh());
         }
     }
 

@@ -21,6 +21,7 @@ namespace RenderEngine
                   VkDescriptorSetLayout uniforms_layout,
                   VkRenderPass render_pass);
         ~Technique();
+        const MaterialInstance& getMaterialInstance() const { return *_material_instance; }
         VkPipeline getPipeline()
         {
             return _pipeline;
@@ -32,7 +33,7 @@ namespace RenderEngine
         std::vector<VkDescriptorSet> collectDescriptorSets(size_t frame_number)
         {
             std::vector<VkDescriptorSet> result;
-            for (auto& binding : _uniform_buffers)
+            for (UniformBinding& binding : _uniform_buffers)
             {
                 result.push_back(binding.getDescriptorSet(frame_number));
             }

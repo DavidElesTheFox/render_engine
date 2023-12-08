@@ -66,29 +66,30 @@ namespace Assets
         std::unordered_map<int32_t, std::unique_ptr<TextureView>> texture_map;
         texture_map[1] = std::move(texture);
 
+        auto global_push_constat_update = [material_constants = &result->_material_constants, scene](PushConstantsUpdater& updater)
+            {
+                material_constants->vertex_values.projection = scene->getActiveCamera()->getProjection();
+                {
+                    const std::span<const uint8_t> data_view(reinterpret_cast<const uint8_t*>(&material_constants->vertex_values.projection), sizeof(material_constants->vertex_values.projection));
+                    updater.update(VK_SHADER_STAGE_VERTEX_BIT, offsetof(VertexPushConstants, projection), data_view);
+                }
+            };
+        auto push_constant_update = [material_constants = &result->_material_constants, scene](const MeshInstance* mesh, PushConstantsUpdater& updater)
+            {
+                auto model = scene->getNodeLookup().findMesh(mesh->getId())->getTransformation().calculateTransformation();
+                auto view = scene->getActiveCamera()->getView();
+                material_constants->vertex_values.model_view = view * model;
+
+                const std::span<const uint8_t> data_view(reinterpret_cast<const uint8_t*>(&material_constants->vertex_values.model_view), sizeof(material_constants->vertex_values.model_view));
+                updater.update(VK_SHADER_STAGE_VERTEX_BIT, offsetof(VertexPushConstants, model_view), data_view);
+            };
         result->_material_instance = std::make_unique<MaterialInstance>(*_material,
-                                                                        std::move(texture_map),
+                                                                        MaterialInstance::TextureBindingData(std::move(texture_map)),
                                                                         MaterialInstance::CallbackContainer{
                                                                             .global_ubo_update = [](std::vector<UniformBinding>& , uint32_t) {},
-                                                                            .global_push_constants_update = [material_constants = &result->_material_constants, scene](PushConstantsUpdater& updater)
-                                                             {
-material_constants->vertex_values.projection = scene->getActiveCamera()->getProjection();
-{
-    const std::span<const uint8_t> data_view(reinterpret_cast<const uint8_t*>(&material_constants->vertex_values.projection), sizeof(material_constants->vertex_values.projection));
-    updater.update(VK_SHADER_STAGE_VERTEX_BIT, offsetof(VertexPushConstants, projection), data_view);
-}
-},
-.push_constants_updater = [material_constants = &result->_material_constants, scene](const MeshInstance* mesh, PushConstantsUpdater& updater)
-{
-auto model = scene->getNodeLookup().findMesh(mesh->getId())->getTransformation().calculateTransformation();
-auto view = scene->getActiveCamera()->getView();
-material_constants->vertex_values.model_view = view * model;
-
-const std::span<const uint8_t> data_view(reinterpret_cast<const uint8_t*>(&material_constants->vertex_values.model_view), sizeof(material_constants->vertex_values.model_view));
-updater.update(VK_SHADER_STAGE_VERTEX_BIT, offsetof(VertexPushConstants, model_view), data_view);
-}
-                                                                        },
-                                                                        id);
+                                                                            .global_push_constants_update = global_push_constat_update ,
+                                                                            .push_constants_updater = push_constant_update },
+                                                                            id);
         return result;
     }
 }

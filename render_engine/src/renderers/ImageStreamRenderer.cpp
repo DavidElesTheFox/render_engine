@@ -238,25 +238,27 @@ namespace RenderEngine
             sampler_data.min_filter = VK_FILTER_LINEAR;
             sampler_data.sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
             sampler_data.unnormalize_coordinate = false;
+
+            std::unordered_map<int32_t, std::vector<std::unique_ptr<TextureView>>> texture_bindings;
+
             for (uint32_t i = 0; i < back_buffer_size; ++i)
             {
-                std::unordered_map<int32_t, std::unique_ptr<TextureView>> texture_bindings;
-                texture_bindings[0] = std::make_unique<TextureView>(*_texture_container[i],
-                                                                    _texture_container[i]->createImageView({}),
-                                                                    _texture_container[i]->createSampler(sampler_data),
-                                                                    getWindow().getDevice().getPhysicalDevice(),
-                                                                    getLogicalDevice());
-                auto material_instance = std::make_unique<MaterialInstance>(*_fullscreen_material,
-                                                                            std::move(texture_bindings),
-                                                                            MaterialInstance::CallbackContainer{},
-                                                                            material_id + i);
-
-                _techniques[_texture_container[i].get()] = material_instance->createTechnique(getWindow().getRenderEngine().getGpuResourceManager(),
-                                                                                              getRenderPass());
-
-                _material_instances[_texture_container[i].get()] = std::move(material_instance);
-
+                texture_bindings[0].push_back(std::make_unique<TextureView>(*_texture_container[i],
+                                                                            _texture_container[i]->createImageView({}),
+                                                                            _texture_container[i]->createSampler(sampler_data),
+                                                                            getWindow().getDevice().getPhysicalDevice(),
+                                                                            getLogicalDevice()));
             }
+
+
+            _material_instance = std::make_unique<MaterialInstance>(*_fullscreen_material,
+                                                                    MaterialInstance::TextureBindingData{ std::move(texture_bindings) },
+                                                                    MaterialInstance::CallbackContainer{},
+                                                                    material_id);
+
+            _technique = _material_instance->createTechnique(getWindow().getRenderEngine().getGpuResourceManager(),
+                                                             getRenderPass());
+
 
         }
     }
@@ -402,7 +404,7 @@ namespace RenderEngine
             }
             vkCmdBeginRenderPass(frame_data.command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
 
-            auto& technique = _techniques.at(render_texture.get());
+            auto& technique = _technique;
 
             vkCmdBindPipeline(frame_data.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, technique->getPipeline());
 

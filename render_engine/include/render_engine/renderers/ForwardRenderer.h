@@ -32,7 +32,6 @@ namespace RenderEngine
             std::unique_ptr<Technique> technique;
             std::vector<const MeshInstance*> mesh_instances;
         };
-        using MaterialMeshGroupMap = std::unordered_map<uint32_t, MeshGroup>;
     public:
         static constexpr uint32_t kRendererId = 2u;
         ForwardRenderer(IWindow& parent,
@@ -40,14 +39,14 @@ namespace RenderEngine
                         bool last_renderer);
         ~ForwardRenderer() override;
         void onFrameBegin(uint32_t image_index) override;
-        void addMesh(const MeshInstance* mesh_instance, int32_t priority);
+        void addMesh(const MeshInstance* mesh_instance);
         void draw(uint32_t swap_chain_image_index) override;
         std::vector<VkSemaphoreSubmitInfo> getWaitSemaphores(uint32_t image_index) override
         {
             return {};
         }
     private:
-        std::map<int32_t, MaterialMeshGroupMap> _meshes;
+        std::vector<MeshGroup> _meshes;
         std::map<const Mesh*, MeshBuffers> _mesh_buffers;
 
     };

@@ -21,6 +21,7 @@ set(RENDER_ENGINE_RENDERS_SRC
 	src/renderers/UIRenderer.cpp
     src/renderers/ImageStreamRenderer.cpp
     src/renderers/SingleColorOutputRenderer.cpp
+    src/renderers/VolumeRenderer.cpp
     )
 set(RENDER_ENGINE_RENDERERS_HEADERS 
 	${RENDER_ENGINE_HEADER_LOCATION}/renderers/AbstractRenderer.h
@@ -29,6 +30,7 @@ set(RENDER_ENGINE_RENDERERS_HEADERS
 	${RENDER_ENGINE_HEADER_LOCATION}/renderers/UIRenderer.h
     ${RENDER_ENGINE_HEADER_LOCATION}/renderers/ImageStreamRenderer.h
     ${RENDER_ENGINE_HEADER_LOCATION}/renderers/SingleColorOutputRenderer.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/renderers/VolumeRenderer.h
 	)
 source_group("src\\renderers" FILES ${RENDER_ENGINE_RENDERS_SRC})
 source_group("include\\renderers" FILES ${RENDER_ENGINE_RENDERERS_HEADERS})
@@ -68,6 +70,10 @@ set(RENDER_ENGINE_ASSETS_SRC
 	src/assets/Material.cpp
 	src/assets/Shader.cpp
 	src/assets/Image.cpp
+    src/assets/Image3D.cpp
+    src/assets/VolumetricObject.cpp
+    src/assets/VolumeShader.cpp
+    src/assets/VolumeMaterial.cpp
     )
 set(RENDER_ENGINE_ASSETS_HEADERS 
 	${RENDER_ENGINE_HEADER_LOCATION}/assets/Geometry.h
@@ -75,6 +81,10 @@ set(RENDER_ENGINE_ASSETS_HEADERS
 	${RENDER_ENGINE_HEADER_LOCATION}/assets/Mesh.h
 	${RENDER_ENGINE_HEADER_LOCATION}/assets/Shader.h
 	${RENDER_ENGINE_HEADER_LOCATION}/assets/Image.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/assets/Image3D.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/assets/VolumetricObject.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/assets/VolumeShader.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/assets/VolumeMaterial.h
 	)
 source_group("src\\assets" FILES ${RENDER_ENGINE_ASSETS_SRC})
 source_group("include\\assets" FILES ${RENDER_ENGINE_ASSETS_HEADERS})
@@ -144,7 +154,7 @@ set(RENDER_ENGINE_SRC
 	${RENDER_ENGINE_WINDOW_SRC}
 	${RENDER_ENGINE_MEMORY_SRC}
 	${RENDER_ENGINE_ROOT_SRC}
- )
+  )
 
 set(RENDER_ENGINE_HEADERS 
     ${RENDER_ENGINE_RENDERERS_HEADERS}

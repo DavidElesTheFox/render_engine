@@ -23,4 +23,9 @@ public:
                                      Scene::Scene& scene,
                                      RenderEngine::TextureFactory& texture_factory,
                                      RenderEngine::RenderEngine& render_engine);
+
+    CreationResult buildVolumetricScene(Assets::AssetDatabase& assets,
+                                        Scene::Scene& scene,
+                                        RenderEngine::TextureFactory& texture_factory,
+                                        RenderEngine::RenderEngine& render_engine);
 };

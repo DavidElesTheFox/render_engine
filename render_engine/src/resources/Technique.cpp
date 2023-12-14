@@ -6,13 +6,17 @@ namespace RenderEngine
 {
     Technique::Technique(VkDevice logical_device,
                          const MaterialInstance* material_instance,
+                         MaterialInstance::TextureBindingData&& subpass_textures,
                          std::vector<UniformBinding>&& uniform_buffers,
                          VkDescriptorSetLayout uniforms_layout,
-                         VkRenderPass render_pass)
+                         VkRenderPass render_pass,
+                         uint32_t corresponding_subpass)
         try : _material_instance(material_instance)
+        , _subpass_textures(std::move(subpass_textures))
         , _uniform_buffers(std::move(uniform_buffers))
         , _logical_device(logical_device)
         , _uniforms_layout(uniforms_layout)
+        , _corresponding_subpass(corresponding_subpass)
     {
         const auto& material = _material_instance->getMaterial();
         auto vertex_shader = material.getVertexShader().loadOn(logical_device);
@@ -153,7 +157,7 @@ namespace RenderEngine
         pipelineInfo.pDynamicState = &dynamic_state;
         pipelineInfo.layout = _pipeline_layout;
         pipelineInfo.renderPass = render_pass;
-        pipelineInfo.subpass = 0;
+        pipelineInfo.subpass = corresponding_subpass;
         pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
         if (vkCreateGraphicsPipelines(logical_device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &_pipeline) != VK_SUCCESS)
         {

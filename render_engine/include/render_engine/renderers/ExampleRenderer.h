@@ -30,18 +30,18 @@ namespace RenderEngine
             float r;
         };
 
-        ExampleRenderer(IWindow& parent,
+        ExampleRenderer(IWindow& window,
                         const RenderTarget& render_target,
                         uint32_t back_buffer_size,
                         bool last_ExampleRenderer);
 
         void init(const std::vector<Vertex>& vertices, const std::vector<uint16_t>& indicies);
-        void onFrameBegin(uint32_t frame_number) override {}
-        void draw(uint32_t swap_chain_image_index) override
+        void onFrameBegin(uint32_t frame_number) override  final {}
+        void draw(uint32_t swap_chain_image_index) override final
         {
             draw(_frame_buffers[swap_chain_image_index], getFrameData(swap_chain_image_index));
         }
-        std::vector<VkCommandBuffer> getCommandBuffers(uint32_t image_index) override
+        std::vector<VkCommandBuffer> getCommandBuffers(uint32_t image_index) override final
         {
             return { getFrameData(image_index).command_buffer };
         }
@@ -50,7 +50,7 @@ namespace RenderEngine
 
         ~ExampleRenderer() override;
 
-        std::vector<VkSemaphoreSubmitInfo> getWaitSemaphores(uint32_t image_index) override
+        std::vector<VkSemaphoreSubmitInfo> getWaitSemaphores(uint32_t image_index) override final
         {
             return {};
         }
@@ -71,7 +71,8 @@ namespace RenderEngine
         void draw(const VkFramebuffer& frame_buffer, FrameData& frame_data);
         void resetFrameBuffers();
         void beforeReinit() override;
-        void finalizeReinit(const RenderTarget& swap_chain) override;
+        void finalizeReinit(const RenderTarget& swap_chain) override final;
+
         IWindow& _window;
         VkRenderPass _render_pass;
         VkPipelineLayout _pipeline_layout;

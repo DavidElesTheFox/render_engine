@@ -28,8 +28,8 @@ namespace RenderEngine
             struct BindingSlot
             {
                 int32_t binding{ -1 };
-                std::variant<Shader::MetaData::Sampler, Shader::MetaData::UniformBuffer> data;
-                std::vector<TextureView*> texture_views;
+                std::variant<Shader::MetaData::Sampler, Shader::MetaData::UniformBuffer, Shader::MetaData::InputAttachment> data;
+                std::vector<ITextureView*> texture_views;
                 VkShaderStageFlags shader_stage{ 0 };
             };
 
@@ -42,6 +42,7 @@ namespace RenderEngine
                     {
                         std::visit(overloaded{
                             [](const Shader::MetaData::Sampler& sampler) { throw std::runtime_error("Uniform buffer is already bounded as image sampler"); },
+                            [](const Shader::MetaData::InputAttachment&) { throw std::runtime_error("Uniform buffer is already bounded as image sampler"); },
                             [&](const Shader::MetaData::UniformBuffer& buffer) { if (buffer.size != uniform_buffer.size) { throw std::runtime_error("Uniform buffer perviously used a different size"); } }
                                    }, it->data);
                         it->shader_stage |= shader_usage;
@@ -57,8 +58,9 @@ namespace RenderEngine
                     if (it != _slots.end())
                     {
                         std::visit(overloaded{
-                            [](const Shader::MetaData::Sampler& sampler) {},
-                            [&](const Shader::MetaData::UniformBuffer& buffer) { throw std::runtime_error("image sampler is already bounded as Uniform binding"); }
+                            [](const Shader::MetaData::Sampler&) {},
+                            [](const Shader::MetaData::UniformBuffer&) { throw std::runtime_error("image sampler is already bounded as Uniform binding"); },
+                            [](const Shader::MetaData::InputAttachment&) { throw std::runtime_error("image sampler is already bounded as Uniform binding"); }
                                    }, it->data);
                         it->shader_stage |= shader_usage;
                     }
@@ -67,27 +69,61 @@ namespace RenderEngine
                     };
                     _slots.emplace_back(std::move(data));
                 }
+                for (const auto& [binding, input_attachment] : shader.getMetaData().input_attachments)
+                {
+                    auto it = std::ranges::find_if(_subpass_slots, [&](const auto& slot) { return slot.binding == binding; });
+                    if (it != _subpass_slots.end())
+                    {
+                        std::visit(overloaded{
+                            [](const Shader::MetaData::InputAttachment&) {},
+                            [](const Shader::MetaData::UniformBuffer&) { throw std::runtime_error("image sampler is already bounded as Uniform binding"); },
+                            [](const Shader::MetaData::Sampler&) { throw std::runtime_error("image sampler is already bounded as Uniform binding"); }
+                                   }, it->data);
+                        it->shader_stage |= shader_usage;
+                    }
+                    BindingSlot data{
+                        .binding = binding, .data = {input_attachment}, .shader_stage = shader_usage
+                    };
+                    _subpass_slots.emplace_back(std::move(data));
+                }
             }
 
-            void assignTexture(const std::vector<TextureView*> texture_views, int32_t sampler_binding)
+            void assignTexture(const std::vector<ITextureView*> texture_views, int32_t sampler_binding)
             {
                 auto it = std::ranges::find_if(_slots, [&](const auto& slot) { return slot.binding == sampler_binding; });
                 if (it == _slots.end())
                 {
                     throw std::runtime_error("There is no image sampler for the given binding");
                 }
-                if (std::holds_alternative<Shader::MetaData::Sampler>(it->data) == false)
+                if (std::holds_alternative<Shader::MetaData::Sampler>(it->data) == false
+                    && std::holds_alternative<Shader::MetaData::InputAttachment>(it->data) == false)
                 {
                     throw std::runtime_error("Binding is not an image sampler, couldn't bind image for it");
                 }
                 it->texture_views = texture_views;
             }
 
-            const std::vector<BindingSlot>& getBindings() const { return _slots; }
+            void assignTextureToInputAttachment(const std::vector<ITextureView*> texture_views, int32_t sampler_binding)
+            {
+                auto it = std::ranges::find_if(_subpass_slots, [&](const auto& slot) { return slot.binding == sampler_binding; });
+                if (it == _subpass_slots.end())
+                {
+                    throw std::runtime_error("There is no input attachment for the given binding");
+                }
+                if (std::holds_alternative<Shader::MetaData::Sampler>(it->data) == false
+                    && std::holds_alternative<Shader::MetaData::InputAttachment>(it->data) == false)
+                {
+                    throw std::runtime_error("Binding is not an image sampler, couldn't bind image for it");
+                }
+                it->texture_views = texture_views;
+            }
+
+            auto getBindings() const { return (std::vector{ _slots, _subpass_slots }) | std::views::join; }
 
 
         private:
             std::vector<BindingSlot> _slots;
+            std::vector<BindingSlot> _subpass_slots;
         };
 
         struct UniformCreationData
@@ -98,7 +134,7 @@ namespace RenderEngine
         std::pair<std::vector<UniformBinding>, VkDescriptorSetLayout> createUniformBindings(GpuResourceManager& gpu_resource_manager,
                                                                                             const MaterialBindingMap& uniform_bindings)
         {
-            const auto& uniforms_data = uniform_bindings.getBindings();
+            const auto uniforms_data = uniform_bindings.getBindings();
             if (std::ranges::empty(uniforms_data))
             {
                 return {};
@@ -122,6 +158,7 @@ namespace RenderEngine
                     std::visit(overloaded{
                         [](const Shader::MetaData::Sampler&) { return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; },
                         [](const Shader::MetaData::UniformBuffer&) { return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER; },
+                        [](const Shader::MetaData::InputAttachment&) { return VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT; },
                                }, buffer_meta_data.data);
                 set_layout_binding.binding = buffer_meta_data.binding;
                 set_layout_binding.stageFlags = buffer_meta_data.shader_stage;
@@ -147,6 +184,18 @@ namespace RenderEngine
             alloc_info.descriptorSetCount = static_cast<uint32_t>(back_buffer_size);
             alloc_info.pSetLayouts = layouts.data();
 
+            /*
+            * TODO create descriptor set not just per back buffers.
+            * In meta data create an abstraction where it is possible to share
+            * Descriptor sets between different techniques.
+            * Also make more general the global UBO and other buffers. Like having an update frequency flag
+            * PerObject, PerTechnique, PerFrame, Constant
+            *
+            * It can be a ShaderResource. And this can be created based on the meta data.
+            * Technique is created with these ShaderResources.
+            * See more about binding, update frequency and etc here:
+            * https://developer.nvidia.com/vulkan-shader-resource-binding
+            */
             std::vector<VkDescriptorSet> descriptor_sets;
             descriptor_sets.resize(back_buffer_size);
             if (vkAllocateDescriptorSets(gpu_resource_manager.getLogicalDevice(), &alloc_info, descriptor_sets.data()) != VK_SUCCESS)
@@ -208,6 +257,27 @@ namespace RenderEngine
                             writer.pBufferInfo = &buffer_info_holder.back();
 
                             descriptor_writers.emplace_back(std::move(writer));
+                        },
+                        [&](const Shader::MetaData::InputAttachment& input_attachment)
+                        {
+                            back_buffer[i].texture = &buffer_meta_data.texture_views[i]->getTexture();
+                            {
+                                VkDescriptorImageInfo image_info{};
+                                image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                                image_info.imageView = buffer_meta_data.texture_views[i]->getImageView();
+                                image_info.sampler = buffer_meta_data.texture_views[i]->getSamler();
+                                image_info_holder.push_back(image_info);
+                            }
+                            VkWriteDescriptorSet writer{};
+                            writer.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                            writer.dstSet = descriptor_sets[i];
+                            writer.dstBinding = buffer_meta_data.binding;
+                            writer.dstArrayElement = 0;
+                            writer.descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+                            writer.descriptorCount = 1;
+                            writer.pImageInfo = &image_info_holder.back();
+
+                            descriptor_writers.emplace_back(std::move(writer));
                         }
                                }, buffer_meta_data.data);
                 }
@@ -227,8 +297,8 @@ namespace RenderEngine
     }
 
 
-    Material::Material(Shader verted_shader,
-                       Shader fragment_shader,
+    Material::Material(std::unique_ptr<Shader> verted_shader,
+                       std::unique_ptr<Shader> fragment_shader,
                        CallbackContainer callbacks,
                        uint32_t id)
         : _vertex_shader(std::move(verted_shader))
@@ -244,16 +314,18 @@ namespace RenderEngine
 
     bool Material::checkPushConstantsConsistency() const
     {
-        if (_vertex_shader.getMetaData().push_constants.has_value()
-            && _fragment_shader.getMetaData().push_constants.has_value())
+        if (_vertex_shader->getMetaData().push_constants.has_value()
+            && _fragment_shader->getMetaData().push_constants.has_value())
         {
-            return _vertex_shader.getMetaData().push_constants->size == _fragment_shader.getMetaData().push_constants->size;
+            return _vertex_shader->getMetaData().push_constants->size == _fragment_shader->getMetaData().push_constants->size;
         }
         return true;
     }
 
     std::unique_ptr<Technique> MaterialInstance::createTechnique(GpuResourceManager& gpu_resource_manager,
-                                                                 VkRenderPass render_pass) const
+                                                                 TextureBindingData&& subpass_textures,
+                                                                 VkRenderPass render_pass,
+                                                                 uint32_t corresponding_subpass) const
     {
         const Shader& vertex_shader = _material.getVertexShader();
         const Shader& fragment_shader = _material.getFragmentShader();
@@ -266,19 +338,25 @@ namespace RenderEngine
         {
             binding_map.assignTexture(texture_views, binding);
         }
-
+        auto subpass_texture_views = subpass_textures.createTextureViews(gpu_resource_manager.getBackBufferSize());
+        for (auto& [binding, texture_views] : subpass_texture_views)
+        {
+            binding_map.assignTextureToInputAttachment(texture_views, binding);
+        }
         auto&& [bindings, layout] = createUniformBindings(gpu_resource_manager, binding_map);
 
         return std::make_unique<Technique>(gpu_resource_manager.getLogicalDevice(),
                                            this,
+                                           std::move(subpass_textures),
                                            std::move(bindings),
                                            layout,
-                                           render_pass);
+                                           render_pass,
+                                           corresponding_subpass);
     }
 
-    std::unordered_map<int32_t, std::vector<TextureView*>> MaterialInstance::TextureBindingData::createTextureViews(int32_t back_buffer_size) const
+    std::unordered_map<int32_t, std::vector<ITextureView*>> MaterialInstance::TextureBindingData::createTextureViews(int32_t back_buffer_size) const
     {
-        std::unordered_map<int32_t, std::vector<TextureView*>> result;
+        std::unordered_map<int32_t, std::vector<ITextureView*>> result;
         assert(_general_texture_bindings.empty() || _back_buffered_texture_bindings.empty()
                && "Textures are assigned per frame buffers or general. Mixture is not allowed");
         for (auto& [binding, texture_view] : _general_texture_bindings)
@@ -291,5 +369,27 @@ namespace RenderEngine
                                    [](auto& ptr) { return ptr.get(); });
         }
         return result;
+    }
+
+    MaterialInstance::TextureBindingData MaterialInstance::cloneBindings() const
+    {
+        return _texture_bindings.clone();
+    }
+
+    MaterialInstance::TextureBindingData MaterialInstance::TextureBindingData::clone() const
+    {
+        TextureBindingData clone;
+        for (auto& [binding, texture_view] : _general_texture_bindings)
+        {
+            clone._general_texture_bindings[binding] = texture_view->clone();
+        }
+        for (auto& [binding, texture_views] : _back_buffered_texture_bindings)
+        {
+            for (const auto& texture_view : texture_views)
+            {
+                clone._back_buffered_texture_bindings[binding].push_back(texture_view->clone());
+            }
+        }
+        return clone;
     }
 }

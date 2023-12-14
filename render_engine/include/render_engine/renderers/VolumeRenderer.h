@@ -4,6 +4,7 @@
 #include <render_engine/assets/VolumetricObject.h>
 #include <render_engine/renderers/ForwardRenderer.h>
 #include <render_engine/renderers/SingleColorOutputRenderer.h>
+#include <render_engine/resources/RenderTarget.h>
 #include <render_engine/resources/Texture.h>
 
 namespace RenderEngine
@@ -11,10 +12,12 @@ namespace RenderEngine
     class VolumeRenderer : public SingleColorOutputRenderer
     {
     public:
-        VolumeRenderer(IWindow& parent,
+        static constexpr uint32_t kRendererId = 4u;
+
+        VolumeRenderer(IWindow& window,
                        const RenderTarget& render_target,
                        bool last_renderer);
-        ~VolumeRenderer() override;
+        ~VolumeRenderer() override = default;
         void onFrameBegin(uint32_t image_index) override;
         void addVolumeObject(const VolumetricObjectInstance* mesh_instance);
         void draw(uint32_t swap_chain_image_index) override;
@@ -23,33 +26,48 @@ namespace RenderEngine
             return {};
         }
     private:
+        struct MeshBuffers
+        {
+            std::unique_ptr<Buffer> vertex_buffer;
+            std::unique_ptr<Buffer> index_buffer;
+            std::unique_ptr<Buffer> color_buffer;
+            std::unique_ptr<Buffer> normal_buffer;
+            std::unique_ptr<Buffer> texture_buffer;
+        };
         struct FrameBufferData
         {
-            std::vector<std::unique_ptr<Texture>> back_buffer_textures;
-            std::vector<std::unique_ptr<TextureView>> back_buffer_views;
-            std::unique_ptr<RenderTarget> render_target;
-
+            std::vector<std::unique_ptr<Texture>> textures_per_back_buffer;
+            std::vector<std::unique_ptr<TextureView>> texture_views_per_back_buffer;
         };
-        struct RenderPassData
+        struct TechniqueData
         {
-            std::unique_ptr<ForwardRenderer> renderer;
-            FrameBufferData frame_buffer;
-            std::unique_ptr<Material> material;
-            std::unique_ptr<MaterialInstance> material_instance;
-            std::unique_ptr<MeshInstance> cube_mesh_instance;
-            std::unique_ptr<Mesh> cube_mesh;
+            std::vector<std::unique_ptr<Material>> subpass_materials;
+            std::vector<std::unique_ptr<MaterialInstance>> subpass_material_instance;
+            std::unique_ptr<Technique> front_face_technique;
+            std::unique_ptr<Technique> back_face_technique;
+            std::unique_ptr<Technique> volume_technique;
         };
-        struct DrawData
+        struct MeshGroup
         {
-            RenderPassData _front_face_pass;
-            RenderPassData _back_face_pass;
-            const VolumetricObjectInstance* mesh_instances{ nullptr };
+            TechniqueData technique_data;
+            std::vector<const VolumetricObjectInstance*> meshes;
         };
 
-        static RenderPassData createPrePass(bool render_front_face);
-        static FrameBufferData createFrameBufferData(uint32_t back_buffer_count);
+        void initializeFrameBuffers(uint32_t back_buffer_count, const Image& ethalon_image);
+        void initializeFrameBufferData(uint32_t back_buffer_count, const Image& ethalon_image, FrameBufferData* frame_buffer_data);
+        TechniqueData createTechniqueDataFor(const VolumetricObjectInstance& mesh);
+        std::vector<AttachmentInfo> reinitializeAttachments(const RenderTarget& render_target) override final;
+        std::vector<AttachmentInfo> createFrameBuffersAndAttachments(const RenderTarget& render_target);
+        void resetResourceStatesOf(Technique& technique, uint32_t image_index);
+        void drawWithTechnique(Technique& technique,
+                               const std::vector<const VolumetricObjectInstance*>& meshes,
+                               FrameData& frame_data, uint32_t swap_chain_image_index);
 
-        std::vector<DrawData> _meshes;
-        std::unique_ptr<ForwardRenderer> _volume_renderer;
+        RenderTarget _render_target;
+        std::vector<MeshGroup> _meshes;
+        FrameBufferData _front_face_frame_buffer;
+        FrameBufferData _back_face_frame_buffer;
+        std::map<const Mesh*, MeshBuffers> _mesh_buffers;
+
     };
 }

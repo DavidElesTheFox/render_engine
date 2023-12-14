@@ -17,6 +17,10 @@ src/OffScreenTestApplication.h
 src/OffScreenTestApplication.cpp
 src/DemoSceneBuilder.h
 src/DemoSceneBuilder.cpp
+src/WindowSetup.h
+src/WindowSetup.cpp 
+src/VolumeRendererDemo.h
+src/VolmeRendererDemo.cpp
 )
 
 set(RENDERING_SYSTEM_DEMO_SCENE_FILE
@@ -34,7 +38,8 @@ src/scene/SceneNodeLookup.h
 src/scene/SceneNodeLookup.cpp
 src/scene/SceneRenderManager.h
 src/scene/SceneRenderManager.cpp
-)
+src/scene/VolumeObject.h
+src/scene/VolumeObject.cpp)
 
 set(RENDERING_SYSTEM_DEMO_ASSETS_FILE
 src/assets/IMaterial.h
@@ -44,7 +49,8 @@ src/assets/NoLitMaterial.cpp
 src/assets/NoLitMaterial.h
 src/assets/BillboardMaterial.h
 src/assets/BillboardMaterial.cpp
-)
+src/assets/CtVolumeMaterial.h 
+src/assets/CtVolumeMaterial.cpp)
 
 set(RENDERING_SYSTEM_DEMO_UI_FILE
 src/ui/AssetBrowserUi.h
@@ -83,6 +89,8 @@ resources/shaders/nolit.vert
 resources/shaders/nolit.frag
 resources/shaders/billboard.vert
 resources/shaders/billboard.frag
+resources/shaders/ct_volume.vert
+resources/shaders/ct_volume.frag
 )
 
 add_custom_target(Shaders 

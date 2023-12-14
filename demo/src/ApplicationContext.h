@@ -2,9 +2,9 @@
 
 #include <GLFW/glfw3.h>
 
-#include <scene/Scene.h>
-
 #include <chrono>
+#include <render_engine/RenderContext.h>
+#include <scene/Scene.h>
 #include <set>
 
 class ApplicationContext
@@ -16,7 +16,15 @@ private:
     class IdGenerator
     {
     public:
-        uint32_t generateId() { assert(next_id + 1 != 0 && "Overflow detected"); return next_id++; };
+        uint32_t generateId()
+        {
+            if (next_id >= RenderEngine::RenderContext::kEngineReservedIdStart)
+            {
+                throw std::runtime_error("No more object has place in the application");
+            }
+            assert(next_id + 1 != 0 && "Overflow detected");
+            return next_id++;
+        };
     private:
         uint32_t next_id{ 0 };
     };

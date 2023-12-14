@@ -4,6 +4,7 @@
 #include "DemoApplication.h"
 #include "MultiWindowApplication.h"
 #include "OffScreenTestApplication.h"
+#include "VolumeRendererDemo.h"
 
 void runMultiWindowApplication()
 {
@@ -24,12 +25,18 @@ void runOffScreenApplication()
     application.init();
     application.run();
 }
+void runVolumeRendererDemo()
+{
+    VolumeRendererDemo application;
+    application.init();
+    application.run();
+}
 
 int main()
 {
     try
     {
-        runDemoApplication();
+        runVolumeRendererDemo();
         RenderEngine::RenderContext::context().reset();
         return 0;
     }

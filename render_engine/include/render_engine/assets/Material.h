@@ -42,13 +42,13 @@ namespace RenderEngine
             RasterizationInfo&& setFrontFace(VkFrontFace value)&& { front_face = value; return std::move(*this); }
             RasterizationInfo&& setCullMode(VkCullModeFlags value)&& { cull_mode = value; return std::move(*this); }
         };
-        Material(Shader verted_shader,
-                 Shader fragment_shader,
+        Material(std::unique_ptr<Shader> verted_shader,
+                 std::unique_ptr<Shader> fragment_shader,
                  CallbackContainer callbacks,
                  uint32_t id);
         virtual ~Material() = default;
-        const Shader& getVertexShader() const { return _vertex_shader; }
-        const Shader& getFragmentShader() const { return _fragment_shader; }
+        const Shader& getVertexShader() const { return *_vertex_shader; }
+        const Shader& getFragmentShader() const { return *_fragment_shader; }
 
         uint32_t getId() const { return _id; }
 
@@ -60,13 +60,13 @@ namespace RenderEngine
         std::unordered_map<VkShaderStageFlags, Shader::MetaData::PushConstants> getPushConstantsMetaData() const
         {
             std::unordered_map<VkShaderStageFlags, Shader::MetaData::PushConstants> result;
-            if (_vertex_shader.getMetaData().push_constants != std::nullopt)
+            if (const auto& push_constants = _vertex_shader->getMetaData().push_constants; push_constants != std::nullopt)
             {
-                result.insert({ VK_SHADER_STAGE_VERTEX_BIT | _vertex_shader.getMetaData().push_constants->shared_with,*_vertex_shader.getMetaData().push_constants });
+                result.insert({ VK_SHADER_STAGE_VERTEX_BIT | push_constants->shared_with, *push_constants });
             }
-            if (_fragment_shader.getMetaData().push_constants != std::nullopt)
+            if (const auto& push_constants = _fragment_shader->getMetaData().push_constants; push_constants != std::nullopt)
             {
-                result.insert({ VK_SHADER_STAGE_FRAGMENT_BIT | _fragment_shader.getMetaData().push_constants->shared_with, *_fragment_shader.getMetaData().push_constants });
+                result.insert({ VK_SHADER_STAGE_FRAGMENT_BIT | push_constants->shared_with, *push_constants });
             }
             return result;
         }
@@ -76,8 +76,8 @@ namespace RenderEngine
 
         bool checkPushConstantsConsistency() const;
 
-        Shader _vertex_shader;
-        Shader _fragment_shader;
+        std::unique_ptr<Shader> _vertex_shader;
+        std::unique_ptr<Shader> _fragment_shader;
         uint32_t _id;
         CallbackContainer _callbacks;
         RasterizationInfo _rasterization_info{};
@@ -97,18 +97,19 @@ namespace RenderEngine
         {
         public:
             TextureBindingData() = default;
-            explicit TextureBindingData(std::unordered_map<int32_t, std::unique_ptr<TextureView>> general_bindings)
+            explicit TextureBindingData(std::unordered_map<int32_t, std::unique_ptr<ITextureView>> general_bindings)
                 : _general_texture_bindings(std::move(general_bindings))
             {}
-            explicit TextureBindingData(std::unordered_map<int32_t, std::vector<std::unique_ptr<TextureView>>> back_buffered_bindings)
+            explicit TextureBindingData(std::unordered_map<int32_t, std::vector<std::unique_ptr<ITextureView>>> back_buffered_bindings)
                 : _back_buffered_texture_bindings(std::move(back_buffered_bindings))
             {}
 
-            std::unordered_map<int32_t, std::vector<TextureView*>> createTextureViews(int32_t back_buffer_size) const;
+            std::unordered_map<int32_t, std::vector<ITextureView*>> createTextureViews(int32_t back_buffer_size) const;
 
+            TextureBindingData clone() const;
         private:
-            std::unordered_map<int32_t, std::unique_ptr<TextureView>> _general_texture_bindings;
-            std::unordered_map<int32_t, std::vector<std::unique_ptr<TextureView>>> _back_buffered_texture_bindings;
+            std::unordered_map<int32_t, std::unique_ptr<ITextureView>> _general_texture_bindings;
+            std::unordered_map<int32_t, std::vector<std::unique_ptr<ITextureView>>> _back_buffered_texture_bindings;
         };
 
         MaterialInstance(Material& material,
@@ -124,7 +125,9 @@ namespace RenderEngine
         virtual ~MaterialInstance() = default;
 
         std::unique_ptr<Technique> createTechnique(GpuResourceManager& gpu_resource_manager,
-                                                   VkRenderPass render_pass) const;
+                                                   TextureBindingData&& subpass_textures,
+                                                   VkRenderPass render_pass,
+                                                   uint32_t corresponding_subpass) const;
 
         void updateGlobalUniformBuffer(std::vector<UniformBinding>& ubo_container, uint32_t frame_number) const
         {
@@ -142,8 +145,10 @@ namespace RenderEngine
         uint32_t getId() const { return _id; }
 
         const Material& getMaterial() const { return _material; }
+    protected:
+        TextureBindingData cloneBindings() const;
+        const CallbackContainer& getCallbackContainer() const { return _callbacks; }
     private:
-
         Material& _material;
         TextureBindingData _texture_bindings;
         CallbackContainer _callbacks;

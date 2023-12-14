@@ -2,6 +2,7 @@
 
 #include <volk.h>
 
+#include <render_engine/RenderContext.h>
 #include <render_engine/resources/RenderTarget.h>
 #include <render_engine/resources/Technique.h>
 
@@ -207,7 +208,7 @@ namespace RenderEngine
         initializeRendererOutput(render_target, render_pass, window.getRenderEngine().getGpuResourceManager().getBackBufferSize());
 
         auto& transfare_engine = window.getTransferEngine();
-        TextureFactory texture_factory(window.getTransferEngine(),
+        TextureFactory texture_factory(transfare_engine,
                                        { transfare_engine.getQueueFamilyIndex(), window.getRenderEngine().getQueueFamilyIndex() },
                                        window.getDevice().getPhysicalDevice(),
                                        window.getDevice().getLogicalDevice());
@@ -222,10 +223,10 @@ namespace RenderEngine
         }
         {
             Shader::MetaData fragment_metadata{ .samplers = {{0, {.binding = 0 }}} };
-            Shader::MetaData vertex_metadata{ };
-            Shader vertex_shader(std::span(vertex_shader_code), vertex_metadata);
-            Shader fragment_shader(std::span(fragment_shader_code), fragment_metadata);
-            const uint32_t material_id = 10321451;
+            Shader::MetaData vertex_metadata{ }; // no attachments. Does not need any input just glVertexId
+            auto vertex_shader = std::make_unique<Shader>(std::span(vertex_shader_code), vertex_metadata);
+            auto fragment_shader = std::make_unique<Shader>(std::span(fragment_shader_code), fragment_metadata);
+            const uint32_t material_id = RenderContext::context().generateId();
             _fullscreen_material = std::make_unique<Material>(std::move(vertex_shader),
                                                               std::move(fragment_shader),
                                                               Material::CallbackContainer{},
@@ -239,15 +240,16 @@ namespace RenderEngine
             sampler_data.sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
             sampler_data.unnormalize_coordinate = false;
 
-            std::unordered_map<int32_t, std::vector<std::unique_ptr<TextureView>>> texture_bindings;
 
+            std::unordered_map<int32_t, std::vector<std::unique_ptr<ITextureView>>> texture_bindings;
+            const int32_t input_binding = 0;
             for (uint32_t i = 0; i < back_buffer_size; ++i)
             {
-                texture_bindings[0].push_back(std::make_unique<TextureView>(*_texture_container[i],
-                                                                            _texture_container[i]->createImageView({}),
-                                                                            _texture_container[i]->createSampler(sampler_data),
-                                                                            getWindow().getDevice().getPhysicalDevice(),
-                                                                            getLogicalDevice()));
+                texture_bindings[input_binding].push_back(std::make_unique<TextureView>(*_texture_container[i],
+                                                                                        _texture_container[i]->createImageView({}),
+                                                                                        _texture_container[i]->createSampler(sampler_data),
+                                                                                        getWindow().getDevice().getPhysicalDevice(),
+                                                                                        getLogicalDevice()));
             }
 
 
@@ -257,9 +259,9 @@ namespace RenderEngine
                                                                     material_id);
 
             _technique = _material_instance->createTechnique(getWindow().getRenderEngine().getGpuResourceManager(),
-                                                             getRenderPass());
-
-
+                                                             {},
+                                                             getRenderPass(),
+                                                             0);
         }
     }
     catch (const std::exception&)
@@ -433,6 +435,7 @@ namespace RenderEngine
                                         descriptor_sets.data(), 0, nullptr);
             }
 
+            // Draw nothing just 3 'empty' vertexes trick is in the vertex shader
             vkCmdDraw(frame_data.command_buffer, 3, 1, 0, 0);
             vkCmdEndRenderPass(frame_data.command_buffer);
 

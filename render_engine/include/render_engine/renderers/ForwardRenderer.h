@@ -34,7 +34,7 @@ namespace RenderEngine
         };
     public:
         static constexpr uint32_t kRendererId = 2u;
-        ForwardRenderer(IWindow& parent,
+        ForwardRenderer(IWindow& window,
                         const RenderTarget& render_target,
                         bool last_renderer);
         ~ForwardRenderer() override;
@@ -46,6 +46,8 @@ namespace RenderEngine
             return {};
         }
     private:
+        std::vector<AttachmentInfo> reinitializeAttachments(const RenderTarget& render_target) override final { return {}; }
+
         std::vector<MeshGroup> _meshes;
         std::map<const Mesh*, MeshBuffers> _mesh_buffers;
 

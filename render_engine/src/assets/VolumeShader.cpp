@@ -15,17 +15,13 @@ namespace RenderEngine
     VolumeShader::MetaDataExtension VolumeShader::MetaDataExtension::createForFragmentShader()
     {
         MetaDataExtension extension;
-        extension._meta_data.samplers[kBackFaceTextureBinding] = Sampler{ .binding = kBackFaceTextureBinding };
-        extension._meta_data.samplers[kFrontFaceTextureBinding] = Sampler{ .binding = kFrontFaceTextureBinding };
+        extension._meta_data.input_attachments[kFrontFaceTextureBinding] = InputAttachment{ .binding = kFrontFaceTextureBinding };
+        extension._meta_data.input_attachments[kBackFaceTextureBinding] = InputAttachment{ .binding = kBackFaceTextureBinding };
         return extension;
 
     }
     void VolumeShader::MetaDataExtension::addSampler(uint32_t binding, Sampler sampler)
     {
-        if (binding == kFrontFaceTextureBinding || binding == kBackFaceTextureBinding)
-        {
-            throw std::runtime_error("Cannot override reserved bindings.");
-        }
         _meta_data.samplers[binding] = std::move(sampler);
     }
 }

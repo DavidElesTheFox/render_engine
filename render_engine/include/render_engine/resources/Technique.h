@@ -17,9 +17,11 @@ namespace RenderEngine
 
         Technique(VkDevice logical_device,
                   const MaterialInstance* material,
+                  MaterialInstance::TextureBindingData&& subpass_textures,
                   std::vector<UniformBinding>&& uniform_buffers,
                   VkDescriptorSetLayout uniforms_layout,
-                  VkRenderPass render_pass);
+                  VkRenderPass render_pass,
+                  uint32_t corresponding_subpass);
         ~Technique();
         const MaterialInstance& getMaterialInstance() const { return *_material_instance; }
         VkPipeline getPipeline()
@@ -32,12 +34,12 @@ namespace RenderEngine
         }
         std::vector<VkDescriptorSet> collectDescriptorSets(size_t frame_number)
         {
-            std::vector<VkDescriptorSet> result;
+            std::set<VkDescriptorSet> result;
             for (UniformBinding& binding : _uniform_buffers)
             {
-                result.push_back(binding.getDescriptorSet(frame_number));
+                result.insert(binding.getDescriptorSet(frame_number));
             }
-            return result;
+            return std::vector<VkDescriptorSet>{ result.begin(), result.end() };
         }
         VkDescriptorSetLayout getDescriptorSetLayout() const { return _uniforms_layout; }
         PushConstantsUpdater createPushConstantsUpdater(VkCommandBuffer command_buffer)
@@ -62,10 +64,12 @@ namespace RenderEngine
 
         const MaterialInstance* _material_instance{ nullptr };
 
+        MaterialInstance::TextureBindingData _subpass_textures;
         std::vector<UniformBinding> _uniform_buffers;
         VkDevice _logical_device;
         VkPipeline _pipeline{ VK_NULL_HANDLE };
         VkPipelineLayout _pipeline_layout{ VK_NULL_HANDLE };
         VkDescriptorSetLayout _uniforms_layout{ VK_NULL_HANDLE };
+        uint32_t _corresponding_subpass{ 0 };
     };
 }

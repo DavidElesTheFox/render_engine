@@ -43,10 +43,16 @@ namespace RenderEngine
                 int32_t binding{ -1 };
             };
 
+            struct InputAttachment
+            {
+                int32_t binding{ -1 };
+            };
+
             uint32_t attributes_stride{ 0 };
             std::vector<Attribute> input_attributes;
             std::unordered_map<int32_t, UniformBuffer> global_uniform_buffers;
             std::unordered_map<int32_t, Sampler> samplers;
+            std::unordered_map<int32_t, InputAttachment> input_attachments;
             std::optional<PushConstants> push_constants{ std::nullopt };
 
         };

@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <render_engine/resources/Buffer.h>
+#include <render_engine/resources/Texture.h>
 
 namespace RenderEngine
 {
@@ -27,13 +28,20 @@ namespace RenderEngine
         {
             VkCommandBuffer command_buffer;
         };
+        struct AttachmentInfo
+        {
+            std::vector<ITextureView*> attachments;
+        };
         virtual bool skipDrawCall(uint32_t image_index) const { return false; }
         void initializeRendererOutput(const RenderTarget& render_target,
                                       VkRenderPass render_pass,
-                                      size_t back_buffer_size);
+                                      size_t back_buffer_size,
+                                      const std::vector<AttachmentInfo>& render_pass_attachments = {});
         void destroyRenderOutput();
         IWindow& getWindow() { return _window; }
-        VkDevice getLogicalDevice() { return _window.getDevice().getLogicalDevice(); }
+        const IWindow& getWindow() const { return _window; }
+        VkDevice getLogicalDevice() const { return _window.getDevice().getLogicalDevice(); }
+        VkPhysicalDevice getPhysicalDevice() const { return _window.getDevice().getPhysicalDevice(); }
         FrameData& getFrameData(uint32_t image_index)
         {
             return _back_buffer[image_index];
@@ -42,12 +50,14 @@ namespace RenderEngine
         VkFramebuffer getFrameBuffer(uint32_t swap_chain_image_index) { return _frame_buffers[swap_chain_image_index]; }
         const VkRect2D& getRenderArea() const { return _render_area; }
     private:
-        void createFrameBuffers(const RenderTarget&);
-        bool createFrameBuffer(const RenderTarget& render_target, uint32_t frame_buffer_index);
+        void createFrameBuffers(const RenderTarget&, const std::vector<AttachmentInfo>& render_pass_attachments);
+        bool createFrameBuffer(const RenderTarget& render_target, uint32_t frame_buffer_index, const AttachmentInfo& render_pass_attachments);
         void createCommandBuffer();
         void resetFrameBuffers();
         void beforeReinit() override final;
         void finalizeReinit(const RenderTarget& render_target) override final;
+
+        virtual std::vector<AttachmentInfo> reinitializeAttachments(const RenderTarget& render_target) = 0;
 
         IWindow& _window;
         std::vector<VkFramebuffer> _frame_buffers;

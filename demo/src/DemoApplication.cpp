@@ -121,11 +121,11 @@ void DemoApplication::createWindowSetup()
 
     if constexpr (use_offscreen_rendering)
     {
-        _window_setup = std::make_unique<OffScreenWindowSetup>();
+        _window_setup = std::make_unique<OffScreenWindowSetup>(std::vector{ ForwardRenderer::kRendererId });
     }
     else
     {
-        _window_setup = std::make_unique<SingleWindowSetup>();
+        _window_setup = std::make_unique<SingleWindowSetup>(std::vector{ ForwardRenderer::kRendererId });
     }
     _window_setup->getUiWindow().getRendererAs<UIRenderer>(UIRenderer::kRendererId).setOnGui(
         [&]
@@ -135,22 +135,4 @@ void DemoApplication::createWindowSetup()
 
 }
 
-DemoApplication::SingleWindowSetup::SingleWindowSetup()
-{
-    using namespace RenderEngine;
 
-    _window = RenderContext::context().getDevice(0).createWindow("Demo window", 2);
-    _window->registerRenderers({ ForwardRenderer::kRendererId, UIRenderer::kRendererId });
-}
-
-DemoApplication::OffScreenWindowSetup::OffScreenWindowSetup()
-{
-    using namespace RenderEngine;
-    {
-        auto graphics_window = RenderContext::context().getDevice(0).createOffScreenWindow("Demo window (render)", 2);
-        auto ui_window = RenderContext::context().getDevice(0).createWindow("Demo window", 2);
-        _window_tunnel = std::make_unique<WindowTunnel>(std::move(graphics_window), std::move(ui_window));
-    }
-    _window_tunnel->getOriginWindow().registerRenderers({ ForwardRenderer::kRendererId });
-    _window_tunnel->getDestinationWindow().registerRenderers({ ImageStreamRenderer::kRendererId, UIRenderer::kRendererId });
-}

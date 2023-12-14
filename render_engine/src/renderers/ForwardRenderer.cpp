@@ -72,7 +72,6 @@ namespace RenderEngine
     {
         const auto* mesh = mesh_instance->getMesh();
         const auto& material = mesh->getMaterial();
-        const uint32_t material_id = material.getId();
         const uint32_t material_instance_id = mesh_instance->getMaterialInstance()->getId();
         const Geometry& geometry = mesh->getGeometry();
 
@@ -109,7 +108,9 @@ namespace RenderEngine
         {
             MeshGroup mesh_group;
             mesh_group.technique = mesh_instance->getMaterialInstance()->createTechnique(gpu_resource_manager,
-                                                                                         getRenderPass());
+                                                                                         {},
+                                                                                         getRenderPass(),
+                                                                                         0);
             mesh_group.mesh_instances.push_back(mesh_instance);
             _meshes.push_back(std::move(mesh_group));
         }

@@ -19,7 +19,7 @@ namespace RenderEngine
                 left_top_corner + right,
                 left_top_corner + right + down,
                 left_top_corner + down,
-                left_top_corner,
+                left_top_corner + back,
                 left_top_corner + back + right,
                 left_top_corner + back + right + down,
                 left_top_corner + back + down,

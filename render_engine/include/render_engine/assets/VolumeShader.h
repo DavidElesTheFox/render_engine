@@ -16,6 +16,7 @@ namespace RenderEngine
             using UniformBuffer = MetaData::UniformBuffer;
             using Sampler = MetaData::Sampler;
             using PushConstants = MetaData::PushConstants;
+            using InputAttachment = MetaData::InputAttachment;
 
             static constexpr uint32_t kFrontFaceTextureBinding = 0;
             static constexpr uint32_t kBackFaceTextureBinding = 1;

@@ -31,11 +31,11 @@ namespace Assets
         Shader::MetaData nolit_frament_meta_data;
         nolit_frament_meta_data.push_constants = Shader::MetaData::PushConstants{ .size = sizeof(FragmentPushConstants), .offset = sizeof(VertexPushConstants) };
         std::filesystem::path base_path = SHADER_BASE;
-        Shader nolit_vertex_shader(base_path / "nolit.vert.spv", nolit_vertex_meta_data);
-        Shader nolit_fretment_shader(base_path / "nolit.frag.spv", nolit_frament_meta_data);
+        auto nolit_vertex_shader = std::make_unique<Shader>(base_path / "nolit.vert.spv", nolit_vertex_meta_data);
+        auto nolit_fretment_shader = std::make_unique<Shader>(base_path / "nolit.frag.spv", nolit_frament_meta_data);
 
-        _material = std::make_unique<Material>(nolit_vertex_shader,
-                                               nolit_fretment_shader,
+        _material = std::make_unique<Material>(std::move(nolit_vertex_shader),
+                                               std::move(nolit_fretment_shader),
                                                Material::CallbackContainer{
                                                    .create_vertex_buffer = [](const Geometry& geometry, const Material& material)
                                                    {

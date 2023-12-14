@@ -86,9 +86,20 @@ namespace RenderEngine
         ResourceStateMachine::TextureState _texture_state;
     };
 
-    class TextureView
+    class ITextureView
     {
     public:
+        virtual ~ITextureView() = default;
+        virtual Texture& getTexture() = 0;
+        virtual VkImageView getImageView() = 0;
+        virtual VkSampler getSamler() = 0;
+        virtual std::unique_ptr<ITextureView> clone() const = 0;
+    };
+    class TextureView : public ITextureView
+    {
+    public:
+        friend class TextureViewReference;
+
         TextureView(Texture& texture,
                     VkImageView image_view,
                     VkSampler sampler,
@@ -99,21 +110,83 @@ namespace RenderEngine
             , _sampler(sampler)
             , _logical_device(logical_device)
         {}
-        ~TextureView()
+        ~TextureView() override
         {
-            vkDestroyImageView(_logical_device, _image_view, nullptr);
-            vkDestroySampler(_logical_device, _sampler, nullptr);
+            if (_logical_device)
+            {
+                vkDestroyImageView(_logical_device, _image_view, nullptr);
+                vkDestroySampler(_logical_device, _sampler, nullptr);
+            }
         }
+        TextureView(TextureView&& o)
+            : _texture(o._texture)
+            , _image_view(std::move(o._image_view))
+            , _sampler(std::move(o._sampler))
+            , _physical_device(std::move(o._physical_device))
+            , _logical_device(std::move(o._logical_device))
+        {
+            o._image_view = VK_NULL_HANDLE;
+            o._sampler = VK_NULL_HANDLE;
+            o._physical_device = VK_NULL_HANDLE;
+            o._logical_device = VK_NULL_HANDLE;
+        }
+        TextureView& operator=(TextureView&&) = delete;
 
-        Texture& getTexture() { return _texture; }
-        VkImageView getImageView() { return _image_view; }
-        VkSampler getSamler() { return _sampler; }
+        TextureView& operator=(const TextureView&) = delete;
+
+        Texture& getTexture() override final { return _texture; }
+        VkImageView getImageView() override final { return _image_view; }
+        VkSampler getSamler() override final { return _sampler; }
+
+        std::unique_ptr<TextureViewReference> createReference();
+
+        std::unique_ptr<ITextureView> clone() const override final
+        {
+            return std::unique_ptr<TextureView>(new TextureView(*this));
+        }
+    protected:
+        TextureView(const TextureView& o) = default;
+
+        void disableObjectDestroy() noexcept
+        {
+            _logical_device = VK_NULL_HANDLE;
+            _physical_device = VK_NULL_HANDLE;
+        }
     private:
+
         Texture& _texture;
         VkImageView _image_view{ VK_NULL_HANDLE };
         VkSampler _sampler{ VK_NULL_HANDLE };
         VkPhysicalDevice _physical_device{ VK_NULL_HANDLE };
         VkDevice _logical_device{ VK_NULL_HANDLE };
+    };
+
+    class TextureViewReference : public ITextureView
+    {
+    public:
+        friend class TextureView;
+        ~TextureViewReference() override
+        {
+            _texture_view.disableObjectDestroy();
+        }
+        TextureViewReference(TextureViewReference&&) = default;
+        TextureViewReference& operator=(TextureViewReference&&) = default;
+
+        TextureViewReference(const TextureViewReference& o) = delete;
+        TextureViewReference& operator=(const TextureViewReference&) = delete;
+
+        Texture& getTexture() override final { return _texture_view.getTexture(); }
+        VkImageView getImageView() override final { return _texture_view.getImageView(); }
+        VkSampler getSamler() override final { return _texture_view.getSamler(); }
+        std::unique_ptr<ITextureView> clone() const override final
+        {
+            return std::unique_ptr<TextureViewReference>(new TextureViewReference(_texture_view));
+        }
+    private:
+        TextureViewReference(TextureView texture_view)
+            : _texture_view(std::move(texture_view))
+        {}
+        TextureView _texture_view;
     };
 
     class TextureFactory

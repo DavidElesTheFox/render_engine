@@ -31,7 +31,11 @@ namespace RenderEngine
     class VolumetricObjectInstance : public MeshInstance
     {
     public:
-        VolumetricObjectInstance(VolumetricObject* mesh, VolumeMaterialInstance* material_instance, uint32_t id);
+        VolumetricObjectInstance(VolumetricObject* mesh, VolumeMaterialInstance* material_instance, uint32_t id)
+            : MeshInstance(mesh, material_instance, id)
+        {}
         ~VolumetricObjectInstance() override = default;
+
+        const VolumeMaterialInstance* getVolumeMaterialInstance() const { return static_cast<const VolumeMaterialInstance*>(getMaterialInstance()); }
     };
 }

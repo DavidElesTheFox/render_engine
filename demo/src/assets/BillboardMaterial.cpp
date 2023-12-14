@@ -34,11 +34,11 @@ namespace Assets
 
 
         std::filesystem::path base_path = SHADER_BASE;
-        Shader vertex_shader(base_path / "billboard.vert.spv", vertex_meta_data);
-        Shader fretment_shader(base_path / "billboard.frag.spv", frament_meta_data);
+        auto vertex_shader = std::make_unique<Shader>(base_path / "billboard.vert.spv", vertex_meta_data);
+        auto fretment_shader = std::make_unique<Shader>(base_path / "billboard.frag.spv", frament_meta_data);
 
-        _material = std::make_unique<Material>(vertex_shader,
-                                               fretment_shader,
+        _material = std::make_unique<Material>(std::move(vertex_shader),
+                                               std::move(fretment_shader),
                                                Material::CallbackContainer{
                                                    .create_vertex_buffer = [](const Geometry& geometry, const Material& material)
                                                    {
@@ -63,7 +63,7 @@ namespace Assets
     {
         using namespace RenderEngine;
         std::unique_ptr<Instance> result = std::make_unique<Instance>();
-        std::unordered_map<int32_t, std::unique_ptr<TextureView>> texture_map;
+        std::unordered_map<int32_t, std::unique_ptr<ITextureView>> texture_map;
         texture_map[1] = std::move(texture);
 
         auto global_push_constat_update = [material_constants = &result->_material_constants, scene](PushConstantsUpdater& updater)

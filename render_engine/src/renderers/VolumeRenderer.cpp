@@ -407,7 +407,7 @@ namespace RenderEngine
                                                                                                  VK_IMAGE_ASPECT_COLOR_BIT,
                                                                                                  VK_SHADER_STAGE_FRAGMENT_BIT,
                                                                                                  VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT));
-            auto& texture = _front_face_frame_buffer.textures_per_back_buffer.back();
+            auto& texture = frame_buffer_data->textures_per_back_buffer.back();
             auto texture_view = std::make_unique<TextureView>(*texture,
                                                               texture->createImageView({}),
                                                               texture->createSampler(sampler_data),

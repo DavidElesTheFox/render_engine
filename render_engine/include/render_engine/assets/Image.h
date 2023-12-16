@@ -64,8 +64,8 @@ namespace RenderEngine
         };
 #pragma endregion
 
-        Image(const std::filesystem::path& path);
-        Image(const std::vector<std::filesystem::path>& path_container);
+        explicit Image(const std::filesystem::path& path);
+        explicit Image(const std::vector<std::filesystem::path>& path_container);
         Image(uint32_t width,
               uint32_t height,
               VkFormat format)

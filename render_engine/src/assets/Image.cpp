@@ -76,18 +76,18 @@ namespace RenderEngine
         _depth = path_container.size();
         _data.resize(getSize());
 
-        const auto index_at_3d = [&](uint32_t u, uint32_t v, uint32_t w) { return u + v * _width + w * (_width * _height); };
-        const auto index_at_2d = [&](uint32_t u, uint32_t v) { return u + v * _width; };
-        for (uint32_t w = 0; w < _depth; ++w)
+        const auto index_at_3d = [&](uint32_t u, uint32_t v, uint32_t s) { return 4 * (u + v * _width + s * (_width * _height)); };
+        const auto index_at_2d = [&](uint32_t u, uint32_t v) { return (u + v * _width) * 4; };
+        for (uint32_t s = 0; s < _depth; ++s)
         {
             for (uint32_t v = 0; v < _height; ++v)
             {
                 for (uint32_t u = 0; u < _width; ++u)
                 {
-                    _data[index_at_3d(u, v, w)] = loaded_images[w].pixels[index_at_2d(u, v)];
-                    _data[index_at_3d(u, v, w) + 1] = loaded_images[w].pixels[index_at_2d(u, v)] + 1;
-                    _data[index_at_3d(u, v, w) + 2] = loaded_images[w].pixels[index_at_2d(u, v)] + 2;
-                    _data[index_at_3d(u, v, w) + 3] = loaded_images[w].pixels[index_at_2d(u, v)] + 3;
+                    _data[index_at_3d(u, v, s)] = loaded_images[s].pixels[index_at_2d(u, v)];
+                    _data[index_at_3d(u, v, s) + 1] = loaded_images[s].pixels[index_at_2d(u, v)] + 1;
+                    _data[index_at_3d(u, v, s) + 2] = loaded_images[s].pixels[index_at_2d(u, v)] + 2;
+                    _data[index_at_3d(u, v, s) + 3] = loaded_images[s].pixels[index_at_2d(u, v)] + 3;
                 }
             }
         }

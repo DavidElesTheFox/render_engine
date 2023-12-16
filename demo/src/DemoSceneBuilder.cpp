@@ -188,7 +188,7 @@ namespace
                 auto physical_device = device.getPhysicalDevice();
                 RenderEngine::SynchronizationPrimitives synchronization_primitives =
                     RenderEngine::SynchronizationPrimitives::CreateWithFence(logical_device);
-                RenderEngine::Image image(std::filesystem::path{ IMAGE_BASE } / "statue.jpg");
+                RenderEngine::Image image(std::filesystem::path{ IMAGE_BASE } / "test_img.jpg");
                 auto [texture, transfer_data] = _texture_factory.create(image, VK_IMAGE_ASPECT_COLOR_BIT,
                                                                         VK_SHADER_STAGE_FRAGMENT_BIT,
                                                                         synchronization_primitives,

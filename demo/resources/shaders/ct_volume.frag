@@ -32,5 +32,6 @@ void main() {
         outColor = blendColors(outColor, currentColor);
         stepCount++;
     }
+    // TODO remove this for supporting proper visibility
     outColor.a = 1.0;
 }

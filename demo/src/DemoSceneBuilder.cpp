@@ -311,9 +311,11 @@ namespace
 
     void VolumetricSceneBuilder::createBaseMaterials()
     {
-        _assets.addBaseMaterial(std::make_unique<Assets::CtVolumeMaterial>(ApplicationContext::instance().generateId()));
+        const glm::vec4 bone{ 0.89f, 0.85f, 0.78f, 0.5f };
+        auto ct_material = std::make_unique<Assets::CtVolumeMaterial>(ApplicationContext::instance().generateId());
+        ct_material->addSegmentation({ .threshold = 200, .color = bone });
+        _assets.addBaseMaterial(std::move(ct_material));
     }
-
 
     void VolumetricSceneBuilder::loadScene()
     {
@@ -350,6 +352,7 @@ namespace
         auto& device = RenderEngine::RenderContext::context().getDevice(0);
         auto logical_device = device.getLogicalDevice();
         auto physical_device = device.getPhysicalDevice();
+        auto ct_material = _assets.getBaseMaterial<Assets::CtVolumeMaterial>();
 
         constexpr auto ct_image_count = 86;
         std::filesystem::path ct_base_path{ IMAGE_BASE };
@@ -364,6 +367,9 @@ namespace
         RenderEngine::SynchronizationPrimitives synchronization_primitives =
             RenderEngine::SynchronizationPrimitives::CreateWithFence(logical_device);
         RenderEngine::Image image_3d(ct_image_path_container);
+
+        ct_material->processImage(&image_3d);
+
         auto [texture, transfer_data] = _texture_factory.create(image_3d, VK_IMAGE_ASPECT_COLOR_BIT,
                                                                 VK_SHADER_STAGE_FRAGMENT_BIT,
                                                                 synchronization_primitives,
@@ -372,7 +378,6 @@ namespace
         vkWaitForFences(logical_device, 1, &synchronization_primitives.on_finished_fence, VK_TRUE, UINT64_MAX);
         vkDestroyFence(logical_device, synchronization_primitives.on_finished_fence, nullptr);
 
-        auto ct_material = _assets.getBaseMaterial<Assets::CtVolumeMaterial>();
         _ct_texture = std::move(texture);
         auto image_view = _ct_texture->createImageView({});
         RenderEngine::Texture::SamplerData sampler_data{};
@@ -380,7 +385,7 @@ namespace
         sampler_data.border_color = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
         sampler_data.mag_filter = VK_FILTER_LINEAR;
         sampler_data.min_filter = VK_FILTER_LINEAR;
-        sampler_data.sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        sampler_data.sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
         sampler_data.unnormalize_coordinate = false;
         auto sampler = _ct_texture->createSampler(sampler_data);
 

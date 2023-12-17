@@ -85,9 +85,9 @@ namespace RenderEngine
                 for (uint32_t u = 0; u < _width; ++u)
                 {
                     _data[index_at_3d(u, v, s)] = loaded_images[s].pixels[index_at_2d(u, v)];
-                    _data[index_at_3d(u, v, s) + 1] = loaded_images[s].pixels[index_at_2d(u, v)] + 1;
-                    _data[index_at_3d(u, v, s) + 2] = loaded_images[s].pixels[index_at_2d(u, v)] + 2;
-                    _data[index_at_3d(u, v, s) + 3] = loaded_images[s].pixels[index_at_2d(u, v)] + 3;
+                    _data[index_at_3d(u, v, s) + 1] = loaded_images[s].pixels[index_at_2d(u, v) + 1];
+                    _data[index_at_3d(u, v, s) + 2] = loaded_images[s].pixels[index_at_2d(u, v) + 2];
+                    _data[index_at_3d(u, v, s) + 3] = loaded_images[s].pixels[index_at_2d(u, v) + 3];
                 }
             }
         }

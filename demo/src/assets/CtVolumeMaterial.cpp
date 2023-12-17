@@ -35,6 +35,10 @@ namespace Assets
         _material = std::make_unique<VolumeMaterial>(std::move(vertex_shader),
                                                      std::move(fretment_shader),
                                                      id);
+        _material->setColorBlending(_material->getColorBlending().clone()
+                                    .setEnabled(true));
+        _material->setAlphaBlending(_material->getAlpheBlending().clone()
+                                    .setEnabled(true));
     }
     std::unique_ptr<CtVolumeMaterial::Instance> CtVolumeMaterial::createInstance(std::unique_ptr<RenderEngine::ITextureView> texture_view, Scene::Scene* scene, uint32_t id)
     {
@@ -68,5 +72,46 @@ namespace Assets
                                                                                   .push_constants_updater = push_constant_update },
                                                                                   id);
         return result;
+    }
+    void CtVolumeMaterial::processImage(RenderEngine::Image* image) const
+    {
+        auto segmentation_callback = [&](uint32_t width, uint32_t height, uint32_t depth, RenderEngine::Image::DataAccessor3D& accessor)
+            {
+                for (uint32_t s = 0; s < depth; ++s)
+                {
+                    for (uint32_t v = 0; v < height; ++v)
+                    {
+                        for (uint32_t u = 0; u < width; ++u)
+                        {
+                            glm::vec4 intensity = accessor.getPixel(u, v, s);
+                            glm::vec4 color(0.0f, 0.0f, 0.0f, 0.0f);
+
+                            // skip no gray scale values
+                            if (intensity.r != intensity.g
+                                || intensity.r != intensity.b)
+                            {
+                                accessor.setPixel(u, v, s, color);
+                                continue;
+                            }
+
+                            for (const auto& segmentation : _segmentations)
+                            {
+
+                                if (intensity.r > segmentation.threshold)
+                                {
+                                    color = segmentation.color * 255.0f;
+                                }
+                            }
+                            accessor.setPixel(u, v, s, color);
+                        }
+                    }
+                }
+            };
+        image->processData(RenderEngine::ImageProcessor{ std::move(segmentation_callback) });
+    }
+    void CtVolumeMaterial::addSegmentation(SegmentationData segmentation)
+    {
+        _segmentations.push_back(std::move(segmentation));
+        std::ranges::stable_sort(_segmentations, [](const auto& a, const auto& b) { return a.threshold < b.threshold; });
     }
 }

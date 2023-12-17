@@ -25,6 +25,10 @@ namespace RenderEngine
                                                           std::move(fragment_shader),
                                                           { [](const Geometry& geometry, const Material& material) { return createVertexBuffer(geometry, material); } },
                                                           id));
+            result->setColorBlending(result->getColorBlending().clone()
+                                     .setEnabled(false));
+            result->setAlphaBlending(result->getAlpheBlending().clone()
+                                     .setEnabled(false));
             result->setRasterizationInfo(result->getRasterizationInfo().clone()
                                          .setCullMode(VK_CULL_MODE_BACK_BIT));
             return result;
@@ -37,6 +41,10 @@ namespace RenderEngine
                                                           std::move(fragment_shader),
                                                           { [](const Geometry& geometry, const Material& material) { return createVertexBuffer(geometry, material); } },
                                                           id));
+            result->setColorBlending(result->getColorBlending().clone()
+                                     .setEnabled(false));
+            result->setAlphaBlending(result->getAlpheBlending().clone()
+                                     .setEnabled(false));
             result->setRasterizationInfo(result->getRasterizationInfo().clone()
                                          .setCullMode(VK_CULL_MODE_FRONT_BIT));
             return result;

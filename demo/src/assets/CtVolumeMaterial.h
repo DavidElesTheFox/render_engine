@@ -10,6 +10,8 @@
 #include <assets/IMaterial.h>
 #include <scene/Scene.h>
 
+#include <glm/vec4.hpp>
+
 namespace Assets
 {
 
@@ -30,6 +32,7 @@ namespace Assets
         {
             VertexPushConstants vertex_values;
         };
+
         class Instance : public IInstance
         {
             friend class CtVolumeMaterial;
@@ -43,6 +46,13 @@ namespace Assets
             MaterialPushConstants _material_constants;
             std::unique_ptr<RenderEngine::VolumeMaterialInstance> _material_instance;
         };
+
+        struct SegmentationData
+        {
+            uint8_t threshold{ 0 };
+            glm::vec4 color{ 0.0f };
+        };
+
         static const std::string& GetName()
         {
             static std::string _name = "CtVolume";
@@ -60,7 +70,11 @@ namespace Assets
         {
             return GetName();
         }
+
+        void processImage(RenderEngine::Image* image) const;
+        void addSegmentation(SegmentationData segmentation);
     private:
         std::unique_ptr<RenderEngine::VolumeMaterial> _material;
+        std::vector<SegmentationData> _segmentations;
     };
 }

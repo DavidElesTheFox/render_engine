@@ -120,8 +120,25 @@ namespace RenderEngine
         multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
         VkPipelineColorBlendAttachmentState color_blend_attachment{};
-        color_blend_attachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
         color_blend_attachment.blendEnable = VK_FALSE;
+        color_blend_attachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+
+        if (const auto blending_info = material.getColorBlending(); blending_info.enabled)
+        {
+            color_blend_attachment.colorWriteMask |= VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT;
+            color_blend_attachment.blendEnable = VK_TRUE;
+            color_blend_attachment.srcColorBlendFactor = blending_info.src_factor;
+            color_blend_attachment.dstColorBlendFactor = blending_info.dst_factor;
+            color_blend_attachment.colorBlendOp = blending_info.op;
+        }
+        if (const auto blending_info = material.getAlpheBlending(); blending_info.enabled)
+        {
+            color_blend_attachment.colorWriteMask |= VK_COLOR_COMPONENT_A_BIT;
+            color_blend_attachment.blendEnable = VK_TRUE;
+            color_blend_attachment.srcAlphaBlendFactor = blending_info.src_factor;
+            color_blend_attachment.dstAlphaBlendFactor = blending_info.dst_factor;
+            color_blend_attachment.alphaBlendOp = blending_info.op;
+        }
 
         VkPipelineColorBlendStateCreateInfo color_blending{};
         color_blending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;

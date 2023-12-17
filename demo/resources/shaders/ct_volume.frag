@@ -8,6 +8,12 @@ layout(binding = 2) uniform sampler3D texIntensity;
 layout (input_attachment_index = 0, set = 0, binding = 0) uniform subpassInput texRayStart;
 layout (input_attachment_index = 1, set = 0, binding = 1) uniform subpassInput texRayEnd;
 
+// TODO implement proper blending
+vec4 blendColors(vec4 src, vec4 dst)
+{
+    vec4 result = vec4(dst.rgb * dst.a + (1.0 - dst.a) * src.rgb, dst.a);
+    return result;
+}
 // TODO replace it with push constant
 #define STEP_SIZE 0.01
 #define MAX_STEP 100
@@ -18,12 +24,13 @@ void main() {
     vec3 dir = normalize(rayEnd - rayStart);
     float intensity = 0.0f;
     int stepCount = 0;
+    outColor = vec4(0.0);
     while(stepCount < MAX_STEP)
     {
         p += dir * STEP_SIZE;
-        float current_intensity = texture(texIntensity, p).r;
-        intensity +=min(1.0, step(0.8, current_intensity));
+        vec4 currentColor = texture(texIntensity, p);
+        outColor = blendColors(outColor, currentColor);
         stepCount++;
     }
-    outColor = vec4(intensity, intensity, intensity, 1.0f);
+    outColor.a = 1.0;
 }

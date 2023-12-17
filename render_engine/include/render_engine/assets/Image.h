@@ -6,6 +6,7 @@
 
 #include <render_engine/resources/Buffer.h>
 
+#include <glm/vec4.hpp>
 namespace RenderEngine
 {
     class ImageProcessor;
@@ -17,25 +18,26 @@ namespace RenderEngine
         friend class DataAccessor2D;
         friend class DataAccessor3D;
 
-        struct Pixel
-        {
-            uint8_t r{ 0 };
-            uint8_t g{ 0 };
-            uint8_t b{ 0 };
-            uint8_t a{ 0 };
-        };
+
         class DataAccessor2D
         {
         public:
             friend class Image;
-            Pixel getPixel(uint32_t u, uint32_t v)
+            glm::vec4 getPixel(uint32_t u, uint32_t v)
             {
                 return {
-                    _image._data[u + v * _image._width],
-                    _image._data[u + v * _image._width + 1],
-                    _image._data[u + v * _image._width + 2],
-                    _image._data[u + v * _image._width + 3]
+                    _image._data[(u + v * _image._width) * 4],
+                    _image._data[(u + v * _image._width) * 4 + 1],
+                    _image._data[(u + v * _image._width) * 4 + 2],
+                    _image._data[(u + v * _image._width) * 4 + 3]
                 };
+            }
+            void setPixel(uint32_t u, uint32_t v, uint32_t s, const glm::vec4& data)
+            {
+                _image._data[(u + v * _image._width) * 4] = data.r;
+                _image._data[(u + v * _image._width) * 4 + 1] = data.g;
+                _image._data[(u + v * _image._width) * 4 + 2] = data.b;
+                _image._data[(u + v * _image._width) * 4 + 3] = data.a;
             }
         private:
             explicit DataAccessor2D(Image& image)
@@ -47,14 +49,23 @@ namespace RenderEngine
         {
         public:
             friend class Image;
-            Pixel getPixel(uint32_t u, uint32_t v, uint32_t w)
+            glm::vec4 getPixel(uint32_t u, uint32_t v, uint32_t s)
             {
+                const auto row_index = (u + v * _image._width + s * (_image._width * _image._height)) * 4;
                 return {
-                    _image._data[u + v * _image._width + w * (_image._width + _image._height)],
-                    _image._data[u + v * _image._width + w * (_image._width + _image._height) + 1],
-                    _image._data[u + v * _image._width + w * (_image._width + _image._height) + 2],
-                    _image._data[u + v * _image._width + w * (_image._width + _image._height) + 3]
+                    _image._data[row_index],
+                    _image._data[row_index + 1],
+                    _image._data[row_index + 2],
+                    _image._data[row_index + 3]
                 };
+            }
+            void setPixel(uint32_t u, uint32_t v, uint32_t s, const glm::vec4& data)
+            {
+                const auto row_index = (u + v * _image._width + s * (_image._width * _image._height)) * 4;
+                _image._data[row_index] = data.r;
+                _image._data[row_index + 1] = data.g;
+                _image._data[row_index + 2] = data.b;
+                _image._data[row_index + 3] = data.a;
             }
         private:
             explicit DataAccessor3D(Image& image)
@@ -115,10 +126,10 @@ namespace RenderEngine
     class ImageProcessor
     {
     public:
-        explicit ImageProcessor(std::function<void(uint32_t, uint32_t, Image::DataAccessor2D)> callback)
+        explicit ImageProcessor(std::function<void(uint32_t, uint32_t, Image::DataAccessor2D&)> callback)
             : _2d_callback(std::move(callback))
         {}
-        explicit ImageProcessor(std::function<void(uint32_t, uint32_t, uint32_t, Image::DataAccessor3D)> callback)
+        explicit ImageProcessor(std::function<void(uint32_t, uint32_t, uint32_t, Image::DataAccessor3D&)> callback)
             : _3d_callback(std::move(callback))
         {}
         const std::function<void(uint32_t, uint32_t, Image::DataAccessor2D&)>& get2DCallback() const
@@ -132,7 +143,7 @@ namespace RenderEngine
 
         bool is3DProcessor() const { return _3d_callback != nullptr; }
     private:
-        std::function<void(uint32_t, uint32_t, Image::DataAccessor2D)> _2d_callback{ nullptr };
-        std::function<void(uint32_t, uint32_t, uint32_t, Image::DataAccessor3D)> _3d_callback{ nullptr };
+        std::function<void(uint32_t, uint32_t, Image::DataAccessor2D&)> _2d_callback{ nullptr };
+        std::function<void(uint32_t, uint32_t, uint32_t, Image::DataAccessor3D&)> _3d_callback{ nullptr };
     };
 }

@@ -36,6 +36,7 @@ namespace RenderEngine
             {
                 int32_t binding{ -1 };
                 int32_t size{ -1 };
+                UpdateFrequency update_frequency{ UpdateFrequency::Unknown };
             };
 
             struct PushConstants
@@ -49,6 +50,7 @@ namespace RenderEngine
             struct Sampler
             {
                 int32_t binding{ -1 };
+                UpdateFrequency update_frequency{ UpdateFrequency::Unknown };
             };
 
             struct InputAttachment

@@ -26,7 +26,7 @@ namespace Assets
 
         VolumeShader::MetaDataExtension frament_meta_data = VolumeShader::MetaDataExtension::createForFragmentShader();
         {
-            VolumeShader::MetaData::PushConstants push_constants{ .size = sizeof(FragmentPushConstants),.offset = sizeof(VertexPushConstants) };
+            VolumeShader::MetaData::PushConstants push_constants{ .size = sizeof(FragmentPushConstants),.offset = sizeof(VertexPushConstants), .update_frequency = Shader::MetaData::UpdateFrequency::PerDrawCall };
             frament_meta_data.setPushConstants(std::move(push_constants));
         }
         frament_meta_data.addSampler(2, Shader::MetaData::Sampler{ .binding = 2, .update_frequency = Shader::MetaData::UpdateFrequency::Constant });

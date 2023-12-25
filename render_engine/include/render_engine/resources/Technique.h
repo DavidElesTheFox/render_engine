@@ -46,9 +46,7 @@ namespace RenderEngine
 
         MaterialInstance::UpdateContext onFrameBegin(uint32_t frame_number, VkCommandBuffer command_buffer)
         {
-            MaterialInstance::UpdateContext result(_per_frame_resources.getResources(),
-                                                   _per_draw_call_resources.getResources(),
-                                                   createPushConstantsUpdater(command_buffer),
+            MaterialInstance::UpdateContext result(createPushConstantsUpdater(command_buffer),
                                                    *_material_instance);
             _material_instance->onFrameBegin(result, frame_number);
             return result;

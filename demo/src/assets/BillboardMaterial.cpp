@@ -27,7 +27,7 @@ namespace Assets
         vertex_meta_data.attributes_stride = 5 * sizeof(float);
         vertex_meta_data.input_attributes.push_back({ .location = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = 0 });
         vertex_meta_data.input_attributes.push_back({ .location = 1, .format = VK_FORMAT_R32G32_SFLOAT, .offset = 3 * sizeof(float) });
-        vertex_meta_data.push_constants = Shader::MetaData::PushConstants{ .size = sizeof(VertexPushConstants),.offset = 0 };
+        vertex_meta_data.push_constants = Shader::MetaData::PushConstants{ .size = sizeof(VertexPushConstants),.offset = 0, .update_frequency = Shader::MetaData::UpdateFrequency::PerDrawCall };
 
         Shader::MetaData frament_meta_data;
         frament_meta_data.samplers = { {1, Shader::MetaData::Sampler{.binding = 1, .update_frequency = Shader::MetaData::UpdateFrequency::PerFrame}} };

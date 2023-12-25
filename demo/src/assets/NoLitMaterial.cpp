@@ -26,10 +26,10 @@ namespace Assets
         Shader::MetaData nolit_vertex_meta_data;
         nolit_vertex_meta_data.attributes_stride = 3 * sizeof(float);
         nolit_vertex_meta_data.input_attributes.push_back({ .location = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = 0 });
-        nolit_vertex_meta_data.push_constants = Shader::MetaData::PushConstants{ .size = sizeof(VertexPushConstants),.offset = 0 };
+        nolit_vertex_meta_data.push_constants = Shader::MetaData::PushConstants{ .size = sizeof(VertexPushConstants),.offset = 0, .update_frequency = Shader::MetaData::UpdateFrequency::PerDrawCall };
 
         Shader::MetaData nolit_frament_meta_data;
-        nolit_frament_meta_data.push_constants = Shader::MetaData::PushConstants{ .size = sizeof(FragmentPushConstants), .offset = sizeof(VertexPushConstants) };
+        nolit_frament_meta_data.push_constants = Shader::MetaData::PushConstants{ .size = sizeof(FragmentPushConstants), .offset = sizeof(VertexPushConstants), .update_frequency = Shader::MetaData::UpdateFrequency::PerDrawCall };
         std::filesystem::path base_path = SHADER_BASE;
         auto nolit_vertex_shader = std::make_unique<Shader>(base_path / "nolit.vert.spv", nolit_vertex_meta_data);
         auto nolit_fretment_shader = std::make_unique<Shader>(base_path / "nolit.frag.spv", nolit_frament_meta_data);

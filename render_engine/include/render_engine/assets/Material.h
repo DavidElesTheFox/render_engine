@@ -115,13 +115,9 @@ namespace RenderEngine
         class UpdateContext
         {
         public:
-            UpdateContext(const std::vector<UniformBinding*>& per_frame_uniforms,
-                          const std::vector<UniformBinding*>& per_draw_call_uniforms,
-                          PushConstantsUpdater push_constant_updater,
+            UpdateContext(PushConstantsUpdater push_constant_updater,
                           const MaterialInstance& material_instance)
-                : _per_frame_uniforms(per_frame_uniforms)
-                , _per_draw_call_uniforms(per_draw_call_uniforms)
-                , _push_constant_updater(std::move(push_constant_updater))
+                : _push_constant_updater(std::move(push_constant_updater))
                 , _material_instance(material_instance)
             {}
 
@@ -133,13 +129,9 @@ namespace RenderEngine
             {
                 return _material_instance.getMaterial().getFragmentShader().getMetaData();
             }
-            const std::vector<UniformBinding*>& getPerFrameUniforms() const { return _per_frame_uniforms; }
-            const std::vector<UniformBinding*>& getPerDrawCallUniforms() const { return _per_draw_call_uniforms; }
             PushConstantsUpdater& getPushConstantUpdater() { return _push_constant_updater; }
 
         private:
-            const std::vector<UniformBinding*>& _per_frame_uniforms;
-            const std::vector<UniformBinding*>& _per_draw_call_uniforms;
             PushConstantsUpdater _push_constant_updater;
             const MaterialInstance& _material_instance;
         };
@@ -172,6 +164,12 @@ namespace RenderEngine
             {
                 return;
             }
+            assert(std::ranges::any_of(_material.getPushConstantsMetaData() | std::views::values,
+                                       [](const auto& meta_data)
+                                       {
+                                           return meta_data.update_frequency == Shader::MetaData::UpdateFrequency::PerFrame
+                                               || meta_data.update_frequency == Shader::MetaData::UpdateFrequency::PerDrawCall;
+                                       }));
             _callbacks.on_frame_begin(update_context, frame_number);
         }
         void onDraw(UpdateContext& update_context, const MeshInstance* mesh_instance) const
@@ -180,6 +178,9 @@ namespace RenderEngine
             {
                 return;
             }
+            assert(std::ranges::any_of(_material.getPushConstantsMetaData() | std::views::values,
+                                       [](const auto& meta_data) { return meta_data.update_frequency == Shader::MetaData::UpdateFrequency::PerDrawCall; }));
+
             _callbacks.on_draw(update_context, mesh_instance);
         }
         uint32_t getId() const { return _id; }

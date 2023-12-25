@@ -86,34 +86,118 @@ namespace RenderEngine
         ResourceStateMachine::TextureState _texture_state;
     };
 
-    class TextureView
+    class ITextureView
     {
     public:
+        virtual ~ITextureView() = default;
+        virtual Texture& getTexture() = 0;
+        virtual VkImageView getImageView() = 0;
+        virtual VkSampler getSamler() = 0;
+        virtual std::unique_ptr<ITextureView> clone() const = 0;
+    };
+    class TextureView : public ITextureView
+    {
+    public:
+        friend class TextureViewReference;
+
         TextureView(Texture& texture,
-                    VkImageView image_view,
-                    VkSampler sampler,
+                    Texture::ImageViewData image_view_data,
+                    std::optional<Texture::SamplerData> sampler_data,
                     VkPhysicalDevice physical_device,
                     VkDevice logical_device)
             : _texture(texture)
-            , _image_view(image_view)
-            , _sampler(sampler)
+            , _image_view(texture.createImageView(image_view_data))
+            , _sampler(sampler_data != std::nullopt ? texture.createSampler(*sampler_data) : VK_NULL_HANDLE)
             , _logical_device(logical_device)
+            , _image_view_data(std::move(image_view_data))
+            , _sampler_data(std::move(sampler_data))
         {}
-        ~TextureView()
+        ~TextureView() override
         {
-            vkDestroyImageView(_logical_device, _image_view, nullptr);
-            vkDestroySampler(_logical_device, _sampler, nullptr);
+            if (_logical_device)
+            {
+                vkDestroyImageView(_logical_device, _image_view, nullptr);
+                vkDestroySampler(_logical_device, _sampler, nullptr);
+            }
         }
+        TextureView(TextureView&& o)
+            : _texture(o._texture)
+            , _image_view(std::move(o._image_view))
+            , _sampler(std::move(o._sampler))
+            , _physical_device(std::move(o._physical_device))
+            , _logical_device(std::move(o._logical_device))
+        {
+            o._image_view = VK_NULL_HANDLE;
+            o._sampler = VK_NULL_HANDLE;
+            o._physical_device = VK_NULL_HANDLE;
+            o._logical_device = VK_NULL_HANDLE;
+        }
+        TextureView& operator=(TextureView&&) = delete;
 
-        Texture& getTexture() { return _texture; }
-        VkImageView getImageView() { return _image_view; }
-        VkSampler getSamler() { return _sampler; }
+        TextureView& operator=(const TextureView&) = delete;
+
+        Texture& getTexture() override final { return _texture; }
+        VkImageView getImageView() override final { return _image_view; }
+        VkSampler getSamler() override final { return _sampler; }
+
+        std::unique_ptr<TextureViewReference> createReference();
+
+        std::unique_ptr<ITextureView> clone() const override final
+        {
+            return std::unique_ptr<TextureView>(new TextureView(_texture,
+                                                                _image_view_data,
+                                                                _sampler_data,
+                                                                _physical_device,
+                                                                _logical_device));
+        }
+    protected:
+        /**
+        * Used when TextureViewReference is created
+        */
+        TextureView(const TextureView& o) = default;
+
+        void disableObjectDestroy() noexcept
+        {
+            _logical_device = VK_NULL_HANDLE;
+            _physical_device = VK_NULL_HANDLE;
+        }
     private:
+
         Texture& _texture;
         VkImageView _image_view{ VK_NULL_HANDLE };
         VkSampler _sampler{ VK_NULL_HANDLE };
         VkPhysicalDevice _physical_device{ VK_NULL_HANDLE };
         VkDevice _logical_device{ VK_NULL_HANDLE };
+        Texture::ImageViewData _image_view_data;
+        std::optional<Texture::SamplerData> _sampler_data{ std::nullopt };
+    };
+
+    class TextureViewReference : public ITextureView
+    {
+    public:
+        friend class TextureView;
+        ~TextureViewReference() override
+        {
+            _texture_view.disableObjectDestroy();
+        }
+        TextureViewReference(TextureViewReference&&) = default;
+        TextureViewReference& operator=(TextureViewReference&&) = default;
+
+        TextureViewReference(const TextureViewReference& o) = delete;
+        TextureViewReference& operator=(const TextureViewReference&) = delete;
+
+        Texture& getTexture() override final { return _texture_view.getTexture(); }
+        VkImageView getImageView() override final { return _texture_view.getImageView(); }
+        VkSampler getSamler() override final { return _texture_view.getSamler(); }
+        std::unique_ptr<ITextureView> clone() const override final
+        {
+            return std::unique_ptr<TextureViewReference>(new TextureViewReference(_texture_view));
+        }
+    private:
+        TextureViewReference(TextureView texture_view)
+            : _texture_view(std::move(texture_view))
+        {}
+        TextureView _texture_view;
     };
 
     class TextureFactory

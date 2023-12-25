@@ -4,6 +4,7 @@
 #include <glm/mat4x4.hpp>
 
 #include <render_engine/assets/Material.h>
+#include <render_engine/assets/MaterialInstance.h>
 #include <render_engine/resources/Texture.h>
 
 #include <assets/IMaterial.h>
@@ -28,7 +29,7 @@ namespace Assets
 
         struct MaterialPushConstants
         {
-            VertexPushConstants vertex_values;
+            VertexPushConstants vertex_values{};
         };
         class Instance : public IInstance
         {
@@ -40,7 +41,7 @@ namespace Assets
             const MaterialPushConstants& getMaterialConstants() const { return _material_constants; }
             RenderEngine::MaterialInstance* getMaterialInstance() { return _material_instance.get(); }
         private:
-            MaterialPushConstants _material_constants;
+            MaterialPushConstants _material_constants{};
             std::unique_ptr<RenderEngine::MaterialInstance> _material_instance;
         };
         static const std::string& GetName()

@@ -4,6 +4,7 @@
 
 #include <filesystem>
 #include <optional>
+#include <ranges>
 #include <span>
 #include <unordered_map>
 #include <vector>
@@ -17,6 +18,13 @@ namespace RenderEngine
 
         struct MetaData
         {
+            enum class UpdateFrequency
+            {
+                Unknown = 0,
+                Constant,
+                PerFrame,
+                PerDrawCall
+            };
             struct Attribute
             {
                 uint32_t location{ 0 };
@@ -28,6 +36,7 @@ namespace RenderEngine
             {
                 int32_t binding{ -1 };
                 int32_t size{ -1 };
+                UpdateFrequency update_frequency{ UpdateFrequency::Unknown };
             };
 
             struct PushConstants
@@ -35,18 +44,27 @@ namespace RenderEngine
                 int32_t size{ -1 };
                 int32_t offset{ 0 };
                 VkShaderStageFlags shared_with{ 0 };
+                UpdateFrequency update_frequency{ UpdateFrequency::Unknown };
             };
 
             struct Sampler
             {
                 int32_t binding{ -1 };
+                UpdateFrequency update_frequency{ UpdateFrequency::Unknown };
             };
 
-            uint32_t attributes_stride;
+            struct InputAttachment
+            {
+                int32_t binding{ -1 };
+            };
+
+            uint32_t attributes_stride{ 0 };
             std::vector<Attribute> input_attributes;
             std::unordered_map<int32_t, UniformBuffer> global_uniform_buffers;
             std::unordered_map<int32_t, Sampler> samplers;
+            std::unordered_map<int32_t, InputAttachment> input_attachments;
             std::optional<PushConstants> push_constants{ std::nullopt };
+
         };
         Shader(const std::filesystem::path& spriv_path, MetaData meta_data)
             : _meta_data(std::move(meta_data))
@@ -57,21 +75,11 @@ namespace RenderEngine
             : _meta_data(std::move(meta_data))
             , _spirv_code(spirv_code.begin(), spirv_code.end())
         {}
-
+        virtual ~Shader() = default;
         ShaderModule loadOn(VkDevice logical_device) const;
         const MetaData& getMetaData() const
         {
             return _meta_data;
-        }
-
-        void addGlobalUniform(int32_t binding, int32_t size)
-        {
-            _meta_data.global_uniform_buffers[binding].binding = binding;
-            _meta_data.global_uniform_buffers[binding].size = size;
-        }
-        void addPushConstants(int32_t size)
-        {
-            _meta_data.push_constants = MetaData::PushConstants{ .size = size };
         }
 
     private:

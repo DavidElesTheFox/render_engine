@@ -21,6 +21,7 @@ set(RENDER_ENGINE_RENDERS_SRC
 	src/renderers/UIRenderer.cpp
     src/renderers/ImageStreamRenderer.cpp
     src/renderers/SingleColorOutputRenderer.cpp
+    src/renderers/VolumeRenderer.cpp
     )
 set(RENDER_ENGINE_RENDERERS_HEADERS 
 	${RENDER_ENGINE_HEADER_LOCATION}/renderers/AbstractRenderer.h
@@ -29,6 +30,7 @@ set(RENDER_ENGINE_RENDERERS_HEADERS
 	${RENDER_ENGINE_HEADER_LOCATION}/renderers/UIRenderer.h
     ${RENDER_ENGINE_HEADER_LOCATION}/renderers/ImageStreamRenderer.h
     ${RENDER_ENGINE_HEADER_LOCATION}/renderers/SingleColorOutputRenderer.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/renderers/VolumeRenderer.h
 	)
 source_group("src\\renderers" FILES ${RENDER_ENGINE_RENDERS_SRC})
 source_group("include\\renderers" FILES ${RENDER_ENGINE_RENDERERS_HEADERS})
@@ -46,6 +48,7 @@ set(RENDER_ENGINE_RESOURCES_SRC
 	src/resources/Texture.cpp
 	src/resources/ResourceStateMachine.cpp
     src/resources/RenderTarget.cpp
+    src/resources/GpuResourceSet.cpp
     )
 set(RENDER_ENGINE_RESOURCES_HEADERS 
 	${RENDER_ENGINE_HEADER_LOCATION}/resources/Buffer.h
@@ -56,6 +59,7 @@ set(RENDER_ENGINE_RESOURCES_HEADERS
 	${RENDER_ENGINE_HEADER_LOCATION}/resources/Texture.h
 	${RENDER_ENGINE_HEADER_LOCATION}/resources/ResourceStateMachine.h
     ${RENDER_ENGINE_HEADER_LOCATION}/resources/RenderTarget.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/resources/GpuResourceSet.h
 	)
 source_group("src\\resources" FILES ${RENDER_ENGINE_RESOURCES_SRC})
 source_group("include\\resources" FILES ${RENDER_ENGINE_RESOURCES_HEADERS})
@@ -68,6 +72,14 @@ set(RENDER_ENGINE_ASSETS_SRC
 	src/assets/Material.cpp
 	src/assets/Shader.cpp
 	src/assets/Image.cpp
+    src/assets/Image3D.cpp
+    src/assets/VolumetricObject.cpp
+    src/assets/VolumeShader.cpp
+    src/assets/VolumeMaterial.cpp
+    src/assets/TextureBindingMap.cpp
+    src/assets/TextureAssignment.cpp
+    src/assets/MaterialInstance.cpp
+    src/assets/VolumeMaterialInstance.cpp
     )
 set(RENDER_ENGINE_ASSETS_HEADERS 
 	${RENDER_ENGINE_HEADER_LOCATION}/assets/Geometry.h
@@ -75,6 +87,16 @@ set(RENDER_ENGINE_ASSETS_HEADERS
 	${RENDER_ENGINE_HEADER_LOCATION}/assets/Mesh.h
 	${RENDER_ENGINE_HEADER_LOCATION}/assets/Shader.h
 	${RENDER_ENGINE_HEADER_LOCATION}/assets/Image.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/assets/Image3D.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/assets/VolumetricObject.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/assets/VolumeShader.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/assets/VolumeMaterial.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/assets/TextureBindingMap.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/assets/TextureAssignment.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/assets/MaterialInstance.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/assets/VolumeMaterialInstance.h
+
+
 	)
 source_group("src\\assets" FILES ${RENDER_ENGINE_ASSETS_SRC})
 source_group("include\\assets" FILES ${RENDER_ENGINE_ASSETS_HEADERS})
@@ -86,6 +108,8 @@ source_group("include\\assets" FILES ${RENDER_ENGINE_ASSETS_HEADERS})
 set(RENDER_ENGINE_CONTAINERS_HEADERS 
 	${RENDER_ENGINE_HEADER_LOCATION}/containers/BackBuffer.h
     ${RENDER_ENGINE_HEADER_LOCATION}/containers/ImageStream.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/containers/VariantOverloaded.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/containers/Views.h
 	)
 source_group("include\\containers" FILES ${RENDER_ENGINE_CONTAINERS_HEADERS})
 
@@ -143,8 +167,7 @@ set(RENDER_ENGINE_SRC
     ${RENDER_ENGINE_ASSETS_SRC}
 	${RENDER_ENGINE_WINDOW_SRC}
 	${RENDER_ENGINE_MEMORY_SRC}
-	${RENDER_ENGINE_ROOT_SRC}
- )
+	${RENDER_ENGINE_ROOT_SRC})
 
 set(RENDER_ENGINE_HEADERS 
     ${RENDER_ENGINE_RENDERERS_HEADERS}

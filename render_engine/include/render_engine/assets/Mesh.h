@@ -4,6 +4,7 @@
 #include <vector>
 
 #include <render_engine/assets/Material.h>
+#include <render_engine/assets/MaterialInstance.h>
 
 namespace RenderEngine
 {
@@ -17,6 +18,7 @@ namespace RenderEngine
             , _material(std::move(material))
             , _id(id)
         {}
+        virtual ~Mesh() = default;
 
         const Geometry& getGeometry() const { return *_geometry; }
         const Material& getMaterial() const { return *_material; }
@@ -39,15 +41,12 @@ namespace RenderEngine
             , _material_instance(material_instance)
             , _id(id)
         {}
+        virtual ~MeshInstance() = default;
 
         Mesh* getMesh() { return _mesh; }
         const Mesh* getMesh() const { return _mesh; }
         MaterialInstance* getMaterialInstance() { return _material_instance; }
         const MaterialInstance* getMaterialInstance() const { return _material_instance; }
-        void updatePushConstants(PushConstantsUpdater& updater) const
-        {
-            _material_instance->updatePushConstants(this, updater);
-        }
         uint32_t getId() const { return _id; }
     private:
         Mesh* _mesh{ nullptr };

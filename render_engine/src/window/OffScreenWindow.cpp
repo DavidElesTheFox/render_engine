@@ -37,8 +37,8 @@ namespace RenderEngine
         for (auto& texture : _textures)
         {
             _texture_views.emplace_back(std::make_unique<TextureView>(*texture,
-                                                                      texture->createImageView(image_view_data),
-                                                                      VK_NULL_HANDLE,
+                                                                      image_view_data,
+                                                                      std::nullopt,
                                                                       getDevice().getPhysicalDevice(),
                                                                       getDevice().getLogicalDevice()));
         }

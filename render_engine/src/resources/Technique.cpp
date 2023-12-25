@@ -6,24 +6,33 @@ namespace RenderEngine
 {
     Technique::Technique(VkDevice logical_device,
                          const MaterialInstance* material_instance,
-                         std::vector<UniformBinding>&& uniform_buffers,
-                         VkDescriptorSetLayout uniforms_layout,
-                         VkRenderPass render_pass)
+                         TextureBindingMap&& subpass_textures,
+                         GpuResourceSet&& constant_resources,
+                         GpuResourceSet&& per_frame_resources,
+                         GpuResourceSet&& per_draw_call_resources,
+                         VkRenderPass render_pass,
+                         uint32_t corresponding_subpass)
         try : _material_instance(material_instance)
-        , _uniform_buffers(std::move(uniform_buffers))
+        , _subpass_textures(std::move(subpass_textures))
+        , _constant_resources(std::move(constant_resources))
+        , _per_frame_resources(std::move(per_frame_resources))
+        , _per_draw_call_resources(std::move(per_draw_call_resources))
         , _logical_device(logical_device)
-        , _uniforms_layout(uniforms_layout)
+        , _corresponding_subpass(corresponding_subpass)
     {
         const auto& material = _material_instance->getMaterial();
         auto vertex_shader = material.getVertexShader().loadOn(logical_device);
         auto fragment_shader = material.getFragmentShader().loadOn(logical_device);
 
         std::vector<VkDescriptorSetLayout> descriptor_set_layouts;
-        if (_uniform_buffers.empty() == false)
+        if (_per_frame_resources.getResources().empty() == false)
         {
-            descriptor_set_layouts.push_back(_uniforms_layout);
+            descriptor_set_layouts.push_back(_per_frame_resources.getLayout());
         }
-
+        if (_per_draw_call_resources.getResources().empty() == false)
+        {
+            descriptor_set_layouts.push_back(_per_draw_call_resources.getLayout());
+        }
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         pipelineLayoutInfo.setLayoutCount = descriptor_set_layouts.size();
@@ -116,8 +125,25 @@ namespace RenderEngine
         multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
         VkPipelineColorBlendAttachmentState color_blend_attachment{};
-        color_blend_attachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
         color_blend_attachment.blendEnable = VK_FALSE;
+        color_blend_attachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+
+        if (const auto blending_info = material.getColorBlending(); blending_info.enabled)
+        {
+            color_blend_attachment.colorWriteMask |= VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT;
+            color_blend_attachment.blendEnable = VK_TRUE;
+            color_blend_attachment.srcColorBlendFactor = blending_info.src_factor;
+            color_blend_attachment.dstColorBlendFactor = blending_info.dst_factor;
+            color_blend_attachment.colorBlendOp = blending_info.op;
+        }
+        if (const auto blending_info = material.getAlpheBlending(); blending_info.enabled)
+        {
+            color_blend_attachment.colorWriteMask |= VK_COLOR_COMPONENT_A_BIT;
+            color_blend_attachment.blendEnable = VK_TRUE;
+            color_blend_attachment.srcAlphaBlendFactor = blending_info.src_factor;
+            color_blend_attachment.dstAlphaBlendFactor = blending_info.dst_factor;
+            color_blend_attachment.alphaBlendOp = blending_info.op;
+        }
 
         VkPipelineColorBlendStateCreateInfo color_blending{};
         color_blending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
@@ -153,7 +179,7 @@ namespace RenderEngine
         pipelineInfo.pDynamicState = &dynamic_state;
         pipelineInfo.layout = _pipeline_layout;
         pipelineInfo.renderPass = render_pass;
-        pipelineInfo.subpass = 0;
+        pipelineInfo.subpass = corresponding_subpass;
         pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
         if (vkCreateGraphicsPipelines(logical_device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &_pipeline) != VK_SUCCESS)
         {
@@ -173,8 +199,6 @@ namespace RenderEngine
         vkDestroyPipeline(_logical_device, _pipeline, nullptr);
         vkDestroyPipelineLayout(_logical_device, _pipeline_layout, nullptr);
 
-
-        vkDestroyDescriptorSetLayout(_logical_device, _uniforms_layout, nullptr);
     }
 
     VkShaderStageFlags Technique::getPushConstantsUsageFlag() const

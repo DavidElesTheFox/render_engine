@@ -8,6 +8,7 @@ namespace RenderEngine
 {
     class SwapChain;
     class Texture;
+    class Image;
     class RenderTarget
     {
     public:
@@ -23,6 +24,7 @@ namespace RenderEngine
         VkImageLayout getLayout() const { return _layout; }
         const std::vector<VkImageView>& getImageViews() const { return _image_views; }
         VkExtent2D getExtent() const { return _extent; }
+        Image createImage() const;
     private:
 
         std::vector<VkImageView> _image_views;

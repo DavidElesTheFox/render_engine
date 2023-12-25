@@ -23,4 +23,6 @@ Library uses
   - [Objects responsibility](render_engine/documentation/objects-responsibility.md)
   - [Singletons](render_engine/documentation/singletons.md)
   - [Resource State Machine](render_engine/documentation/resource-state-machine.md)
-   - [Off-Screen Rendering](render_engine/documentation/offscreen-rendering.md)
+  - [Off-Screen Rendering](render_engine/documentation/offscreen-rendering.md)
+  - [DescriptorSetLayout Setup](render_engine/documentation/descriptor-set-layout-setup.md)
+  - [Volume Rendering](render_engine/documentation/volume-rendering.md)

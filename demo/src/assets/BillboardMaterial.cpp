@@ -27,18 +27,18 @@ namespace Assets
         vertex_meta_data.attributes_stride = 5 * sizeof(float);
         vertex_meta_data.input_attributes.push_back({ .location = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = 0 });
         vertex_meta_data.input_attributes.push_back({ .location = 1, .format = VK_FORMAT_R32G32_SFLOAT, .offset = 3 * sizeof(float) });
-        vertex_meta_data.push_constants = Shader::MetaData::PushConstants{ .size = sizeof(VertexPushConstants),.offset = 0 };
+        vertex_meta_data.push_constants = Shader::MetaData::PushConstants{ .size = sizeof(VertexPushConstants),.offset = 0, .update_frequency = Shader::MetaData::UpdateFrequency::PerDrawCall };
 
         Shader::MetaData frament_meta_data;
-        frament_meta_data.samplers = { {1, Shader::MetaData::Sampler{.binding = 1 }} };
+        frament_meta_data.samplers = { {1, Shader::MetaData::Sampler{.binding = 1, .update_frequency = Shader::MetaData::UpdateFrequency::PerFrame}} };
 
 
         std::filesystem::path base_path = SHADER_BASE;
-        Shader vertex_shader(base_path / "billboard.vert.spv", vertex_meta_data);
-        Shader fretment_shader(base_path / "billboard.frag.spv", frament_meta_data);
+        auto vertex_shader = std::make_unique<Shader>(base_path / "billboard.vert.spv", vertex_meta_data);
+        auto fretment_shader = std::make_unique<Shader>(base_path / "billboard.frag.spv", frament_meta_data);
 
-        _material = std::make_unique<Material>(vertex_shader,
-                                               fretment_shader,
+        _material = std::make_unique<Material>(std::move(vertex_shader),
+                                               std::move(fretment_shader),
                                                Material::CallbackContainer{
                                                    .create_vertex_buffer = [](const Geometry& geometry, const Material& material)
                                                    {
@@ -63,32 +63,34 @@ namespace Assets
     {
         using namespace RenderEngine;
         std::unique_ptr<Instance> result = std::make_unique<Instance>();
-        std::unordered_map<int32_t, std::unique_ptr<TextureView>> texture_map;
+        std::unordered_map<int32_t, std::unique_ptr<ITextureView>> texture_map;
         texture_map[1] = std::move(texture);
 
-        result->_material_instance = std::make_unique<MaterialInstance>(*_material,
-                                                                        std::move(texture_map),
-                                                                        MaterialInstance::CallbackContainer{
-                                                                            .global_ubo_update = [](std::vector<UniformBinding>& , uint32_t) {},
-                                                                            .global_push_constants_update = [material_constants = &result->_material_constants, scene](PushConstantsUpdater& updater)
-                                                             {
-material_constants->vertex_values.projection = scene->getActiveCamera()->getProjection();
-{
-    const std::span<const uint8_t> data_view(reinterpret_cast<const uint8_t*>(&material_constants->vertex_values.projection), sizeof(material_constants->vertex_values.projection));
-    updater.update(VK_SHADER_STAGE_VERTEX_BIT, offsetof(VertexPushConstants, projection), data_view);
-}
-},
-.push_constants_updater = [material_constants = &result->_material_constants, scene](const MeshInstance* mesh, PushConstantsUpdater& updater)
-{
-auto model = scene->getNodeLookup().findMesh(mesh->getId())->getTransformation().calculateTransformation();
-auto view = scene->getActiveCamera()->getView();
-material_constants->vertex_values.model_view = view * model;
+        auto on_begin_frame = [material_constants = &result->_material_constants, scene](MaterialInstance::UpdateContext& update_context, uint32_t frame_count)
+            {
+                material_constants->vertex_values.projection = scene->getActiveCamera()->getProjection();
+                {
+                    const std::span<const uint8_t> data_view(reinterpret_cast<const uint8_t*>(&material_constants->vertex_values.projection), sizeof(material_constants->vertex_values.projection));
+                    update_context.getPushConstantUpdater().update(VK_SHADER_STAGE_VERTEX_BIT, offsetof(VertexPushConstants, projection), data_view);
+                }
+            };
+        auto on_draw = [material_constants = &result->_material_constants, scene](MaterialInstance::UpdateContext& update_context, const MeshInstance* mesh)
+            {
+                auto model = scene->getNodeLookup().findMesh(mesh->getId())->getTransformation().calculateTransformation();
+                auto view = scene->getActiveCamera()->getView();
+                material_constants->vertex_values.model_view = view * model;
 
-const std::span<const uint8_t> data_view(reinterpret_cast<const uint8_t*>(&material_constants->vertex_values.model_view), sizeof(material_constants->vertex_values.model_view));
-updater.update(VK_SHADER_STAGE_VERTEX_BIT, offsetof(VertexPushConstants, model_view), data_view);
-}
-                                                                        },
-                                                                        id);
+                {
+                    const std::span<const uint8_t> data_view(reinterpret_cast<const uint8_t*>(&material_constants->vertex_values.model_view), sizeof(material_constants->vertex_values.model_view));
+                    update_context.getPushConstantUpdater().update(VK_SHADER_STAGE_VERTEX_BIT, offsetof(VertexPushConstants, model_view), data_view);
+                }
+            };
+        result->_material_instance = std::make_unique<MaterialInstance>(*_material,
+                                                                        TextureBindingMap(std::move(texture_map)),
+                                                                        MaterialInstance::CallbackContainer{
+                                                                            .on_frame_begin = std::move(on_begin_frame),
+                                                                            .on_draw = std::move(on_draw) },
+                                                                            id);
         return result;
     }
 }

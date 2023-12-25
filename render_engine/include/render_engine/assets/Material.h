@@ -2,11 +2,13 @@
 
 #include <render_engine/assets/Image.h>
 #include <render_engine/assets/Shader.h>
+#include <render_engine/assets/TextureBindingMap.h>
+#include <render_engine/resources/PushConstantsUpdater.h>
 #include <render_engine/resources/Texture.h>
-
 
 #include <volk.h>
 
+#include <cassert>
 #include <functional>
 #include <memory>
 #include <vector>
@@ -35,18 +37,36 @@ namespace RenderEngine
 
             RasterizationInfo clone() const
             {
-                return { .front_face = front_face };
+                return { .front_face = front_face, .cull_mode = cull_mode };
             }
 
             RasterizationInfo&& setFrontFace(VkFrontFace value)&& { front_face = value; return std::move(*this); }
             RasterizationInfo&& setCullMode(VkCullModeFlags value)&& { cull_mode = value; return std::move(*this); }
         };
-        Material(Shader verted_shader,
-                 Shader fragment_shader,
+        struct BlendingInfo
+        {
+            bool enabled{ false };
+            VkBlendFactor src_factor{ VK_BLEND_FACTOR_ONE };
+            VkBlendFactor dst_factor{ VK_BLEND_FACTOR_ZERO };
+            VkBlendOp op{ VK_BLEND_OP_ADD };
+
+            BlendingInfo clone() const
+            {
+                return { .enabled = enabled, .src_factor = src_factor, .dst_factor = dst_factor, .op = op };
+            }
+
+            BlendingInfo&& setEnabled(bool value)&& { enabled = value; return std::move(*this); }
+            BlendingInfo&& setSrcFactor(VkBlendFactor value)&& { src_factor = value; return std::move(*this); }
+            BlendingInfo&& setDstFactor(VkBlendFactor value)&& { dst_factor = value; return std::move(*this); }
+            BlendingInfo&& setOp(VkBlendOp value)&& { op = value; return std::move(*this); }
+        };
+        Material(std::unique_ptr<Shader> verted_shader,
+                 std::unique_ptr<Shader> fragment_shader,
                  CallbackContainer callbacks,
                  uint32_t id);
-        const Shader& getVertexShader() const { return _vertex_shader; }
-        const Shader& getFragmentShader() const { return _fragment_shader; }
+        virtual ~Material() = default;
+        const Shader& getVertexShader() const { return *_vertex_shader; }
+        const Shader& getFragmentShader() const { return *_fragment_shader; }
 
         uint32_t getId() const { return _id; }
 
@@ -58,74 +78,35 @@ namespace RenderEngine
         std::unordered_map<VkShaderStageFlags, Shader::MetaData::PushConstants> getPushConstantsMetaData() const
         {
             std::unordered_map<VkShaderStageFlags, Shader::MetaData::PushConstants> result;
-            if (_vertex_shader.getMetaData().push_constants != std::nullopt)
+            if (const auto& push_constants = _vertex_shader->getMetaData().push_constants; push_constants != std::nullopt)
             {
-                result.insert({ VK_SHADER_STAGE_VERTEX_BIT | _vertex_shader.getMetaData().push_constants->shared_with,*_vertex_shader.getMetaData().push_constants });
+                result.insert({ VK_SHADER_STAGE_VERTEX_BIT | push_constants->shared_with, *push_constants });
             }
-            if (_fragment_shader.getMetaData().push_constants != std::nullopt)
+            if (const auto& push_constants = _fragment_shader->getMetaData().push_constants; push_constants != std::nullopt)
             {
-                result.insert({ VK_SHADER_STAGE_FRAGMENT_BIT | _fragment_shader.getMetaData().push_constants->shared_with, *_fragment_shader.getMetaData().push_constants });
+                result.insert({ VK_SHADER_STAGE_FRAGMENT_BIT | push_constants->shared_with, *push_constants });
             }
             return result;
         }
         const RasterizationInfo& getRasterizationInfo() const { return _rasterization_info; }
         void setRasterizationInfo(RasterizationInfo value) { _rasterization_info = std::move(value); }
+
+        const BlendingInfo& getColorBlending() const { return _color_blending; }
+        void setColorBlending(BlendingInfo value) { _color_blending = std::move(value); }
+
+        const BlendingInfo& getAlpheBlending() const { return _alpha_blending; }
+        void setAlphaBlending(BlendingInfo value) { _alpha_blending = std::move(value); }
     private:
 
-        bool checkPushConstantsConsistency() const;
 
-        Shader _vertex_shader;
-        Shader _fragment_shader;
+        std::unique_ptr<Shader> _vertex_shader;
+        std::unique_ptr<Shader> _fragment_shader;
         uint32_t _id;
         CallbackContainer _callbacks;
         RasterizationInfo _rasterization_info{};
+        BlendingInfo _color_blending{ .enabled = false, .src_factor = VK_BLEND_FACTOR_SRC_ALPHA, .dst_factor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA, .op = VK_BLEND_OP_ADD };
+        BlendingInfo _alpha_blending{};
     };
 
-    class MaterialInstance
-    {
-    public:
-        struct CallbackContainer
-        {
-            std::function<void(std::vector<UniformBinding>& ubo_container, uint32_t frame_number)> global_ubo_update;
-            std::function<void(PushConstantsUpdater& updater)> global_push_constants_update;
-            std::function<void(const MeshInstance* mesh_instance, PushConstantsUpdater& updater)> push_constants_updater;
-        };
 
-        MaterialInstance(Material& material,
-                         std::unordered_map<int32_t, std::unique_ptr<TextureView>> texture_bindings,
-                         CallbackContainer callbacks,
-                         uint32_t id)
-            : _material(material)
-            , _texture_bindings(std::move(texture_bindings))
-            , _callbacks(std::move(callbacks))
-            , _id(id)
-        {}
-
-        std::unique_ptr<Technique> createTechnique(GpuResourceManager& gpu_resource_manager,
-                                                   VkRenderPass render_pass) const;
-
-        void updateGlobalUniformBuffer(std::vector<UniformBinding>& ubo_container, uint32_t frame_number) const
-        {
-            _callbacks.global_ubo_update(ubo_container, frame_number);
-        }
-
-        void updateGlobalPushConstants(PushConstantsUpdater& updater) const
-        {
-            _callbacks.global_push_constants_update(updater);
-        }
-        void updatePushConstants(const MeshInstance* mesh_instance, PushConstantsUpdater& updater) const
-        {
-            _callbacks.push_constants_updater(mesh_instance, updater);
-        }
-        uint32_t getId() const { return _id; }
-        const std::unordered_map<int32_t, std::unique_ptr<TextureView>>& getTextureBindings() const { return _texture_bindings; }
-
-        const Material& getMaterial() const { return _material; }
-    private:
-
-        Material& _material;
-        std::unordered_map<int32_t, std::unique_ptr<TextureView>> _texture_bindings;
-        CallbackContainer _callbacks;
-        uint32_t _id{ 0 };
-    };
 }

@@ -16,6 +16,8 @@ namespace RenderEngine
     {
 
     public:
+        // TODO replace ids to generated UUID
+        static constexpr uint32_t kEngineReservedIdStart = UINT_MAX - 1'000'000;
         static RenderContext& context();
         static void initialize(const std::vector<const char*>& validation_layers, std::unique_ptr<RendererFeactory> renderer_factory);
 
@@ -29,6 +31,7 @@ namespace RenderEngine
         {
             return *_renderer_factory;
         }
+        uint32_t generateId() { return _engine_id_counter++; }
     private:
         static RenderContext& context_impl();
         RenderContext() = default;
@@ -46,5 +49,6 @@ namespace RenderEngine
         void* _renderdoc_api{ nullptr };
         std::unique_ptr<RendererFeactory> _renderer_factory;
         bool _initialized{ false };
+        uint32_t _engine_id_counter = kEngineReservedIdStart;
     };
 }

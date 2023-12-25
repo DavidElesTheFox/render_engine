@@ -27,7 +27,6 @@ namespace RenderEngine
         constexpr uint32_t kMipLevel = 1;
         constexpr uint32_t kArrayLayers = 1;
         constexpr uint32_t kLayerCount = 1;
-        constexpr uint32_t kDepth = 1;
     }
 
     bool Texture::isImageCompatible(const Image& image) const
@@ -59,12 +58,12 @@ namespace RenderEngine
         image_info.mipLevels = kMipLevel;
         image_info.arrayLayers = kArrayLayers;
 
-        image_info.extent.depth = kDepth;
         image_info.extent.width = _image.getWidth();
         image_info.extent.height = _image.getHeight();
+        image_info.extent.depth = _image.getDepth();
 
         image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED; // TODO add initial layout for opimization
-        image_info.imageType = VK_IMAGE_TYPE_2D;
+        image_info.imageType = image.is3D() ? VK_IMAGE_TYPE_3D : VK_IMAGE_TYPE_2D;
         image_info.tiling = VK_IMAGE_TILING_OPTIMAL;
         image_info.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT // for download
             | VK_BUFFER_USAGE_TRANSFER_DST_BIT // for upload
@@ -140,7 +139,7 @@ namespace RenderEngine
                     copy_region.imageExtent = {
                         .width = _image.getWidth(),
                         .height = _image.getHeight(),
-                        .depth = kDepth
+                        .depth = _image.getDepth()
                     };
                     vkCmdCopyBufferToImage(command_buffer,
                                            _staging_buffer.getBuffer(),
@@ -209,7 +208,7 @@ namespace RenderEngine
                     copy_region.imageExtent = {
                         .width = _image.getWidth(),
                         .height = _image.getHeight(),
-                        .depth = kDepth
+                        .depth = _image.getDepth()
                     };
                     vkCmdCopyImageToBuffer(command_buffer,
                                            _texture,
@@ -250,7 +249,7 @@ namespace RenderEngine
         create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         create_info.image = _texture;
         create_info.format = _image.getFormat();
-        create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        create_info.viewType = _image.is3D() ? VK_IMAGE_VIEW_TYPE_3D : VK_IMAGE_VIEW_TYPE_2D;
         create_info.subresourceRange.aspectMask = _aspect;
         create_info.subresourceRange.baseArrayLayer = 0;
         create_info.subresourceRange.layerCount = 1;
@@ -307,6 +306,11 @@ namespace RenderEngine
     {
         vkFreeMemory(_logical_device, _texture_memory, nullptr);
         vkDestroyImage(_logical_device, _texture, nullptr);
+    }
+
+    std::unique_ptr<TextureViewReference> TextureView::createReference()
+    {
+        return std::unique_ptr<TextureViewReference>(new TextureViewReference{ TextureView(*this) });
     }
 
     [[nodiscar]]

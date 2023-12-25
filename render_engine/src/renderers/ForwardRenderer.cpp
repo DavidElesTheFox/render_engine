@@ -68,11 +68,10 @@ namespace RenderEngine
     ForwardRenderer::~ForwardRenderer()
     {}
 
-    void ForwardRenderer::addMesh(const MeshInstance* mesh_instance, int32_t priority)
+    void ForwardRenderer::addMesh(const MeshInstance* mesh_instance)
     {
         const auto* mesh = mesh_instance->getMesh();
         const auto& material = mesh->getMaterial();
-        const uint32_t material_id = material.getId();
         const uint32_t material_instance_id = mesh_instance->getMaterialInstance()->getId();
         const Geometry& geometry = mesh->getGeometry();
 
@@ -98,13 +97,22 @@ namespace RenderEngine
                                                       transfer_engine, render_queue_family_index);
         }
         _mesh_buffers[mesh_instance->getMesh()] = std::move(mesh_buffers);
-        auto& mesh_group = _meshes[priority][material_instance_id];
-        mesh_group.mesh_instances.push_back(mesh_instance);
-        if (mesh_group.technique == nullptr)
+        auto it = std::ranges::find_if(_meshes,
+                                       [&](const auto& mesh_group) { return mesh_group.technique->getMaterialInstance().getId() == material_instance_id; });
+        if (it != _meshes.end())
         {
-            auto& material = mesh->getMaterial();
-            _meshes[priority][material_instance_id].technique = mesh_instance->getMaterialInstance()->createTechnique(gpu_resource_manager,
-                                                                                                                      getRenderPass());
+            it->mesh_instances.push_back(mesh_instance);
+
+        }
+        else
+        {
+            MeshGroup mesh_group;
+            mesh_group.technique = mesh_instance->getMaterialInstance()->createTechnique(gpu_resource_manager,
+                                                                                         {},
+                                                                                         getRenderPass(),
+                                                                                         0);
+            mesh_group.mesh_instances.push_back(mesh_instance);
+            _meshes.push_back(std::move(mesh_group));
         }
     }
 
@@ -132,55 +140,49 @@ namespace RenderEngine
         render_pass_info.pClearValues = &clearColor;
 
         vkCmdBeginRenderPass(frame_data.command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
-        for (auto& mesh_group_container : _meshes | std::views::values)
+        for (auto& mesh_group : _meshes)
         {
-            for (auto& mesh_group : mesh_group_container | std::views::values)
+            MaterialInstance::UpdateContext material_update_context = mesh_group.technique->onFrameBegin(swap_chain_image_index, frame_data.command_buffer);
+
+            vkCmdBindPipeline(frame_data.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_group.technique->getPipeline());
+
+            VkViewport viewport{};
+            viewport.x = 0.0f;
+            viewport.y = 0.0f;
+            viewport.width = (float)render_area.extent.width;
+            viewport.height = (float)render_area.extent.height;
+            viewport.minDepth = 0.0f;
+            viewport.maxDepth = 1.0f;
+            vkCmdSetViewport(frame_data.command_buffer, 0, 1, &viewport);
+
+            VkRect2D scissor{};
+            scissor.offset = { 0, 0 };
+            scissor.extent = render_area.extent;
+            vkCmdSetScissor(frame_data.command_buffer, 0, 1, &scissor);
+            auto descriptor_sets = mesh_group.technique->collectDescriptorSets(swap_chain_image_index);
+
+            if (descriptor_sets.empty() == false)
             {
-                auto push_constants_updater = mesh_group.technique->createPushConstantsUpdater(frame_data.command_buffer);
+                vkCmdBindDescriptorSets(frame_data.command_buffer,
+                                        VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                        mesh_group.technique->getPipelineLayout(),
+                                        0,
+                                        descriptor_sets.size(),
+                                        descriptor_sets.data(), 0, nullptr);
+            }
 
-                mesh_group.technique->updateGlobalUniformBuffer(swap_chain_image_index);
-                mesh_group.technique->updateGlobalPushConstants(push_constants_updater);
+            for (auto& mesh_instance : mesh_group.mesh_instances)
+            {
+                mesh_group.technique->onDraw(material_update_context, mesh_instance);
+                auto& mesh_buffers = _mesh_buffers.at(mesh_instance->getMesh());
 
-                vkCmdBindPipeline(frame_data.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_group.technique->getPipeline());
-
-                VkViewport viewport{};
-                viewport.x = 0.0f;
-                viewport.y = 0.0f;
-                viewport.width = (float)render_area.extent.width;
-                viewport.height = (float)render_area.extent.height;
-                viewport.minDepth = 0.0f;
-                viewport.maxDepth = 1.0f;
-                vkCmdSetViewport(frame_data.command_buffer, 0, 1, &viewport);
-
-                VkRect2D scissor{};
-                scissor.offset = { 0, 0 };
-                scissor.extent = render_area.extent;
-                vkCmdSetScissor(frame_data.command_buffer, 0, 1, &scissor);
-                auto descriptor_sets = mesh_group.technique->collectDescriptorSets(swap_chain_image_index);
-
-                if (descriptor_sets.empty() == false)
-                {
-                    vkCmdBindDescriptorSets(frame_data.command_buffer,
-                                            VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                            mesh_group.technique->getPipelineLayout(),
-                                            0,
-                                            descriptor_sets.size(),
-                                            descriptor_sets.data(), 0, nullptr);
-                }
-
-                for (auto& mesh_instance : mesh_group.mesh_instances)
-                {
-                    mesh_instance->updatePushConstants(push_constants_updater);
-                    auto& mesh_buffers = _mesh_buffers.at(mesh_instance->getMesh());
-
-                    VkBuffer vertexBuffers[] = { mesh_buffers.vertex_buffer->getBuffer() };
-                    VkDeviceSize offsets[] = { 0 };
-                    vkCmdBindVertexBuffers(frame_data.command_buffer, 0, 1, vertexBuffers, offsets);
-                    vkCmdBindIndexBuffer(frame_data.command_buffer, mesh_buffers.index_buffer->getBuffer(), 0, VK_INDEX_TYPE_UINT16);
+                VkBuffer vertexBuffers[] = { mesh_buffers.vertex_buffer->getBuffer() };
+                VkDeviceSize offsets[] = { 0 };
+                vkCmdBindVertexBuffers(frame_data.command_buffer, 0, 1, vertexBuffers, offsets);
+                vkCmdBindIndexBuffer(frame_data.command_buffer, mesh_buffers.index_buffer->getBuffer(), 0, VK_INDEX_TYPE_UINT16);
 
 
-                    vkCmdDrawIndexed(frame_data.command_buffer, static_cast<uint32_t>(mesh_buffers.index_buffer->getDeviceSize() / sizeof(uint16_t)), 1, 0, 0, 0);
-                }
+                vkCmdDrawIndexed(frame_data.command_buffer, static_cast<uint32_t>(mesh_buffers.index_buffer->getDeviceSize() / sizeof(uint16_t)), 1, 0, 0, 0);
             }
         }
         vkCmdEndRenderPass(frame_data.command_buffer);
@@ -193,20 +195,17 @@ namespace RenderEngine
 
     void ForwardRenderer::onFrameBegin(uint32_t frame_number)
     {
-        for (auto& mesh_group_map : _meshes | std::views::values)
+        for (auto& mesh_group : _meshes)
         {
-            for (auto& mesh_group : mesh_group_map | std::views::values)
+            for (const auto& uniform_binding : mesh_group.technique->getUniformBindings())
             {
-                for (const auto& uniform_binding : mesh_group.technique->getUniformBindings())
+                if (auto texture = uniform_binding->getTextureForFrame(frame_number); texture != nullptr)
                 {
-                    if (auto texture = uniform_binding.getTextureForFrame(frame_number); texture != nullptr)
-                    {
-                        ResourceStateMachine::resetStages(*texture);
-                    }
-                    if (auto buffer = uniform_binding.getTextureForFrame(frame_number); buffer != nullptr)
-                    {
-                        ResourceStateMachine::resetStages(*buffer);
-                    }
+                    ResourceStateMachine::resetStages(*texture);
+                }
+                if (auto buffer = uniform_binding->getTextureForFrame(frame_number); buffer != nullptr)
+                {
+                    ResourceStateMachine::resetStages(*buffer);
                 }
             }
         }

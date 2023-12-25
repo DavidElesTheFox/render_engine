@@ -4,6 +4,7 @@
 #include "DemoApplication.h"
 #include "MultiWindowApplication.h"
 #include "OffScreenTestApplication.h"
+#include "VolumeRendererDemo.h"
 
 void runMultiWindowApplication()
 {
@@ -21,6 +22,12 @@ void runDemoApplication()
 void runOffScreenApplication()
 {
     OffScreenTestApplication application;
+    application.init();
+    application.run();
+}
+void runVolumeRendererDemo()
+{
+    VolumeRendererDemo application;
     application.init();
     application.run();
 }

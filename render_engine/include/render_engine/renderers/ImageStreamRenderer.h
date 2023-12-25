@@ -21,7 +21,10 @@ namespace RenderEngine
         {
             destroy();
         };
-        std::vector<VkSemaphoreSubmitInfo> getWaitSemaphores(uint32_t frame_number) override;
+
+        void onFrameBegin(uint32_t frame_number) override final;
+        void draw(uint32_t swap_chain_image_index) override final;
+        std::vector<VkSemaphoreSubmitInfo> getWaitSemaphores(uint32_t frame_number) override final;
     private:
         struct UploadData
         {
@@ -34,16 +37,14 @@ namespace RenderEngine
             {}
         };
         void destroy() noexcept;
-        void onFrameBegin(uint32_t frame_number) override;
-        void draw(uint32_t swap_chain_image_index) override;
-        bool skipDrawCall(uint32_t frame_number) const override;
-
+        bool skipDrawCall(uint32_t frame_number) const override final;
+        std::vector<AttachmentInfo> reinitializeAttachments(const RenderTarget& render_target) override final { return {}; }
         ImageStream& _image_stream;
         Image _image_cache;
         std::unordered_map<Texture*, UploadData> _upload_data;
         std::unique_ptr<Material> _fullscreen_material;
-        std::unordered_map<Texture*, std::unique_ptr<MaterialInstance>> _material_instances;
-        std::unordered_map<Texture*, std::unique_ptr<Technique>> _techniques;
+        std::unique_ptr<MaterialInstance> _material_instance;
+        std::unique_ptr<Technique> _technique;
         std::vector<std::unique_ptr<Texture>> _texture_container;
         bool _draw_call_recorded{ true };
     };

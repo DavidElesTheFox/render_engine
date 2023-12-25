@@ -2,9 +2,11 @@
 
 #include <imgui.h>
 
+#include <assets/CtVolumeMaterial.h>
 #include <assets/NoLitMaterial.h>
 #include <render_engine/assets/Material.h>
 #include <scene/MeshObject.h>
+#include <scene/VolumeObject.h>
 
 namespace Ui
 {
@@ -26,6 +28,21 @@ namespace Ui
                     nolit_material->getMaterialConstants().fragment_values.setInstanceColor(color);
                 }
             }
+            if (auto* ct_material = dynamic_cast<Assets::CtVolumeMaterial::Instance*>(material_instance))
+            {
+                int step_count = ct_material->getMaterialConstants().fragment_values.getNumSteps();
+                float step_size = ct_material->getMaterialConstants().fragment_values.getStepSize();
+
+                if (ImGui::SliderInt(("Num Steps - " + material_instance_name).c_str(), &step_count, 1, 1 / step_size))
+                {
+                    ct_material->getMaterialConstants().fragment_values.setNumSteps(step_count);
+                }
+
+                if (ImGui::SliderFloat(("Step Size - " + material_instance_name).c_str(), &step_size, 0.0001f, 0.1f))
+                {
+                    ct_material->getMaterialConstants().fragment_values.setStepSize(step_size);
+                }
+            }
             ImGui::Separator();
         }
         ImGui::Text("Mesh instances");
@@ -35,22 +52,31 @@ namespace Ui
             ImGui::LabelText("Name", mesh_instance_name.c_str());
 
             auto* mesh_instance = _assets.getMeshInstance(mesh_instance_name);
-            auto* mesh_object = _scene.getNodeLookup().findMesh(mesh_instance->getId());
-            glm::vec3 rotation = mesh_object->getTransformation().getEulerAngles();
+            Scene::SceneObject* scene_object{ nullptr };
+            Scene::Transformation transformation;
+            if (auto* mesh_object = _scene.getNodeLookup().findMesh(mesh_instance->getId()); mesh_object != nullptr)
+            {
+                scene_object = mesh_object;
+            }
+            else if (auto* volume_object = _scene.getNodeLookup().findVolumObject(mesh_instance->getId()); volume_object != nullptr)
+            {
+                scene_object = volume_object;
+            }
+            glm::vec3 rotation = scene_object->getTransformation().getEulerAngles();
             if (ImGui::SliderFloat3(("Rotation - " + mesh_instance_name).c_str(), &rotation.x, -glm::pi<float>(), glm::pi<float>()))
             {
-                mesh_object->getTransformation().setEulerAngles(rotation);
+                scene_object->getTransformation().setEulerAngles(rotation);
             }
-            glm::vec3 position = mesh_object->getTransformation().getPosition();
+            glm::vec3 position = scene_object->getTransformation().getPosition();
             if (ImGui::InputFloat3(("Position - " + mesh_instance_name).c_str(), &position.x))
             {
-                mesh_object->getTransformation().setPosition(position);
+                scene_object->getTransformation().setPosition(position);
             }
             ImGui::Separator();
-            glm::vec3 scale = mesh_object->getTransformation().getScale();
+            glm::vec3 scale = scene_object->getTransformation().getScale();
             if (ImGui::InputFloat3(("Scale - " + mesh_instance_name).c_str(), &scale.x))
             {
-                mesh_object->getTransformation().setScale(scale);
+                scene_object->getTransformation().setScale(scale);
             }
         }
         ImGui::End();

@@ -6,6 +6,7 @@
 
 #include <render_engine/assets/Material.h>
 #include <render_engine/assets/Mesh.h>
+#include <render_engine/resources/GpuResourceSet.h>
 #include <render_engine/resources/PushConstantsUpdater.h>
 #include <render_engine/resources/UniformBinding.h>
 
@@ -17,10 +18,14 @@ namespace RenderEngine
 
         Technique(VkDevice logical_device,
                   const MaterialInstance* material,
-                  std::vector<UniformBinding>&& uniform_buffers,
-                  VkDescriptorSetLayout uniforms_layout,
-                  VkRenderPass render_pass);
+                  TextureBindingMap&& subpass_textures,
+                  GpuResourceSet&& constant_resources,
+                  GpuResourceSet&& per_frame_resources,
+                  GpuResourceSet&& per_draw_call_resources,
+                  VkRenderPass render_pass,
+                  uint32_t corresponding_subpass);
         ~Technique();
+        const MaterialInstance& getMaterialInstance() const { return *_material_instance; }
         VkPipeline getPipeline()
         {
             return _pipeline;
@@ -31,40 +36,44 @@ namespace RenderEngine
         }
         std::vector<VkDescriptorSet> collectDescriptorSets(size_t frame_number)
         {
-            std::vector<VkDescriptorSet> result;
-            for (auto& binding : _uniform_buffers)
+            std::set<VkDescriptorSet> result;
+            for (const UniformBinding* binding : (std::vector{ _per_frame_resources.getResources(), _per_draw_call_resources.getResources() }) | std::views::join)
             {
-                result.push_back(binding.getDescriptorSet(frame_number));
+                result.insert(binding->getDescriptorSet(frame_number));
             }
+            return std::vector<VkDescriptorSet>{ result.begin(), result.end() };
+        }
+
+        MaterialInstance::UpdateContext onFrameBegin(uint32_t frame_number, VkCommandBuffer command_buffer)
+        {
+            MaterialInstance::UpdateContext result(createPushConstantsUpdater(command_buffer),
+                                                   *_material_instance);
+            _material_instance->onFrameBegin(result, frame_number);
             return result;
         }
-        VkDescriptorSetLayout getDescriptorSetLayout() const { return _uniforms_layout; }
-        PushConstantsUpdater createPushConstantsUpdater(VkCommandBuffer command_buffer)
+        void onDraw(MaterialInstance::UpdateContext& update_context, const MeshInstance* mesh_instance)
         {
-            return PushConstantsUpdater{ command_buffer, _pipeline_layout };
-        }
-        void updateGlobalUniformBuffer(uint32_t frame_number)
-        {
-            _material_instance->updateGlobalUniformBuffer(_uniform_buffers, frame_number);
+            _material_instance->onDraw(update_context, mesh_instance);
         }
 
-        void updateGlobalPushConstants(PushConstantsUpdater& updater)
-        {
-            _material_instance->updateGlobalPushConstants(updater);
-        }
-
-        const std::vector<UniformBinding>& getUniformBindings() const { return _uniform_buffers; }
+        std::ranges::input_range auto getUniformBindings() const { return (std::vector{ _per_frame_resources.getResources(), _per_draw_call_resources.getResources() }) | std::views::join; }
 
     private:
         void destroy();
         VkShaderStageFlags getPushConstantsUsageFlag() const;
-
+        PushConstantsUpdater createPushConstantsUpdater(VkCommandBuffer command_buffer)
+        {
+            return PushConstantsUpdater{ command_buffer, _pipeline_layout };
+        }
         const MaterialInstance* _material_instance{ nullptr };
 
-        std::vector<UniformBinding> _uniform_buffers;
+        TextureBindingMap _subpass_textures;
+        GpuResourceSet _constant_resources;
+        GpuResourceSet _per_frame_resources;
+        GpuResourceSet _per_draw_call_resources;
         VkDevice _logical_device;
         VkPipeline _pipeline{ VK_NULL_HANDLE };
         VkPipelineLayout _pipeline_layout{ VK_NULL_HANDLE };
-        VkDescriptorSetLayout _uniforms_layout{ VK_NULL_HANDLE };
+        uint32_t _corresponding_subpass{ 0 };
     };
 }

@@ -13,5 +13,6 @@ namespace RenderEngine
         std::vector<glm::vec3> normals;
         std::vector<int16_t> indexes;
         std::vector<glm::vec2> uv;
+        std::vector<glm::vec3> texture_coord_3d;
     };
 }

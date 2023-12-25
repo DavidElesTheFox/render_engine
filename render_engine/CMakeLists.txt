@@ -78,6 +78,8 @@ set(RENDER_ENGINE_ASSETS_SRC
     src/assets/VolumeMaterial.cpp
     src/assets/TextureBindingMap.cpp
     src/assets/TextureAssignment.cpp
+    src/assets/MaterialInstance.cpp
+    src/assets/VolumeMaterialInstance.cpp
     )
 set(RENDER_ENGINE_ASSETS_HEADERS 
 	${RENDER_ENGINE_HEADER_LOCATION}/assets/Geometry.h
@@ -91,6 +93,8 @@ set(RENDER_ENGINE_ASSETS_HEADERS
     ${RENDER_ENGINE_HEADER_LOCATION}/assets/VolumeMaterial.h
     ${RENDER_ENGINE_HEADER_LOCATION}/assets/TextureBindingMap.h
     ${RENDER_ENGINE_HEADER_LOCATION}/assets/TextureAssignment.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/assets/MaterialInstance.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/assets/VolumeMaterialInstance.h
 
 
 	)
@@ -173,7 +177,7 @@ set(RENDER_ENGINE_HEADERS
 	${RENDER_ENGINE_WINDOW_HEADERS}
 	${RENDER_ENGINE_MEMORY_HEADERS}
 	${RENDER_ENGINE_ROOT_HEADERS}
-    )
+ )
 
 add_library(RenderEngine STATIC ${RENDER_ENGINE_SRC} ${RENDER_ENGINE_HEADERS})
 set_property(TARGET RenderEngine PROPERTY CXX_STANDARD 20)

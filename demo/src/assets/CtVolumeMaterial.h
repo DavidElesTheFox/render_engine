@@ -6,6 +6,7 @@
 
 #include <render_engine/assets/Image.h>
 #include <render_engine/assets/VolumeMaterial.h>
+#include <render_engine/assets/VolumeMaterialInstance.h>
 
 #include <assets/IMaterial.h>
 #include <scene/Scene.h>

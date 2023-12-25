@@ -20,4 +20,36 @@ namespace RenderEngine
         std::vector<uint8_t> vertex_buffer(begin, begin + vertex_buffer_data.size() * sizeof(float));
         return vertex_buffer;
     }
+    std::unique_ptr<Material> VolumeMaterial::createForFrontFace(std::unique_ptr<Shader> fragment_shader,
+                                                                 uint32_t id) const
+    {
+        std::unique_ptr<Shader> vertex_shader = std::make_unique<Shader>(getVertexShader());
+        std::unique_ptr<Material> result(new Material(std::move(vertex_shader),
+                                                      std::move(fragment_shader),
+                                                      { [](const Geometry& geometry, const Material& material) { return createVertexBuffer(geometry, material); } },
+                                                      id));
+        result->setColorBlending(result->getColorBlending().clone()
+                                 .setEnabled(false));
+        result->setAlphaBlending(result->getAlpheBlending().clone()
+                                 .setEnabled(false));
+        result->setRasterizationInfo(result->getRasterizationInfo().clone()
+                                     .setCullMode(VK_CULL_MODE_BACK_BIT));
+        return result;
+    }
+    std::unique_ptr<Material> VolumeMaterial::createForBackFace(std::unique_ptr<Shader> fragment_shader,
+                                                                uint32_t id) const
+    {
+        std::unique_ptr<Shader> vertex_shader = std::make_unique<Shader>(getVertexShader());
+        std::unique_ptr<Material> result(new Material(std::move(vertex_shader),
+                                                      std::move(fragment_shader),
+                                                      { [](const Geometry& geometry, const Material& material) { return createVertexBuffer(geometry, material); } },
+                                                      id));
+        result->setColorBlending(result->getColorBlending().clone()
+                                 .setEnabled(false));
+        result->setAlphaBlending(result->getAlpheBlending().clone()
+                                 .setEnabled(false));
+        result->setRasterizationInfo(result->getRasterizationInfo().clone()
+                                     .setCullMode(VK_CULL_MODE_FRONT_BIT));
+        return result;
+    }
 }

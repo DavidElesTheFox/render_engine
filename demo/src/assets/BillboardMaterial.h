@@ -4,6 +4,7 @@
 #include <glm/mat4x4.hpp>
 
 #include <render_engine/assets/Material.h>
+#include <render_engine/assets/MaterialInstance.h>
 #include <render_engine/resources/Texture.h>
 
 #include <assets/IMaterial.h>

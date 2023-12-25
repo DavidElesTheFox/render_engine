@@ -3,6 +3,7 @@
 #include <render_engine/assets/Geometry.h>
 #include <render_engine/assets/Mesh.h>
 #include <render_engine/assets/VolumeMaterial.h>
+#include <render_engine/assets/VolumeMaterialInstance.h>
 #include <render_engine/assets/VolumeShader.h>
 
 #include <glm/vec3.hpp>

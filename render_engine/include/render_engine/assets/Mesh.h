@@ -4,6 +4,7 @@
 #include <vector>
 
 #include <render_engine/assets/Material.h>
+#include <render_engine/assets/MaterialInstance.h>
 
 namespace RenderEngine
 {

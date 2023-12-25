@@ -142,10 +142,7 @@ namespace RenderEngine
         vkCmdBeginRenderPass(frame_data.command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
         for (auto& mesh_group : _meshes)
         {
-            auto push_constants_updater = mesh_group.technique->createPushConstantsUpdater(frame_data.command_buffer);
-
-            mesh_group.technique->updateGlobalUniformBuffer(swap_chain_image_index);
-            mesh_group.technique->updateGlobalPushConstants(push_constants_updater);
+            MaterialInstance::UpdateContext material_update_context = mesh_group.technique->onFrameBegin(swap_chain_image_index, frame_data.command_buffer);
 
             vkCmdBindPipeline(frame_data.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_group.technique->getPipeline());
 
@@ -176,7 +173,7 @@ namespace RenderEngine
 
             for (auto& mesh_instance : mesh_group.mesh_instances)
             {
-                mesh_instance->updatePushConstants(push_constants_updater);
+                mesh_group.technique->onDraw(material_update_context, mesh_instance);
                 auto& mesh_buffers = _mesh_buffers.at(mesh_instance->getMesh());
 
                 VkBuffer vertexBuffers[] = { mesh_buffers.vertex_buffer->getBuffer() };
@@ -202,11 +199,11 @@ namespace RenderEngine
         {
             for (const auto& uniform_binding : mesh_group.technique->getUniformBindings())
             {
-                if (auto texture = uniform_binding.getTextureForFrame(frame_number); texture != nullptr)
+                if (auto texture = uniform_binding->getTextureForFrame(frame_number); texture != nullptr)
                 {
                     ResourceStateMachine::resetStages(*texture);
                 }
-                if (auto buffer = uniform_binding.getTextureForFrame(frame_number); buffer != nullptr)
+                if (auto buffer = uniform_binding->getTextureForFrame(frame_number); buffer != nullptr)
                 {
                     ResourceStateMachine::resetStages(*buffer);
                 }

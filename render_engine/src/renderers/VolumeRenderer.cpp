@@ -331,10 +331,7 @@ namespace RenderEngine
                                            FrameData& frame_data,
                                            uint32_t swap_chain_image_index)
     {
-        auto push_constants_updater = technique.createPushConstantsUpdater(frame_data.command_buffer);
-
-        technique.updateGlobalUniformBuffer(swap_chain_image_index);
-        technique.updateGlobalPushConstants(push_constants_updater);
+        MaterialInstance::UpdateContext material_update_context = technique.onFrameBegin(swap_chain_image_index, frame_data.command_buffer);
         vkCmdBindPipeline(frame_data.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, technique.getPipeline());
         auto render_area = getRenderArea();
 
@@ -365,7 +362,7 @@ namespace RenderEngine
 
         for (auto& mesh_instance : meshes)
         {
-            mesh_instance->updatePushConstants(push_constants_updater);
+            technique.onDraw(material_update_context, mesh_instance);
             auto& mesh_buffers = _mesh_buffers.at(mesh_instance->getMesh());
 
             VkBuffer vertexBuffers[] = { mesh_buffers.vertex_buffer->getBuffer() };
@@ -409,8 +406,8 @@ namespace RenderEngine
                                                                                                  VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT));
             auto& texture = frame_buffer_data->textures_per_back_buffer.back();
             auto texture_view = std::make_unique<TextureView>(*texture,
-                                                              texture->createImageView({}),
-                                                              texture->createSampler(sampler_data),
+                                                              Texture::ImageViewData{},
+                                                              sampler_data,
                                                               getPhysicalDevice(),
                                                               getLogicalDevice());
 
@@ -449,7 +446,7 @@ namespace RenderEngine
             texture_bindings[1].push_back(_back_face_frame_buffer.texture_views_per_back_buffer[i]->createReference());
         }
         result.volume_technique = mesh.getMaterialInstance()->createTechnique(gpu_resource_manager,
-                                                                              MaterialInstance::TextureBindingData{ std::move(texture_bindings) },
+                                                                              TextureBindingMap{ std::move(texture_bindings) },
                                                                               getRenderPass(),
                                                                               2);
 
@@ -492,11 +489,11 @@ namespace RenderEngine
     {
         for (const auto& uniform_binding : technique.getUniformBindings())
         {
-            if (auto texture = uniform_binding.getTextureForFrame(image_index); texture != nullptr)
+            if (auto texture = uniform_binding->getTextureForFrame(image_index); texture != nullptr)
             {
                 ResourceStateMachine::resetStages(*texture);
             }
-            if (auto buffer = uniform_binding.getTextureForFrame(image_index); buffer != nullptr)
+            if (auto buffer = uniform_binding->getTextureForFrame(image_index); buffer != nullptr)
             {
                 ResourceStateMachine::resetStages(*buffer);
             }

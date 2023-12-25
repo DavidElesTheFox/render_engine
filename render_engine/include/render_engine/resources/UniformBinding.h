@@ -39,7 +39,7 @@ namespace RenderEngine
         {
             return *_back_buffer[frame_number].buffer;
         }
-        VkDescriptorSet getDescriptorSet(size_t frame_number)
+        VkDescriptorSet getDescriptorSet(size_t frame_number) const
         {
             return _back_buffer[frame_number].descriptor_set;
         }

@@ -2,6 +2,7 @@
 
 #include <imgui.h>
 
+#include <assets/CtVolumeMaterial.h>
 #include <assets/NoLitMaterial.h>
 #include <render_engine/assets/Material.h>
 #include <scene/MeshObject.h>
@@ -25,6 +26,21 @@ namespace Ui
                 if (ImGui::SliderFloat3(("Instance_color - " + material_instance_name).c_str(), &color.x, 0.0f, 1.0f))
                 {
                     nolit_material->getMaterialConstants().fragment_values.setInstanceColor(color);
+                }
+            }
+            if (auto* ct_material = dynamic_cast<Assets::CtVolumeMaterial::Instance*>(material_instance))
+            {
+                int step_count = ct_material->getMaterialConstants().fragment_values.getNumSteps();
+                float step_size = ct_material->getMaterialConstants().fragment_values.getStepSize();
+
+                if (ImGui::SliderInt(("Num Steps - " + material_instance_name).c_str(), &step_count, 1, 1 / step_size))
+                {
+                    ct_material->getMaterialConstants().fragment_values.setNumSteps(step_count);
+                }
+
+                if (ImGui::SliderFloat(("Step Size - " + material_instance_name).c_str(), &step_size, 0.0001f, 0.1f))
+                {
+                    ct_material->getMaterialConstants().fragment_values.setStepSize(step_size);
                 }
             }
             ImGui::Separator();

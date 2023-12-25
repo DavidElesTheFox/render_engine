@@ -58,34 +58,37 @@ namespace Assets
         using namespace RenderEngine;
         std::unique_ptr<Instance> result = std::make_unique<Instance>();
         result->_material_constants.fragment_values.instance_color = instance_color;
+        auto on_begin_frame = [material_constants = &result->_material_constants, scene](MaterialInstance::UpdateContext& update_context, uint32_t frame_count)
+            {
+                material_constants->vertex_values.projection = scene->getActiveCamera()->getProjection();
+                {
+                    const std::span<const uint8_t> data_view(reinterpret_cast<const uint8_t*>(&material_constants->vertex_values.projection), sizeof(material_constants->vertex_values.projection));
+                    update_context.getPushConstantUpdater().update(VK_SHADER_STAGE_VERTEX_BIT, offsetof(VertexPushConstants, projection), data_view);
+                }
+                {
+                    const std::span<const uint8_t> data_view(reinterpret_cast<const uint8_t*>(&material_constants->fragment_values.instance_color), sizeof(material_constants->fragment_values.instance_color));
+
+                    update_context.getPushConstantUpdater().update(VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(VertexPushConstants) + offsetof(FragmentPushConstants, instance_color), data_view);
+                }
+            };
+
+        auto on_draw = [material_constants = &result->_material_constants, scene](MaterialInstance::UpdateContext& update_context, const MeshInstance* mesh)
+            {
+                auto model = scene->getNodeLookup().findMesh(mesh->getId())->getTransformation().calculateTransformation();
+                auto view = scene->getActiveCamera()->getView();
+                material_constants->vertex_values.model_view = view * model;
+
+                {
+                    const std::span<const uint8_t> data_view(reinterpret_cast<const uint8_t*>(&material_constants->vertex_values.model_view), sizeof(material_constants->vertex_values.model_view));
+                    update_context.getPushConstantUpdater().update(VK_SHADER_STAGE_VERTEX_BIT, offsetof(VertexPushConstants, model_view), data_view);
+                }
+            };
         result->_material_instance = std::make_unique<MaterialInstance>(*_material,
-                                                                        MaterialInstance::TextureBindingData{},
+                                                                        TextureBindingMap{},
                                                                         MaterialInstance::CallbackContainer{
-                                                                            .global_ubo_update = [](std::vector<UniformBinding>& , uint32_t) {},
-                                                                            .global_push_constants_update = [material_constants = &result->_material_constants, scene](PushConstantsUpdater& updater)
-                                                             {
-material_constants->vertex_values.projection = scene->getActiveCamera()->getProjection();
-{
-    const std::span<const uint8_t> data_view(reinterpret_cast<const uint8_t*>(&material_constants->vertex_values.projection), sizeof(material_constants->vertex_values.projection));
-    updater.update(VK_SHADER_STAGE_VERTEX_BIT, offsetof(VertexPushConstants, projection), data_view);
-}
-{
-    const std::span<const uint8_t> data_view(reinterpret_cast<const uint8_t*>(&material_constants->fragment_values.instance_color), sizeof(material_constants->fragment_values.instance_color));
-
-    updater.update(VK_SHADER_STAGE_FRAGMENT_BIT,sizeof(VertexPushConstants) + offsetof(FragmentPushConstants, instance_color), data_view);
-}
-},
-.push_constants_updater = [material_constants = &result->_material_constants, scene](const MeshInstance* mesh, PushConstantsUpdater& updater)
-{
-auto model = scene->getNodeLookup().findMesh(mesh->getId())->getTransformation().calculateTransformation();
-auto view = scene->getActiveCamera()->getView();
-material_constants->vertex_values.model_view = view * model;
-
-const std::span<const uint8_t> data_view(reinterpret_cast<const uint8_t*>(&material_constants->vertex_values.model_view), sizeof(material_constants->vertex_values.model_view));
-updater.update(VK_SHADER_STAGE_VERTEX_BIT, offsetof(VertexPushConstants, model_view), data_view);
-}
-                                                                        },
-                                                                        id);
+                                                                            .on_frame_begin = std::move(on_begin_frame),
+                                                                            .on_draw = std::move(on_draw) },
+                                                                            id);
         return result;
     }
 }

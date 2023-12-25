@@ -30,7 +30,7 @@ namespace Assets
         vertex_meta_data.push_constants = Shader::MetaData::PushConstants{ .size = sizeof(VertexPushConstants),.offset = 0 };
 
         Shader::MetaData frament_meta_data;
-        frament_meta_data.samplers = { {1, Shader::MetaData::Sampler{.binding = 1 }} };
+        frament_meta_data.samplers = { {1, Shader::MetaData::Sampler{.binding = 1, .update_frequency = Shader::MetaData::UpdateFrequency::PerFrame}} };
 
 
         std::filesystem::path base_path = SHADER_BASE;
@@ -66,29 +66,30 @@ namespace Assets
         std::unordered_map<int32_t, std::unique_ptr<ITextureView>> texture_map;
         texture_map[1] = std::move(texture);
 
-        auto global_push_constat_update = [material_constants = &result->_material_constants, scene](PushConstantsUpdater& updater)
+        auto on_begin_frame = [material_constants = &result->_material_constants, scene](MaterialInstance::UpdateContext& update_context, uint32_t frame_count)
             {
                 material_constants->vertex_values.projection = scene->getActiveCamera()->getProjection();
                 {
                     const std::span<const uint8_t> data_view(reinterpret_cast<const uint8_t*>(&material_constants->vertex_values.projection), sizeof(material_constants->vertex_values.projection));
-                    updater.update(VK_SHADER_STAGE_VERTEX_BIT, offsetof(VertexPushConstants, projection), data_view);
+                    update_context.getPushConstantUpdater().update(VK_SHADER_STAGE_VERTEX_BIT, offsetof(VertexPushConstants, projection), data_view);
                 }
             };
-        auto push_constant_update = [material_constants = &result->_material_constants, scene](const MeshInstance* mesh, PushConstantsUpdater& updater)
+        auto on_draw = [material_constants = &result->_material_constants, scene](MaterialInstance::UpdateContext& update_context, const MeshInstance* mesh)
             {
                 auto model = scene->getNodeLookup().findMesh(mesh->getId())->getTransformation().calculateTransformation();
                 auto view = scene->getActiveCamera()->getView();
                 material_constants->vertex_values.model_view = view * model;
 
-                const std::span<const uint8_t> data_view(reinterpret_cast<const uint8_t*>(&material_constants->vertex_values.model_view), sizeof(material_constants->vertex_values.model_view));
-                updater.update(VK_SHADER_STAGE_VERTEX_BIT, offsetof(VertexPushConstants, model_view), data_view);
+                {
+                    const std::span<const uint8_t> data_view(reinterpret_cast<const uint8_t*>(&material_constants->vertex_values.model_view), sizeof(material_constants->vertex_values.model_view));
+                    update_context.getPushConstantUpdater().update(VK_SHADER_STAGE_VERTEX_BIT, offsetof(VertexPushConstants, model_view), data_view);
+                }
             };
         result->_material_instance = std::make_unique<MaterialInstance>(*_material,
-                                                                        MaterialInstance::TextureBindingData(std::move(texture_map)),
+                                                                        TextureBindingMap(std::move(texture_map)),
                                                                         MaterialInstance::CallbackContainer{
-                                                                            .global_ubo_update = [](std::vector<UniformBinding>& , uint32_t) {},
-                                                                            .global_push_constants_update = global_push_constat_update ,
-                                                                            .push_constants_updater = push_constant_update },
+                                                                            .on_frame_begin = std::move(on_begin_frame),
+                                                                            .on_draw = std::move(on_draw) },
                                                                             id);
         return result;
     }

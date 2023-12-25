@@ -101,14 +101,16 @@ namespace RenderEngine
         friend class TextureViewReference;
 
         TextureView(Texture& texture,
-                    VkImageView image_view,
-                    VkSampler sampler,
+                    Texture::ImageViewData image_view_data,
+                    std::optional<Texture::SamplerData> sampler_data,
                     VkPhysicalDevice physical_device,
                     VkDevice logical_device)
             : _texture(texture)
-            , _image_view(image_view)
-            , _sampler(sampler)
+            , _image_view(texture.createImageView(image_view_data))
+            , _sampler(sampler_data != std::nullopt ? texture.createSampler(*sampler_data) : VK_NULL_HANDLE)
             , _logical_device(logical_device)
+            , _image_view_data(std::move(image_view_data))
+            , _sampler_data(std::move(sampler_data))
         {}
         ~TextureView() override
         {
@@ -142,9 +144,16 @@ namespace RenderEngine
 
         std::unique_ptr<ITextureView> clone() const override final
         {
-            return std::unique_ptr<TextureView>(new TextureView(*this));
+            return std::unique_ptr<TextureView>(new TextureView(_texture,
+                                                                _image_view_data,
+                                                                _sampler_data,
+                                                                _physical_device,
+                                                                _logical_device));
         }
     protected:
+        /**
+        * Used when TextureViewReference is created
+        */
         TextureView(const TextureView& o) = default;
 
         void disableObjectDestroy() noexcept
@@ -159,6 +168,8 @@ namespace RenderEngine
         VkSampler _sampler{ VK_NULL_HANDLE };
         VkPhysicalDevice _physical_device{ VK_NULL_HANDLE };
         VkDevice _logical_device{ VK_NULL_HANDLE };
+        Texture::ImageViewData _image_view_data;
+        std::optional<Texture::SamplerData> _sampler_data{ std::nullopt };
     };
 
     class TextureViewReference : public ITextureView

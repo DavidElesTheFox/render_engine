@@ -6,16 +6,18 @@ namespace RenderEngine
 {
     Technique::Technique(VkDevice logical_device,
                          const MaterialInstance* material_instance,
-                         MaterialInstance::TextureBindingData&& subpass_textures,
-                         std::vector<UniformBinding>&& uniform_buffers,
-                         VkDescriptorSetLayout uniforms_layout,
+                         TextureBindingMap&& subpass_textures,
+                         GpuResourceSet&& constant_resources,
+                         GpuResourceSet&& per_frame_resources,
+                         GpuResourceSet&& per_draw_call_resources,
                          VkRenderPass render_pass,
                          uint32_t corresponding_subpass)
         try : _material_instance(material_instance)
         , _subpass_textures(std::move(subpass_textures))
-        , _uniform_buffers(std::move(uniform_buffers))
+        , _constant_resources(std::move(constant_resources))
+        , _per_frame_resources(std::move(per_frame_resources))
+        , _per_draw_call_resources(std::move(per_draw_call_resources))
         , _logical_device(logical_device)
-        , _uniforms_layout(uniforms_layout)
         , _corresponding_subpass(corresponding_subpass)
     {
         const auto& material = _material_instance->getMaterial();
@@ -23,11 +25,14 @@ namespace RenderEngine
         auto fragment_shader = material.getFragmentShader().loadOn(logical_device);
 
         std::vector<VkDescriptorSetLayout> descriptor_set_layouts;
-        if (_uniform_buffers.empty() == false)
+        if (_per_frame_resources.getResources().empty() == false)
         {
-            descriptor_set_layouts.push_back(_uniforms_layout);
+            descriptor_set_layouts.push_back(_per_frame_resources.getLayout());
         }
-
+        if (_per_draw_call_resources.getResources().empty() == false)
+        {
+            descriptor_set_layouts.push_back(_per_draw_call_resources.getLayout());
+        }
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         pipelineLayoutInfo.setLayoutCount = descriptor_set_layouts.size();
@@ -194,8 +199,6 @@ namespace RenderEngine
         vkDestroyPipeline(_logical_device, _pipeline, nullptr);
         vkDestroyPipelineLayout(_logical_device, _pipeline_layout, nullptr);
 
-
-        vkDestroyDescriptorSetLayout(_logical_device, _uniforms_layout, nullptr);
     }
 
     VkShaderStageFlags Technique::getPushConstantsUsageFlag() const

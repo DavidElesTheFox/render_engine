@@ -6,6 +6,7 @@
 
 #include <render_engine/assets/Material.h>
 #include <render_engine/assets/Mesh.h>
+#include <render_engine/resources/GpuResourceSet.h>
 #include <render_engine/resources/PushConstantsUpdater.h>
 #include <render_engine/resources/UniformBinding.h>
 
@@ -17,9 +18,10 @@ namespace RenderEngine
 
         Technique(VkDevice logical_device,
                   const MaterialInstance* material,
-                  MaterialInstance::TextureBindingData&& subpass_textures,
-                  std::vector<UniformBinding>&& uniform_buffers,
-                  VkDescriptorSetLayout uniforms_layout,
+                  TextureBindingMap&& subpass_textures,
+                  GpuResourceSet&& constant_resources,
+                  GpuResourceSet&& per_frame_resources,
+                  GpuResourceSet&& per_draw_call_resources,
                   VkRenderPass render_pass,
                   uint32_t corresponding_subpass);
         ~Technique();
@@ -35,41 +37,45 @@ namespace RenderEngine
         std::vector<VkDescriptorSet> collectDescriptorSets(size_t frame_number)
         {
             std::set<VkDescriptorSet> result;
-            for (UniformBinding& binding : _uniform_buffers)
+            for (const UniformBinding* binding : (std::vector{ _per_frame_resources.getResources(), _per_draw_call_resources.getResources() }) | std::views::join)
             {
-                result.insert(binding.getDescriptorSet(frame_number));
+                result.insert(binding->getDescriptorSet(frame_number));
             }
             return std::vector<VkDescriptorSet>{ result.begin(), result.end() };
         }
-        VkDescriptorSetLayout getDescriptorSetLayout() const { return _uniforms_layout; }
-        PushConstantsUpdater createPushConstantsUpdater(VkCommandBuffer command_buffer)
+
+        MaterialInstance::UpdateContext onFrameBegin(uint32_t frame_number, VkCommandBuffer command_buffer)
         {
-            return PushConstantsUpdater{ command_buffer, _pipeline_layout };
+            MaterialInstance::UpdateContext result(_per_frame_resources.getResources(),
+                                                   _per_draw_call_resources.getResources(),
+                                                   createPushConstantsUpdater(command_buffer),
+                                                   *_material_instance);
+            _material_instance->onFrameBegin(result, frame_number);
+            return result;
         }
-        void updateGlobalUniformBuffer(uint32_t frame_number)
+        void onDraw(MaterialInstance::UpdateContext& update_context, const MeshInstance* mesh_instance)
         {
-            _material_instance->updateGlobalUniformBuffer(_uniform_buffers, frame_number);
+            _material_instance->onDraw(update_context, mesh_instance);
         }
 
-        void updateGlobalPushConstants(PushConstantsUpdater& updater)
-        {
-            _material_instance->updateGlobalPushConstants(updater);
-        }
-
-        const std::vector<UniformBinding>& getUniformBindings() const { return _uniform_buffers; }
+        std::ranges::input_range auto getUniformBindings() const { return (std::vector{ _per_frame_resources.getResources(), _per_draw_call_resources.getResources() }) | std::views::join; }
 
     private:
         void destroy();
         VkShaderStageFlags getPushConstantsUsageFlag() const;
-
+        PushConstantsUpdater createPushConstantsUpdater(VkCommandBuffer command_buffer)
+        {
+            return PushConstantsUpdater{ command_buffer, _pipeline_layout };
+        }
         const MaterialInstance* _material_instance{ nullptr };
 
-        MaterialInstance::TextureBindingData _subpass_textures;
-        std::vector<UniformBinding> _uniform_buffers;
+        TextureBindingMap _subpass_textures;
+        GpuResourceSet _constant_resources;
+        GpuResourceSet _per_frame_resources;
+        GpuResourceSet _per_draw_call_resources;
         VkDevice _logical_device;
         VkPipeline _pipeline{ VK_NULL_HANDLE };
         VkPipelineLayout _pipeline_layout{ VK_NULL_HANDLE };
-        VkDescriptorSetLayout _uniforms_layout{ VK_NULL_HANDLE };
         uint32_t _corresponding_subpass{ 0 };
     };
 }

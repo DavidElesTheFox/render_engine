@@ -28,9 +28,22 @@ namespace Assets
             glm::mat4 model_view;
         };
 
+        class FragmentPushConstants
+        {
+        public:
+            void setNumSteps(uint32_t value) { num_steps = value; }
+            uint32_t getNumSteps() const { return num_steps; }
+            void setStepSize(float value) { step_size = value; }
+            float getStepSize() const { return step_size; }
+        private:
+            uint32_t num_steps{ 100 };
+            float step_size{ 0.01f };
+        };
+
         struct MaterialPushConstants
         {
             VertexPushConstants vertex_values;
+            FragmentPushConstants fragment_values;
         };
 
         class Instance : public IInstance
@@ -39,9 +52,10 @@ namespace Assets
         public:
             Instance() = default;
             ~Instance() override = default;
-            MaterialPushConstants& getMaterialConstants() { return _material_constants; }
             const MaterialPushConstants& getMaterialConstants() const { return _material_constants; }
+            MaterialPushConstants& getMaterialConstants() { return _material_constants; }
             RenderEngine::VolumeMaterialInstance* getMaterialInstance() { return _material_instance.get(); }
+
         private:
             MaterialPushConstants _material_constants;
             std::unique_ptr<RenderEngine::VolumeMaterialInstance> _material_instance;

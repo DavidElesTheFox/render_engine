@@ -64,7 +64,7 @@ namespace RenderEngine
             std::unique_ptr<Material> material;
         };
         VolumeMaterialInstance(VolumeMaterial& material,
-                               TextureBindingData texture_bindings,
+                               TextureBindingMap texture_bindings,
                                CallbackContainer callbacks,
                                uint32_t id)
             : MaterialInstance(material, std::move(texture_bindings), std::move(callbacks), id)
@@ -79,7 +79,7 @@ namespace RenderEngine
             result.material = material.createForFrontFace(std::move(fragment_shader),
                                                           id);
             result.instance = std::unique_ptr<VolumeMaterialInstance>(new VolumeMaterialInstance(*result.material,
-                                                                                                 TextureBindingData{},
+                                                                                                 TextureBindingMap{},
                                                                                                  getCallbackContainer(),
                                                                                                  id));
             return result;
@@ -92,14 +92,14 @@ namespace RenderEngine
             result.material = material.createForBackFace(std::move(fragment_shader),
                                                          id);
             result.instance = std::unique_ptr<VolumeMaterialInstance>(new VolumeMaterialInstance(*result.material,
-                                                                                                 TextureBindingData{},
+                                                                                                 TextureBindingMap{},
                                                                                                  getCallbackContainer(),
                                                                                                  id));
             return result;
         }
     private:
         VolumeMaterialInstance(Material& material,
-                               TextureBindingData texture_bindings,
+                               TextureBindingMap texture_bindings,
                                CallbackContainer callbacks,
                                uint32_t id)
             : MaterialInstance(material, std::move(texture_bindings), std::move(callbacks), id)

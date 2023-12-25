@@ -46,10 +46,6 @@ namespace RenderEngine
         const Mesh* getMesh() const { return _mesh; }
         MaterialInstance* getMaterialInstance() { return _material_instance; }
         const MaterialInstance* getMaterialInstance() const { return _material_instance; }
-        void updatePushConstants(PushConstantsUpdater& updater) const
-        {
-            _material_instance->updatePushConstants(this, updater);
-        }
         uint32_t getId() const { return _id; }
     private:
         Mesh* _mesh{ nullptr };

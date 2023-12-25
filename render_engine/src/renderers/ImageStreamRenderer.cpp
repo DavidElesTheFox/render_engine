@@ -222,7 +222,7 @@ namespace RenderEngine
                                                                         VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT));
         }
         {
-            Shader::MetaData fragment_metadata{ .samplers = {{0, {.binding = 0 }}} };
+            Shader::MetaData fragment_metadata{ .samplers = {{0, {.binding = 0, .update_frequency = Shader::MetaData::UpdateFrequency::PerFrame }}} };
             Shader::MetaData vertex_metadata{ }; // no attachments. Does not need any input just glVertexId
             auto vertex_shader = std::make_unique<Shader>(std::span(vertex_shader_code), vertex_metadata);
             auto fragment_shader = std::make_unique<Shader>(std::span(fragment_shader_code), fragment_metadata);
@@ -246,15 +246,15 @@ namespace RenderEngine
             for (uint32_t i = 0; i < back_buffer_size; ++i)
             {
                 texture_bindings[input_binding].push_back(std::make_unique<TextureView>(*_texture_container[i],
-                                                                                        _texture_container[i]->createImageView({}),
-                                                                                        _texture_container[i]->createSampler(sampler_data),
+                                                                                        Texture::ImageViewData{},
+                                                                                        sampler_data,
                                                                                         getWindow().getDevice().getPhysicalDevice(),
                                                                                         getLogicalDevice()));
             }
 
 
             _material_instance = std::make_unique<MaterialInstance>(*_fullscreen_material,
-                                                                    MaterialInstance::TextureBindingData{ std::move(texture_bindings) },
+                                                                    TextureBindingMap{ std::move(texture_bindings) },
                                                                     MaterialInstance::CallbackContainer{},
                                                                     material_id);
 

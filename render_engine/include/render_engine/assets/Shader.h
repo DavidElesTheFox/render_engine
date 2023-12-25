@@ -18,6 +18,13 @@ namespace RenderEngine
 
         struct MetaData
         {
+            enum class UpdateFrequency
+            {
+                Unknown = 0,
+                Constant,
+                PerFrame,
+                PerDrawCall
+            };
             struct Attribute
             {
                 uint32_t location{ 0 };
@@ -36,6 +43,7 @@ namespace RenderEngine
                 int32_t size{ -1 };
                 int32_t offset{ 0 };
                 VkShaderStageFlags shared_with{ 0 };
+                UpdateFrequency update_frequency{ UpdateFrequency::Unknown };
             };
 
             struct Sampler

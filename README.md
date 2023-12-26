@@ -11,6 +11,8 @@ Library uses
  - glm as math library
  - ADR templates for documentation of design decisions
  - sdl for window handling
+ - CT image source: https://isbweb.org/data/vsj/ (Thank you)
+   - exported to image with: https://www.radiantviewer.com/
 
  # Design decisions
 

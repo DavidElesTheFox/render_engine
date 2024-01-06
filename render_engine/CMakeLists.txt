@@ -242,3 +242,4 @@ target_include_directories(RenderEngine
 		${IMGUI_SRC}
 		${RENDERDOC_PATH}
 )
+add_subdirectory(modules)

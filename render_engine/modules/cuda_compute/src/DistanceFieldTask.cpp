@@ -12,7 +12,7 @@ namespace RenderEngine::CudaCompute
     {
         struct ExecutionParameters
         {
-            uint32_t thread_count_per_block = 6;
+            uint32_t thread_count_per_block = 512;
             float algorithms_epsilon = 0.01f;
         };
         DistanceFieldTask::Description runTask(DistanceFieldTask::Description&& task_description,

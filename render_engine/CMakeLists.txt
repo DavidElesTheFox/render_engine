@@ -204,7 +204,11 @@ target_sources(RenderEngine
 	PRIVATE
 		${RENDER_ENGINE_IMGUI_SOURCES}
 )
+########################
+# Modules              #
+########################
 
+add_subdirectory(modules)
 
 ########################
 # Library dependencies #
@@ -218,6 +222,8 @@ add_dependencies(RenderEngine copyStbImage)
 
 # Dependencies #
 target_link_libraries(RenderEngine 
+    PRIVATE
+        CudaCompute
 	PUBLIC 
 		glfw
 		volk::volk
@@ -242,4 +248,3 @@ target_include_directories(RenderEngine
 		${IMGUI_SRC}
 		${RENDERDOC_PATH}
 )
-add_subdirectory(modules)

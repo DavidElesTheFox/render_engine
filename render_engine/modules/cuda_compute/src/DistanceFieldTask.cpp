@@ -6,6 +6,8 @@
 #include <future>
 #include <iostream>
 
+#include <CudaStreamCallback.h>
+
 namespace RenderEngine::CudaCompute
 {
     namespace
@@ -30,7 +32,7 @@ namespace RenderEngine::CudaCompute
             if (task_description.on_finished_callback != nullptr)
             {
                 constexpr auto flags = 0;
-                cudaStreamAddCallback(stream.getCudaStream(), task_description.on_finished_callback, task_description.on_finish_callback_user_data, flags);
+                cudaStreamAddCallback(stream.getCudaStream(), cudaStreamCallbackImpl, task_description.on_finished_callback.get(), flags);
             }
             return task_description;
         }

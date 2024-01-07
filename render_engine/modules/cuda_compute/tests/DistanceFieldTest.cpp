@@ -9,18 +9,39 @@
 
 namespace RenderEngine::CudaCompute::Tests
 {
-
-    bool g_task_finished = false;
-    std::mutex g_task_mutex;
-    std::condition_variable g_task_condition;
-    void onTaskFinished(cudaStream_t stream, cudaError_t status, void* userData)
+    namespace
     {
+        class TaskFinishedCallback : public IComputeCallback
         {
-            std::lock_guard lock{ g_task_mutex };
-            g_task_finished = true;
-        }
-        g_task_condition.notify_one();
+        public:
+            void call() override
+            {
+                {
+                    std::lock_guard lock{ _task_mutex };
+                    _task_finished = true;
+                }
+                _task_condition.notify_one();
+            }
+
+            template<typename T>
+            void wait_for(const T& timeout)
+            {
+                std::unique_lock lock(_task_mutex);
+                _task_condition.wait_for(lock, timeout, [&] { return _task_finished; });
+            }
+
+            bool isTaskFinished() const
+            {
+                std::lock_guard lock(_task_mutex);
+                return _task_finished;
+            }
+        private:
+            bool _task_finished = false;
+            mutable std::mutex _task_mutex;
+            std::condition_variable _task_condition;
+        };
     }
+
 
     class DistanceFieldTest : public testing::Test
     {
@@ -436,7 +457,11 @@ namespace RenderEngine::CudaCompute::Tests
         // Currently the 'image size' is determined by the kernel parameters that calculated from the thread count. 
         // If there are too many threads the algorithm will give less precise result due to the integer projection [0,1] -> [0, 1023]
         DistanceFieldTask task(DistanceFieldTask::ExecutionParameters{ .thread_count_per_block = 6 });
+
+        // This pointer will be valid until the result is not fetched form the task or clearResult is not called
+        TaskFinishedCallback* finish_callback_reference{ nullptr };
         {
+            auto finish_callback = std::make_unique<TaskFinishedCallback>();
             DistanceFieldTask::Description task_description;
             task_description.width = image_width;
             task_description.height = image_height;
@@ -444,17 +469,16 @@ namespace RenderEngine::CudaCompute::Tests
             task_description.input_data = input.surface;
             task_description.output_data = result.surface;
             task_description.segmentation_threshold = 2;
-            task_description.on_finished_callback = onTaskFinished;
 
-            g_task_finished = false;
+            finish_callback_reference = finish_callback.get();
+            task_description.on_finished_callback = std::move(finish_callback);
 
             task.execute(std::move(task_description), &device);
         }
         {
             using namespace std::chrono_literals;
-            std::unique_lock lock(g_task_mutex);
-            g_task_condition.wait_for(lock, 30s, [] { return g_task_finished; });
-            ASSERT_TRUE(g_task_finished) << "Task time out error";
+            finish_callback_reference->wait_for(30s);
+            ASSERT_TRUE(finish_callback_reference->isTaskFinished()) << "Task time out error";
         }
         readBack(result_data, result.memory, image_width, image_height, image_depth);
 

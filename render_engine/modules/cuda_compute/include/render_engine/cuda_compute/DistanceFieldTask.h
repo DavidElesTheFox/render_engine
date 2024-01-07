@@ -25,7 +25,16 @@ namespace RenderEngine::CudaCompute
             cudaStreamCallback_t on_finished_callback{ nullptr };
             void* on_finish_callback_user_data{ nullptr };
         };
-        DistanceFieldTask() = default;
+        struct ExecutionParameters
+        {
+            uint32_t thread_count_per_block = 512;
+            float algorithms_epsilon = 0.01f;
+        };
+        explicit DistanceFieldTask(ExecutionParameters execution_parameters = {})
+            : _execution_parameters(std::move(execution_parameters))
+        {
+
+        }
         ~DistanceFieldTask() = default;
 
         void execute(Description&& task_description, CudaDevice* cudaDevice);
@@ -39,6 +48,7 @@ namespace RenderEngine::CudaCompute
             return _result.wait_for(timeout_duration);
         }
     private:
+        ExecutionParameters _execution_parameters{};
         std::future<Description> _result;
     };
 }

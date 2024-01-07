@@ -433,7 +433,9 @@ namespace RenderEngine::CudaCompute::Tests
         auto result = createOutputSurface(image_width, image_height, image_depth);
 
         CudaDevice device(0, 1);
-        DistanceFieldTask task;
+        // Currently the 'image size' is determined by the kernel parameters that calculated from the thread count. 
+        // If there are too many threads the algorithm will give less precise result due to the integer projection [0,1] -> [0, 1023]
+        DistanceFieldTask task(DistanceFieldTask::ExecutionParameters{ .thread_count_per_block = 6 });
         {
             DistanceFieldTask::Description task_description;
             task_description.width = image_width;
@@ -460,7 +462,7 @@ namespace RenderEngine::CudaCompute::Tests
         {
             0.71f, 0.56f, 0.50f, 0.56f,
             0.56f, 0.35f, 0.25f, 0.35f,
-            0.50f, 0.25f, 0.00f, 0.25f,
+            0.50f, 0.25f, 0.0f, 0.25f,
             0.56f, 0.35f, 0.25f, 0.35f
         };
 

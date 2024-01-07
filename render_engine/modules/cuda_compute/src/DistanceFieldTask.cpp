@@ -10,14 +10,10 @@ namespace RenderEngine::CudaCompute
 {
     namespace
     {
-        struct ExecutionParameters
-        {
-            uint32_t thread_count_per_block = 512;
-            float algorithms_epsilon = 0.01f;
-        };
+
         DistanceFieldTask::Description runTask(DistanceFieldTask::Description&& task_description,
                                                CudaDevice* cudaDevice,
-                                               ExecutionParameters execution_params)
+                                               DistanceFieldTask::ExecutionParameters execution_params)
         {
             DistanceFieldKernel::KernelParameters kernel_params;
 
@@ -42,7 +38,7 @@ namespace RenderEngine::CudaCompute
 
     void DistanceFieldTask::execute(Description&& task_description, CudaDevice* cudaDevice)
     {
-        _result = std::async(std::launch::async, runTask, std::move(task_description), cudaDevice, ExecutionParameters{});
+        _result = std::async(std::launch::async, runTask, std::move(task_description), cudaDevice, _execution_parameters);
     }
 
 

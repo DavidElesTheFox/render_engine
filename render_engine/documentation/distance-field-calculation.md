@@ -43,6 +43,8 @@ nearest neighbor problem.
 After a lot of googling all the implementation of a k nearest neighbor problem is based on Chunk's unpublished solution:
 https://tmc.web.engr.illinois.edu/pub_ann.html?fbclid=IwAR26zQSewG3ohCCOJMRL7pgGDba58fo28jCuoyvirs9ZnqQUP4bjoV5dyVg (A minimalist's implementation of an approximate nearest neighbor algorithm in fixed dimensions)
 
+Also needs to be mentioned the original ANN algorithm: https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=19a330dea3839723efedefbd53378ede66ef2eec
+
 Here also a short implementation is published as well. This works well on CPU but the question is how to implement on GPU. A nice implementation idea is given by NVidia: https://developer.nvidia.com/blog/thinking-parallel-part-iii-tree-construction-gpu/
 
 Here a BVH is generated but the same can be done for ANN. The algorithm will look like:
@@ -51,7 +53,9 @@ Here a BVH is generated but the same can be done for ANN. The algorithm will loo
 - Use Chun method to solve the ANN for all the points in the 'texture'. 
 
 ##### About Morton code
-Morton code is used to make a 1D representation of 3D points but keeping the speasial property, i.e.: If a point is close in 3D then it should be close in 1D representation too. Morton code knows this, basically it is a natural octree. (https://en.wikipedia.org/wiki/Z-order_curve). Fun fact other similar representation is the Hilbert curve.
+Morton code is used to make a 1D representation of 3D points but keeping the speasial property, i.e.: If a point is close in 3D then it should be close in 1D representation too. Morton code knows this, basically it is a natural octree. (https://en.wikipedia.org/wiki/Z-order_curve). Also it can be used to create kd-tree which is basically used in Chun's method to find the nearest neighbor. See more https://en.wikipedia.org/wiki/K-d_tree
+
+ Fun fact other similar representation is the Hilbert curve.
 
 30bit Morton code. Chun's method and Morton code operates on integer numbers. But we have [0,1] normalized numbers. We are doing the same as it is recommended by the Nvidia blog and projecting our numbers from [0,1] to [0, 1023]. 
 A bit more about this representation: https://www.forceflow.be/2013/10/07/morton-encodingdecoding-through-bit-interleaving-implementations/

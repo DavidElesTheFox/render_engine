@@ -23,16 +23,25 @@ namespace RenderEngine
                                      std::unique_ptr<RenderEngine>&& render_engine,
                                      std::unique_ptr<TransferEngine>&& transfer_engine,
                                      std::vector<std::unique_ptr<Texture>>&& textures)
-        : _device(device)
+        try : _device(device)
         , _render_engine(std::move(render_engine))
         , _transfer_engine(std::move(transfer_engine))
         , _textures(std::move(textures))
-        , _back_buffer(_textures.size(), FrameData{})
+        , _back_buffer()
         , _back_buffer_size(_textures.size())
         , _image_stream(ImageStream::ImageDescription{ .width = _textures.front()->getImage().getWidth(),
                 .height = _textures.front()->getImage().getHeight(),
                 .format = _textures.front()->getImage().getFormat() })
     {
+        _back_buffer.reserve(_back_buffer_size);
+        for (uint32_t i = 0; i < _back_buffer_size; ++i)
+        {
+            _back_buffer.emplace_back(FrameData{
+                // TODO fence is only necessary because of the download is a blocking command and waits for the finish
+                .synch_present = SynchronizationObject::CreateWithFence(device.getLogicalDevice(), 0)
+                , .synch_render = SynchronizationObject::CreateWithFence(device.getLogicalDevice(), VK_FENCE_CREATE_SIGNALED_BIT)
+                , .synch_render_empty_scene = SynchronizationObject::CreateWithFence(device.getLogicalDevice(), VK_FENCE_CREATE_SIGNALED_BIT) });
+        }
         Texture::ImageViewData image_view_data;
         for (auto& texture : _textures)
         {
@@ -43,6 +52,10 @@ namespace RenderEngine
                                                                       getDevice().getLogicalDevice()));
         }
         initSynchronizationObjects();
+    }
+    catch (const std::runtime_error&)
+    {
+        destroy();
     }
 
     OffScreenWindow::~OffScreenWindow()
@@ -70,22 +83,18 @@ namespace RenderEngine
     {
         for (FrameData& frame_data : _back_buffer)
         {
-            VkSemaphoreCreateInfo semaphore_info{};
-            semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+            frame_data.synch_present.createSemaphore("image-available");
+            frame_data.synch_render.createSemaphore("render-finished");
 
-            VkFenceCreateInfo fence_info{};
-            fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-            fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-            auto logical_device = _device.getLogicalDevice();
-            if (vkCreateSemaphore(logical_device, &semaphore_info, nullptr, &frame_data.image_available_semaphore) != VK_SUCCESS ||
-                vkCreateSemaphore(logical_device, &semaphore_info, nullptr, &frame_data.render_finished_semaphore) != VK_SUCCESS ||
-                vkCreateFence(logical_device, &fence_info, nullptr, &frame_data.in_flight_fence) != VK_SUCCESS)
-            {
-                vkDestroySemaphore(logical_device, frame_data.image_available_semaphore, nullptr);
-                vkDestroySemaphore(logical_device, frame_data.render_finished_semaphore, nullptr);
-                vkDestroyFence(logical_device, frame_data.in_flight_fence, nullptr);
-                throw std::runtime_error("failed to create synchronization objects for a frame!");
-            }
+            connectVia("image-available",
+                       frame_data.synch_present, VK_PIPELINE_STAGE_2_COPY_BIT,
+                       frame_data.synch_render, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
+
+            connectVia("render-finished",
+                       frame_data.synch_render, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                       frame_data.synch_present, VK_PIPELINE_STAGE_2_COPY_BIT);
+            frame_data.synch_render.addSignalOperationToGroup("Empty-Render", "render-finished", VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+
         }
     }
 
@@ -106,12 +115,7 @@ namespace RenderEngine
     {
         auto logical_device = _device.getLogicalDevice();
         vkDeviceWaitIdle(logical_device);
-        for (FrameData& frame_data : _back_buffer)
-        {
-            vkDestroySemaphore(logical_device, frame_data.image_available_semaphore, nullptr);
-            vkDestroySemaphore(logical_device, frame_data.render_finished_semaphore, nullptr);
-            vkDestroyFence(logical_device, frame_data.in_flight_fence, nullptr);
-        }
+        _back_buffer.clear();
         _renderers.clear();
 
         _render_engine.reset();
@@ -158,31 +162,15 @@ namespace RenderEngine
         // TODO this fance basically doesn't necessary because download is a blocking command.
         // Using a concurent queue in ImageStream and using there a future can obsolate this call.
         auto logical_device = _device.getLogicalDevice();
-        vkWaitForFences(logical_device, 1, &frame_data.in_flight_fence, VK_TRUE, UINT64_MAX);
+        assert(frame_data.synch_render.getDefaultOperations().hasAnyFence() && "Render sync operation needs a fence");
+        vkWaitForFences(logical_device, 1, frame_data.synch_render.getDefaultOperations().getFence(), VK_TRUE, UINT64_MAX);
 
-        vkResetFences(logical_device, 1, &frame_data.in_flight_fence);
+        vkResetFences(logical_device, 1, frame_data.synch_render.getDefaultOperations().getFence());
         _render_engine->onFrameBegin(renderers, getCurrentImageIndex());
 
-        SynchronizationPrimitives synchronization_primitives{};
-        if (frame_data.contains_image)
-        {
-            VkSemaphoreSubmitInfo wait_semaphore_info{};
-            wait_semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
-            wait_semaphore_info.semaphore = frame_data.image_available_semaphore;
-            wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
-            synchronization_primitives.wait_semaphores.push_back(wait_semaphore_info);
-        }
-        {
-            VkSemaphoreSubmitInfo signal_semaphore_info{};
-            signal_semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
-            signal_semaphore_info.semaphore = frame_data.render_finished_semaphore;
-            signal_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+        const std::string operation_group_name = frame_data.contains_image ? SynchronizationObject::kDefaultOperationGroup : "Empty-Render";
 
-            synchronization_primitives.signal_semaphores.push_back(signal_semaphore_info);
-        }
-        synchronization_primitives.on_finished_fence = frame_data.in_flight_fence;
-
-        bool draw_call_submitted = _render_engine->render(&synchronization_primitives,
+        bool draw_call_submitted = _render_engine->render(frame_data.synch_render.getOperationsGroup(operation_group_name),
                                                           _renderers | std::views::transform([](const auto& ptr) { return ptr.get(); }),
                                                           getCurrentImageIndex());
         frame_data.contains_image = draw_call_submitted;
@@ -193,25 +181,10 @@ namespace RenderEngine
         {
             return;
         }
-        SynchronizationPrimitives synchronization_primitives = SynchronizationPrimitives::CreateWithFence(_device.getLogicalDevice());
-        {
-            VkSemaphoreSubmitInfo semaphore_submit_info{};
-            semaphore_submit_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
-            semaphore_submit_info.semaphore = frame.render_finished_semaphore;
-            semaphore_submit_info.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
-            synchronization_primitives.wait_semaphores.push_back(semaphore_submit_info);
-        }
-        {
-            VkSemaphoreSubmitInfo semaphore_submit_info{};
-            semaphore_submit_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
-            semaphore_submit_info.semaphore = frame.image_available_semaphore;
-            semaphore_submit_info.stageMask = VK_PIPELINE_STAGE_2_COPY_BIT;
-            synchronization_primitives.signal_semaphores.push_back(semaphore_submit_info);
-        }
-        std::vector<uint8_t> image_data = _textures[getOldestImageIndex()]->download(synchronization_primitives,
+
+        std::vector<uint8_t> image_data = _textures[getOldestImageIndex()]->download(frame.synch_present.getDefaultOperations(),
                                                                                      *_transfer_engine);
 
-        vkDestroyFence(_device.getLogicalDevice(), synchronization_primitives.on_finished_fence, nullptr);
         _image_stream << std::move(image_data);
     }
 

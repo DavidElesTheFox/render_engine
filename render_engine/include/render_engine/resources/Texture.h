@@ -40,12 +40,12 @@ namespace RenderEngine
 
         [[nodiscard]]
         TransferEngine::InFlightData upload(const Image& image,
-                                            const SynchronizationPrimitives& synchronization_primitive,
+                                            SyncOperations sync_operations,
                                             TransferEngine& transfer_engine,
                                             uint32_t dst_queue_family_index);
 
         [[nodiscard]]
-        std::vector<uint8_t> download(const SynchronizationPrimitives& synchronization_primitive,
+        std::vector<uint8_t> download(SyncOperations sync_operations,
                                       TransferEngine& transfer_engine);
 
         VkImageView createImageView(const ImageViewData& data);
@@ -217,7 +217,7 @@ namespace RenderEngine
         std::tuple<std::unique_ptr<Texture>, TransferEngine::InFlightData> create(Image image,
                                                                                   VkImageAspectFlags aspect,
                                                                                   VkShaderStageFlags shader_usage,
-                                                                                  const SynchronizationPrimitives& synchronization_primitive,
+                                                                                  const SyncOperations& synchronization_primitive,
                                                                                   uint32_t dst_queue_family_index,
                                                                                   VkImageUsageFlagBits image_usage);
 

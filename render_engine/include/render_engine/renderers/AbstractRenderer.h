@@ -1,5 +1,7 @@
 #pragma once
 
+#include <render_engine/SynchronizationPrimitives.h>
+
 #include <cstdint>
 #include <vector>
 #include <volk.h>
@@ -38,7 +40,7 @@ namespace RenderEngine
         virtual void onFrameBegin(uint32_t frame_number) = 0;
         virtual void draw(uint32_t swap_chain_image_index) = 0;
         virtual std::vector<VkCommandBuffer> getCommandBuffers(uint32_t frame_number) = 0;
-        virtual std::vector<VkSemaphoreSubmitInfo> getWaitSemaphores(uint32_t frame_number) = 0;
+        virtual SyncOperations getSyncOperations(uint32_t frame_number) = 0;
         [[nodiscard]]
         ReinitializationCommand reinit();
     private:

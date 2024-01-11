@@ -19,7 +19,7 @@ namespace RenderEngine
 
     }
 
-    void RenderEngine::submitDrawCalls(const std::vector<VkCommandBufferSubmitInfo>& command_buffers, const SynchronizationPrimitives& synchronization_primitives)
+    void RenderEngine::submitDrawCalls(const std::vector<VkCommandBufferSubmitInfo>& command_buffers, SyncOperations& sync_operations)
     {
         VkSubmitInfo2 submit_info{};
         submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
@@ -27,14 +27,8 @@ namespace RenderEngine
         submit_info.commandBufferInfoCount = command_buffers.size();
         submit_info.pCommandBufferInfos = command_buffers.data();
 
-
-        submit_info.waitSemaphoreInfoCount = synchronization_primitives.wait_semaphores.size();
-        submit_info.pWaitSemaphoreInfos = synchronization_primitives.wait_semaphores.data();
-
-        submit_info.signalSemaphoreInfoCount = synchronization_primitives.signal_semaphores.size();
-        submit_info.pSignalSemaphoreInfos = synchronization_primitives.signal_semaphores.data();
-
-        if (vkQueueSubmit2(_render_queue, 1, &submit_info, synchronization_primitives.on_finished_fence) != VK_SUCCESS)
+        sync_operations.fillInfo(submit_info);
+        if (vkQueueSubmit2(_render_queue, 1, &submit_info, *sync_operations.getFence()) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to submit draw command buffer!");
         }

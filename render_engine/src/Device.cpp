@@ -18,10 +18,14 @@
 #include <vector>
 
 #include <vulkan/vulkan_win32.h>
+
+#include <render_engine/cuda_compute/CudaDevice.h>
+
 namespace
 {
     // TODO support multiple queue count
     constexpr size_t k_supported_queue_count = 1;
+    constexpr size_t k_num_of_cuda_streams = 4;
 
     VkDevice createLogicalDevice(size_t queue_count,
                                  VkPhysicalDevice physical_device,
@@ -102,6 +106,18 @@ namespace
         return device;
 
     }
+
+    VkPhysicalDeviceIDProperties getDeviceUUID(VkPhysicalDevice physical_device)
+    {
+        VkPhysicalDeviceIDProperties device_id_property = {};
+        device_id_property.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES;
+        device_id_property.pNext = nullptr;
+        VkPhysicalDeviceProperties2 device_property = {};
+        device_property.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+        device_property.pNext = &device_id_property;
+        vkGetPhysicalDeviceProperties2(physical_device, &device_property);
+        return device_id_property;
+    }
 }
 
 namespace RenderEngine
@@ -119,6 +135,7 @@ namespace RenderEngine
         , _queue_family_present(queue_family_index_presentation)
         , _queue_family_graphics(queue_family_index_graphics)
         , _queue_family_transfer(queue_family_index_transfer)
+        , _cuda_device(CudaCompute::CudaDevice::createDeviceForUUID(std::span{ &getDeviceUUID(physical_device).deviceUUID[0], VK_UUID_SIZE }, k_num_of_cuda_streams))
     {}
 
     Device::~Device()

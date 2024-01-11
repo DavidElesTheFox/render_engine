@@ -7,8 +7,14 @@
 #include <span>
 #include <stdexcept>
 #include <vector>
+
+
 namespace RenderEngine
 {
+    namespace CudaCompute
+    {
+        class CudaDevice;
+    }
     class Window;
     class RenderEngine;
     class OffScreenWindow;
@@ -42,6 +48,9 @@ namespace RenderEngine
         VkDevice getLogicalDevice() { return _logical_device; }
         VkPhysicalDevice getPhysicalDevice() { return _physical_device; }
         VkInstance& getVulkanInstance() { return _instance; }
+
+        CudaCompute::CudaDevice& getCudaDevice() const;
+        bool hasCudaDevice() const;
     private:
         void destroy() noexcept;
 
@@ -51,5 +60,6 @@ namespace RenderEngine
         uint32_t _queue_family_present = 0;
         uint32_t _queue_family_graphics = 0;
         uint32_t _queue_family_transfer = 0;
+        std::unique_ptr<CudaCompute::CudaDevice> _cuda_device;
     };
 }

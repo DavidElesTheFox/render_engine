@@ -35,17 +35,26 @@ namespace RenderEngine
                    std::unique_ptr<SwapChain> swap_chain,
                    VkQueue present_queue,
                    size_t back_buffer_size)
-        : _present_queue{ present_queue }
+        try : _present_queue{ present_queue }
         , _window(window)
         , _swap_chain(std::move(swap_chain))
         , _device(device)
         , _render_engine(std::move(render_engine))
         , _transfer_engine(std::move(transfer_engine))
-        , _back_buffer(back_buffer_size, FrameData{})
         , _back_buffer_size(back_buffer_size)
     {
+        _back_buffer.reserve(_back_buffer_size);
+        for (uint32_t i = 0; i < _back_buffer_size; ++i)
+        {
+            _back_buffer.emplace_back(FrameData{
+                .synch_present = SynchronizationObject::CreateEmpty(device.getLogicalDevice())
+                , .synch_render = SynchronizationObject::CreateWithFence(device.getLogicalDevice(), VK_FENCE_CREATE_SIGNALED_BIT) });
+        }
         initSynchronizationObjects();
-
+    }
+    catch (const std::runtime_error)
+    {
+        destroy();
     }
 
     void Window::update()
@@ -93,22 +102,18 @@ namespace RenderEngine
     {
         for (FrameData& frame_data : _back_buffer)
         {
-            VkSemaphoreCreateInfo semaphore_info{};
-            semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+            frame_data.synch_present.createSemaphore("image-available");
+            frame_data.synch_render.createSemaphore("render-finished");
 
-            VkFenceCreateInfo fence_info{};
-            fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-            fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-            auto logical_device = _device.getLogicalDevice();
-            if (vkCreateSemaphore(logical_device, &semaphore_info, nullptr, &frame_data.image_available_semaphore) != VK_SUCCESS ||
-                vkCreateSemaphore(logical_device, &semaphore_info, nullptr, &frame_data.render_finished_semaphore) != VK_SUCCESS ||
-                vkCreateFence(logical_device, &fence_info, nullptr, &frame_data.in_flight_fence) != VK_SUCCESS)
-            {
-                vkDestroySemaphore(logical_device, frame_data.image_available_semaphore, nullptr);
-                vkDestroySemaphore(logical_device, frame_data.render_finished_semaphore, nullptr);
-                vkDestroyFence(logical_device, frame_data.in_flight_fence, nullptr);
-                throw std::runtime_error("failed to create synchronization objects for a frame!");
-            }
+            // the signal is sent from swap chain acquire image
+            frame_data.synch_render.addWaitOperation(frame_data.synch_present,
+                                                     "image-available",
+                                                     VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
+
+            // the signal is waited in presentInfo during presen
+            frame_data.synch_render.addSignalOperation("render-finished",
+                                                       VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT);
+
         }
     }
 
@@ -157,12 +162,7 @@ namespace RenderEngine
         }
         auto logical_device = _device.getLogicalDevice();
         vkDeviceWaitIdle(logical_device);
-        for (FrameData& frame_data : _back_buffer)
-        {
-            vkDestroySemaphore(logical_device, frame_data.image_available_semaphore, nullptr);
-            vkDestroySemaphore(logical_device, frame_data.render_finished_semaphore, nullptr);
-            vkDestroyFence(logical_device, frame_data.in_flight_fence, nullptr);
-        }
+        _back_buffer.clear();
         _swap_chain.reset();
         _renderers.clear();
 
@@ -188,11 +188,11 @@ namespace RenderEngine
         if (_swap_chain_image_index == std::nullopt)
         {
             uint32_t image_index = 0;
-            vkWaitForFences(logical_device, 1, &frame_data.in_flight_fence, VK_TRUE, UINT64_MAX);
+            vkWaitForFences(logical_device, 1, frame_data.synch_render.getDefaultOperations().getFence(), VK_TRUE, UINT64_MAX);
             auto call_result = vkAcquireNextImageKHR(logical_device,
                                                      _swap_chain->getDetails().swap_chain,
                                                      UINT64_MAX,
-                                                     frame_data.image_available_semaphore,
+                                                     frame_data.synch_present.getPrimitives().getSemaphore("image-available"),
                                                      VK_NULL_HANDLE,
                                                      &image_index);
             switch (call_result)
@@ -208,27 +208,11 @@ namespace RenderEngine
             }
             _swap_chain_image_index = image_index;
         }
-        vkResetFences(logical_device, 1, &frame_data.in_flight_fence);
+        vkResetFences(logical_device, 1, frame_data.synch_render.getDefaultOperations().getFence());
         _render_engine->onFrameBegin(renderers, *_swap_chain_image_index);
 
-        SynchronizationPrimitives synchronization_primitives{};
-        {
-            VkSemaphoreSubmitInfo wait_semaphore_info{};
-            wait_semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
-            wait_semaphore_info.semaphore = frame_data.image_available_semaphore;
-            wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
-            synchronization_primitives.wait_semaphores.push_back(wait_semaphore_info);
-        }
-        {
-            VkSemaphoreSubmitInfo signal_semaphore_info{};
-            signal_semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
-            signal_semaphore_info.semaphore = frame_data.render_finished_semaphore;
-            signal_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
 
-            synchronization_primitives.signal_semaphores.push_back(signal_semaphore_info);
-        }
-        synchronization_primitives.on_finished_fence = frame_data.in_flight_fence;
-        bool draw_call_recorded = _render_engine->render(&synchronization_primitives,
+        bool draw_call_recorded = _render_engine->render(frame_data.synch_render.getDefaultOperations(),
                                                          renderers,
                                                          *_swap_chain_image_index);
         if (draw_call_recorded)
@@ -238,7 +222,7 @@ namespace RenderEngine
 
 
             presentInfo.waitSemaphoreCount = 1;
-            presentInfo.pWaitSemaphores = &frame_data.render_finished_semaphore;
+            presentInfo.pWaitSemaphores = &frame_data.synch_render.getPrimitives().getSemaphore("render-finished");
             VkSwapchainKHR swapChains[] = { _swap_chain->getDetails().swap_chain };
             presentInfo.swapchainCount = 1;
             presentInfo.pSwapchains = swapChains;

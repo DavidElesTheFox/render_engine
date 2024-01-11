@@ -186,16 +186,15 @@ namespace
                 auto& device = RenderEngine::RenderContext::context().getDevice(0);
                 auto logical_device = device.getLogicalDevice();
                 auto physical_device = device.getPhysicalDevice();
-                RenderEngine::SynchronizationPrimitives synchronization_primitives =
-                    RenderEngine::SynchronizationPrimitives::CreateWithFence(logical_device);
+                RenderEngine::SynchronizationObject sync_object =
+                    RenderEngine::SynchronizationObject::CreateWithFence(logical_device, 0);
                 RenderEngine::Image image(std::filesystem::path{ IMAGE_BASE } / "test_img.jpg");
                 auto [texture, transfer_data] = _texture_factory.create(image, VK_IMAGE_ASPECT_COLOR_BIT,
                                                                         VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                                        synchronization_primitives,
+                                                                        sync_object.getDefaultOperations(),
                                                                         _render_engine.getQueueFamilyIndex(),
                                                                         VK_IMAGE_USAGE_SAMPLED_BIT);
-                vkWaitForFences(logical_device, 1, &synchronization_primitives.on_finished_fence, VK_TRUE, UINT64_MAX);
-                vkDestroyFence(logical_device, synchronization_primitives.on_finished_fence, nullptr);
+                vkWaitForFences(logical_device, 1, sync_object.getDefaultOperations().getFence(), VK_TRUE, UINT64_MAX);
 
                 auto billboard_material = _assets.getBaseMaterial<Assets::BillboardMaterial>();
                 _statue_texture = std::move(texture);
@@ -310,7 +309,8 @@ namespace
     void VolumetricSceneBuilder::createBaseMaterials()
     {
         const glm::vec4 bone{ 0.89f, 0.85f, 0.78f, 0.5f };
-        auto ct_material = std::make_unique<Assets::CtVolumeMaterial>(ApplicationContext::instance().generateId());
+        constexpr bool use_ao = false;
+        auto ct_material = std::make_unique<Assets::CtVolumeMaterial>(use_ao, ApplicationContext::instance().generateId());
         ct_material->addSegmentation({ .threshold = 200, .color = bone });
         _assets.addBaseMaterial(std::move(ct_material));
     }
@@ -362,19 +362,18 @@ namespace
             ct_image_path_container.push_back(ct_base_path / std::format("IMG-0003-{:0>5d}.jpg", i + 1));
         }
 
-        RenderEngine::SynchronizationPrimitives synchronization_primitives =
-            RenderEngine::SynchronizationPrimitives::CreateWithFence(logical_device);
+        RenderEngine::SynchronizationObject sync_object =
+            RenderEngine::SynchronizationObject::CreateWithFence(logical_device, 0);
         RenderEngine::Image image_3d(ct_image_path_container);
 
         ct_material->processImage(&image_3d);
 
         auto [texture, transfer_data] = _texture_factory.create(image_3d, VK_IMAGE_ASPECT_COLOR_BIT,
                                                                 VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                                synchronization_primitives,
+                                                                sync_object.getDefaultOperations(),
                                                                 _render_engine.getQueueFamilyIndex(),
                                                                 VK_IMAGE_USAGE_SAMPLED_BIT);
-        vkWaitForFences(logical_device, 1, &synchronization_primitives.on_finished_fence, VK_TRUE, UINT64_MAX);
-        vkDestroyFence(logical_device, synchronization_primitives.on_finished_fence, nullptr);
+        vkWaitForFences(logical_device, 1, sync_object.getDefaultOperations().getFence(), VK_TRUE, UINT64_MAX);
 
         _ct_texture = std::move(texture);
         RenderEngine::Texture::SamplerData sampler_data{};

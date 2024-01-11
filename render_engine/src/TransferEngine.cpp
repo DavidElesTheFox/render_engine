@@ -9,7 +9,7 @@ namespace RenderEngine
         , _command_pool_factory(logical_device, queue_familiy_index)
     {}
 
-    TransferEngine::InFlightData TransferEngine::transfer(const SynchronizationPrimitives& synchronization_primitives,
+    TransferEngine::InFlightData TransferEngine::transfer(SyncOperations sync_operations,
                                                           std::function<void(VkCommandBuffer)> record_transfer_command,
                                                           VkQueue transfer_queue_override)
     {
@@ -42,14 +42,8 @@ namespace RenderEngine
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
         submitInfo.commandBufferInfoCount = 1;
         submitInfo.pCommandBufferInfos = &command_buffer_info;
-
-        submitInfo.signalSemaphoreInfoCount = synchronization_primitives.signal_semaphores.size();
-        submitInfo.pSignalSemaphoreInfos = synchronization_primitives.signal_semaphores.data();
-
-        submitInfo.waitSemaphoreInfoCount = synchronization_primitives.wait_semaphores.size();
-        submitInfo.pWaitSemaphoreInfos = synchronization_primitives.wait_semaphores.data();
-
-        vkQueueSubmit2(transfer_queue_override, 1, &submitInfo, synchronization_primitives.on_finished_fence);
+        sync_operations.fillInfo(submitInfo);
+        vkQueueSubmit2(transfer_queue_override, 1, &submitInfo, *sync_operations.getFence());
 
         return { command_buffer, std::move(command_pool),_logical_device };
     }

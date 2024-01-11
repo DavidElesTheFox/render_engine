@@ -14,35 +14,43 @@
 
 namespace Assets
 {
-    CtVolumeMaterial::CtVolumeMaterial(uint32_t id)
+    CtVolumeMaterial::CtVolumeMaterial(bool use_ao, uint32_t id)
     {
         using namespace RenderEngine;
 
         VolumeShader::MetaDataExtension vertex_meta_data = VolumeShader::MetaDataExtension::createForVertexShader();
         {
-            VolumeShader::MetaData::PushConstants push_constants{ .size = sizeof(VertexPushConstants),.offset = 0 };
+            VolumeShader::MetaData::PushConstants push_constants{ .size = sizeof(VertexPushConstants),.offset = 0, .update_frequency = Shader::MetaData::UpdateFrequency::PerDrawCall };
             vertex_meta_data.setPushConstants(std::move(push_constants));
         }
 
         VolumeShader::MetaDataExtension frament_meta_data = VolumeShader::MetaDataExtension::createForFragmentShader();
         {
-            VolumeShader::MetaData::PushConstants push_constants{ .size = sizeof(FragmentPushConstants),.offset = sizeof(VertexPushConstants), .update_frequency = Shader::MetaData::UpdateFrequency::PerDrawCall };
+            VolumeShader::MetaData::PushConstants push_constants{ .size = sizeof(FragmentPushConstants),.offset = sizeof(VertexPushConstants), .update_frequency = Shader::MetaData::UpdateFrequency::PerFrame };
             frament_meta_data.setPushConstants(std::move(push_constants));
         }
-        frament_meta_data.addSampler(2, Shader::MetaData::Sampler{ .binding = 2, .update_frequency = Shader::MetaData::UpdateFrequency::Constant });
+        frament_meta_data.addSampler(2, Shader::MetaData::Sampler{ .binding = 2, .update_frequency = Shader::MetaData::UpdateFrequency::PerFrame });
 
+        if (use_ao)
+        {
+            throw std::runtime_error("Not implemented feature");
+        }
+        else
+        {
+            constexpr bool require_distance_filed = false;
+            std::filesystem::path base_path = SHADER_BASE;
+            auto vertex_shader = std::make_unique<VolumeShader>(base_path / "ct_volume.vert.spv", vertex_meta_data);
+            auto fretment_shader = std::make_unique<VolumeShader>(base_path / "ct_volume.frag.spv", frament_meta_data);
 
-        std::filesystem::path base_path = SHADER_BASE;
-        auto vertex_shader = std::make_unique<VolumeShader>(base_path / "ct_volume.vert.spv", vertex_meta_data);
-        auto fretment_shader = std::make_unique<VolumeShader>(base_path / "ct_volume.frag.spv", frament_meta_data);
-
-        _material = std::make_unique<VolumeMaterial>(std::move(vertex_shader),
-                                                     std::move(fretment_shader),
-                                                     id);
-        _material->setColorBlending(_material->getColorBlending().clone()
-                                    .setEnabled(true));
-        _material->setAlphaBlending(_material->getAlpheBlending().clone()
-                                    .setEnabled(true));
+            _material = std::make_unique<VolumeMaterial>(std::move(vertex_shader),
+                                                         std::move(fretment_shader),
+                                                         require_distance_filed,
+                                                         id);
+            _material->setColorBlending(_material->getColorBlending().clone()
+                                        .setEnabled(true));
+            _material->setAlphaBlending(_material->getAlpheBlending().clone()
+                                        .setEnabled(true));
+        }
     }
     std::unique_ptr<CtVolumeMaterial::Instance> CtVolumeMaterial::createInstance(std::unique_ptr<RenderEngine::ITextureView> texture_view, Scene::Scene* scene, uint32_t id)
     {

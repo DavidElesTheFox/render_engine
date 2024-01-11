@@ -101,7 +101,7 @@ namespace RenderEngine
         destroy();
     }
 
-    TransferEngine::InFlightData Texture::upload(const Image& image, const SynchronizationPrimitives& synchronization_primitive, TransferEngine& transfer_engine, uint32_t dst_queue_family_index)
+    TransferEngine::InFlightData Texture::upload(const Image& image, SyncOperations sync_operations, TransferEngine& transfer_engine, uint32_t dst_queue_family_index)
     {
         if (isImageCompatible(image) == false)
         {
@@ -169,18 +169,18 @@ namespace RenderEngine
                                                 .setQueueFamilyIndex(dst_queue_family_index));
                 state_machine.commitChanges(command_buffer);
             };
-        auto result = transfer_engine.transfer(synchronization_primitive, upload_command);
+        auto result = transfer_engine.transfer(sync_operations, upload_command);
         return result;
     }
 
-    std::vector<uint8_t> Texture::download(const SynchronizationPrimitives& synchronization_primitive,
+    std::vector<uint8_t> Texture::download(SyncOperations sync_operations,
                                            TransferEngine& transfer_engine)
     {
         if (_texture_state.queue_family_index == std::nullopt)
         {
             _texture_state.queue_family_index = transfer_engine.getQueueFamilyIndex();
         }
-        assert(synchronization_primitive.on_finished_fence != VK_NULL_HANDLE);
+        assert(sync_operations.hasAnyFence());
 
         auto download_command = [&](VkCommandBuffer command_buffer)
             {
@@ -220,10 +220,11 @@ namespace RenderEngine
                 state_machine.recordStateChange(this, old_state);
                 state_machine.commitChanges(command_buffer);
             };
-        auto result = transfer_engine.transfer(synchronization_primitive,
+        auto result = transfer_engine.transfer(sync_operations,
                                                download_command);
 
-        vkWaitForFences(_logical_device, 1, &synchronization_primitive.on_finished_fence, true, UINT64_MAX);
+        vkWaitForFences(_logical_device, 1, sync_operations.getFence(), true, UINT64_MAX);
+        vkResetFences(_logical_device, 1, sync_operations.getFence());
 
         std::vector<uint8_t> data(_staging_buffer.getDeviceSize());
         const uint8_t* staging_memory = static_cast<const uint8_t*>(_staging_buffer.getMemory());
@@ -317,7 +318,7 @@ namespace RenderEngine
     std::tuple<std::unique_ptr<Texture>, TransferEngine::InFlightData> TextureFactory::create(Image image,
                                                                                               VkImageAspectFlags aspect,
                                                                                               VkShaderStageFlags shader_usage,
-                                                                                              const SynchronizationPrimitives& synchronization_primitive,
+                                                                                              const SyncOperations& sync_operations,
                                                                                               uint32_t dst_queue_family_index,
                                                                                               VkImageUsageFlagBits image_usage)
     {
@@ -328,7 +329,7 @@ namespace RenderEngine
             _compatible_queue_family_indexes,
             image_usage) };
         auto inflight_data = result->upload(image,
-                                            synchronization_primitive,
+                                            sync_operations,
                                             _transfer_engine,
                                             dst_queue_family_index);
         return { std::move(result), std::move(inflight_data) };

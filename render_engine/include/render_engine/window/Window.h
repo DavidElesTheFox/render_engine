@@ -5,6 +5,7 @@
 #include <render_engine/Device.h>
 #include <render_engine/RenderEngine.h>
 #include <render_engine/renderers/AbstractRenderer.h>
+#include <render_engine/SynchronizationPrimitives.h>
 #include <render_engine/TransferEngine.h>
 #include <render_engine/window/IWindow.h>
 #include <render_engine/window/SwapChain.h>
@@ -62,9 +63,8 @@ namespace RenderEngine
     private:
         struct FrameData
         {
-            VkSemaphore image_available_semaphore{ VK_NULL_HANDLE };
-            VkSemaphore render_finished_semaphore{ VK_NULL_HANDLE };
-            VkFence in_flight_fence{ VK_NULL_HANDLE };
+            SynchronizationObject synch_present;
+            SynchronizationObject synch_render;
         };
         void initSynchronizationObjects();
         void handleEvents();

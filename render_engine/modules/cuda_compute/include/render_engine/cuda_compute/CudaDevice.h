@@ -14,6 +14,9 @@ namespace RenderEngine::CudaCompute
     class CudaDevice
     {
     public:
+        static std::unique_ptr<CudaDevice> createDeviceForUUID(std::span<uint8_t> device_id,
+                                                               uint32_t stream_count);
+
         class Stream
         {
         public:

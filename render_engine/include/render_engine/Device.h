@@ -21,6 +21,50 @@ namespace RenderEngine
     class TransferEngine;
     class TextureFactory;
 
+
+    class Device;
+    class PerformanceMarkerFactory
+    {
+    public:
+        class Marker
+        {
+            friend class PerformanceMarkerFactory;
+
+        public:
+            Marker(const Marker&) = delete;
+            Marker(Marker&& o)
+                : _command_buffer(o._command_buffer)
+            {
+                o._command_buffer = VK_NULL_HANDLE;
+            }
+
+            Marker& operator=(const Marker&) = delete;
+            Marker& operator=(Marker&& o)
+            {
+                std::swap(_command_buffer, o._command_buffer);
+                return *this;
+            }
+
+            ~Marker();
+            void start(const std::string_view& name);
+            void finish();
+        private:
+            explicit Marker(VkCommandBuffer command_buffer)
+                : _command_buffer(command_buffer)
+            {}
+            VkCommandBuffer _command_buffer{ VK_NULL_HANDLE };
+        };
+        // TODO link it with a device and check requirements
+        explicit PerformanceMarkerFactory() = default;
+
+        Marker createMarker(VkCommandBuffer command_buffer, const std::string_view& name)
+        {
+            Marker result{ command_buffer };
+            result.start(name);
+            return result;
+        }
+    };
+
     class Device
     {
     public:

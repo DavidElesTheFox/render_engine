@@ -298,24 +298,37 @@ namespace RenderEngine
         render_pass_info.pClearValues = clearColors.data();
 
         vkCmdBeginRenderPass(frame_data.command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
+
         for (auto& mesh_group : _meshes)
         {
             //Front face rendering
             {
+                auto marker = _performance_markers.createMarker(frame_data.command_buffer, "VolumeRenderer - front_face");
+
                 auto& technique = mesh_group.technique_data.front_face_technique;
                 drawWithTechnique(*technique, mesh_group.meshes, frame_data, swap_chain_image_index);
+
+                marker.finish();
             }
             vkCmdNextSubpass(frame_data.command_buffer, VK_SUBPASS_CONTENTS_INLINE);
             //Back face rendering
             {
+                auto marker = _performance_markers.createMarker(frame_data.command_buffer, "VolumeRenderer - back_face");
+
                 auto& technique = mesh_group.technique_data.back_face_technique;
                 drawWithTechnique(*technique, mesh_group.meshes, frame_data, swap_chain_image_index);
+
+                marker.finish();
             }
             vkCmdNextSubpass(frame_data.command_buffer, VK_SUBPASS_CONTENTS_INLINE);
             // Volume rendering
             {
+                auto marker = _performance_markers.createMarker(frame_data.command_buffer, "VolumeRenderer - volume_render");
+
                 auto& technique = mesh_group.technique_data.volume_technique;
                 drawWithTechnique(*technique, mesh_group.meshes, frame_data, swap_chain_image_index);
+
+                marker.finish();
             }
         }
         vkCmdEndRenderPass(frame_data.command_buffer);

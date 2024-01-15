@@ -79,11 +79,6 @@ add_dependencies(RenderingSystemDemo copyStbImageWriteToDemo)
 # Shaders              #
 ########################
 
-function(compile_all_shaders SHADER_FILES)
-
-endfunction()
-
-
 set(RENDERING_SYSTEM_DEMO_SHADER_FILES 
 resources/shaders/nolit.vert
 resources/shaders/nolit.frag
@@ -93,9 +88,11 @@ resources/shaders/ct_volume.vert
 resources/shaders/ct_volume.frag
 )
 
+set(PARAM_SHADER_FLAGS "$<$<CONFIG:Debug>:-g>")
+
 add_custom_target(Shaders 
 DEPENDS ${RENDERING_SYSTEM_DEMO_SHADER_FILES}
-COMMAND ${CMAKE_COMMAND} -DPARAM_SHADER_FILES="${RENDERING_SYSTEM_DEMO_SHADER_FILES}" -DVulkan_GLSLC_EXECUTABLE="${Vulkan_GLSLC_EXECUTABLE}" -DPARAM_WORKING_DIR="${CMAKE_CURRENT_SOURCE_DIR}" -g -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/compile_shaders.cmake"
+COMMAND ${CMAKE_COMMAND} -DPARAM_SHADER_FLAGS=${PARAM_SHADER_FLAGS} -DPARAM_SHADER_FILES="${RENDERING_SYSTEM_DEMO_SHADER_FILES}" -DVulkan_GLSLC_EXECUTABLE="${Vulkan_GLSLC_EXECUTABLE}" -DPARAM_WORKING_DIR="${CMAKE_CURRENT_SOURCE_DIR}" -g -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/compile_shaders.cmake"
 COMMENT "Compile shader files"
 SOURCES ${RENDERING_SYSTEM_DEMO_SHADER_FILES}
 )

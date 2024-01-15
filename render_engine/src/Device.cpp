@@ -122,6 +122,24 @@ namespace
 
 namespace RenderEngine
 {
+    PerformanceMarkerFactory::Marker::~Marker()
+    {
+        assert(_command_buffer == VK_NULL_HANDLE && "Performance marker is not finished");
+    }
+    void PerformanceMarkerFactory::Marker::start(const std::string_view& name)
+    {
+        VkDebugUtilsLabelEXT label{};
+        label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
+        label.pLabelName = name.data();
+        label.color[1] = 1.0f;
+        vkCmdBeginDebugUtilsLabelEXT(_command_buffer, &label);
+    }
+    void PerformanceMarkerFactory::Marker::finish()
+    {
+        vkCmdEndDebugUtilsLabelEXT(_command_buffer);
+        _command_buffer = VK_NULL_HANDLE;
+    }
+
     Device::Device(VkInstance instance,
                    VkPhysicalDevice physical_device,
                    uint32_t queue_family_index_graphics,

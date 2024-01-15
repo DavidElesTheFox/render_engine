@@ -308,7 +308,7 @@ namespace
 
     void VolumetricSceneBuilder::createBaseMaterials()
     {
-        const glm::vec4 bone{ 0.89f, 0.85f, 0.78f, 0.5f };
+        const glm::vec4 bone{ 0.89f, 0.85f, 0.78f, 1.f };
         constexpr bool use_ao = false;
         auto ct_material = std::make_unique<Assets::CtVolumeMaterial>(use_ao, ApplicationContext::instance().generateId());
         ct_material->addSegmentation({ .threshold = 200, .color = bone });

@@ -91,5 +91,6 @@ namespace Assets
     private:
         std::unique_ptr<RenderEngine::VolumeMaterial> _material;
         std::vector<SegmentationData> _segmentations;
+        bool _use_ao{ false };
     };
 }

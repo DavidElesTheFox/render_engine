@@ -233,12 +233,6 @@ namespace RenderEngine
                                                               material_id);
 
             Texture::SamplerData sampler_data{};
-            sampler_data.anisotroy_filter_enabled = false;
-            sampler_data.border_color = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
-            sampler_data.mag_filter = VK_FILTER_LINEAR;
-            sampler_data.min_filter = VK_FILTER_LINEAR;
-            sampler_data.sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-            sampler_data.unnormalize_coordinate = false;
 
 
             std::unordered_map<int32_t, std::vector<std::unique_ptr<ITextureView>>> texture_bindings;

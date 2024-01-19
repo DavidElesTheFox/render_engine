@@ -86,7 +86,7 @@ namespace RenderEngine
         }
 
         void submitDrawCalls(const std::vector<VkCommandBufferSubmitInfo>& command_buffers,
-                             SyncOperations& sync_operations);
+                             const SyncOperations& sync_operations);
 
 
         Device& _device;

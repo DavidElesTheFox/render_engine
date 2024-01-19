@@ -14,7 +14,7 @@ namespace RenderEngine
 
     void TextureAssignment::assignTextures(const TextureBindingMap& textures, uint32_t back_buffer_size)
     {
-        auto texture_views_per_binding = textures.createTextureViews(back_buffer_size);
+        auto texture_views_per_binding = textures.collectTextureViews(back_buffer_size);
         for (auto& [binding, texture_views] : texture_views_per_binding)
         {
             assignTexture(texture_views, binding);
@@ -23,7 +23,7 @@ namespace RenderEngine
 
     void TextureAssignment::assignInputAttachments(const TextureBindingMap& textures, uint32_t back_buffer_size)
     {
-        auto texture_views_per_binding = textures.createTextureViews(back_buffer_size);
+        auto texture_views_per_binding = textures.collectTextureViews(back_buffer_size);
         for (auto& [binding, texture_views] : texture_views_per_binding)
         {
             assignTextureToInputAttachment(texture_views, binding);

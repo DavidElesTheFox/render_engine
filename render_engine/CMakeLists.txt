@@ -222,9 +222,8 @@ add_dependencies(RenderEngine copyStbImage)
 
 # Dependencies #
 target_link_libraries(RenderEngine 
-    PRIVATE
-        CudaCompute
 	PUBLIC 
+        CudaCompute
 		glfw
 		volk::volk
         glm::glm)

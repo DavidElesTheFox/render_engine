@@ -25,8 +25,8 @@ namespace RenderEngine
         {
             VkFilter mag_filter{ VK_FILTER_LINEAR };
             VkFilter min_filter{ VK_FILTER_LINEAR };
-            VkSamplerAddressMode sampler_address_mode{ VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT };
-            bool anisotroy_filter_enabled{ false };
+            VkSamplerAddressMode sampler_address_mode{ VK_SAMPLER_ADDRESS_MODE_REPEAT };
+            bool anisotropy_filter_enabled{ false };
             VkBorderColor border_color{ VK_BORDER_COLOR_INT_OPAQUE_BLACK };
             bool unnormalize_coordinate{ false };
         };
@@ -38,14 +38,23 @@ namespace RenderEngine
         }
         bool isImageCompatible(const Image& image) const;
 
+        /*
+         * TODO: Textures needs to have only constant interface.These functions should be removed
+         *       It is because of the synchronization. Textures are owned by the application layer.
+         *       If they can be changed any time any where it makes impossible to synchronize the operation
+         *       with the renderer.
+         *       Probably the best solution if textures has a readonly interface. When a texture needs to be changed
+         *       it needs to be done via a material instance. Material instance is the connection between the asset-renderer world.
+         *       So, it makes sense to add there queued command to change textures and keeps the synchronization with the corresponding renders.
+         */
         [[nodiscard]]
         TransferEngine::InFlightData upload(const Image& image,
-                                            SyncOperations sync_operations,
+                                            const SyncOperations& sync_operations,
                                             TransferEngine& transfer_engine,
                                             uint32_t dst_queue_family_index);
 
         [[nodiscard]]
-        std::vector<uint8_t> download(SyncOperations sync_operations,
+        std::vector<uint8_t> download(const SyncOperations& sync_operations,
                                       TransferEngine& transfer_engine);
 
         VkImageView createImageView(const ImageViewData& data);
@@ -60,6 +69,7 @@ namespace RenderEngine
             return _texture_state;
         }
 
+        int32_t getMemoryHandle() const;
     private:
         Texture(Image image,
                 VkPhysicalDevice physical_device,
@@ -67,7 +77,8 @@ namespace RenderEngine
                 VkImageAspectFlags aspect,
                 VkShaderStageFlags shader_usage,
                 std::set<uint32_t> compatible_queue_family_indexes,
-                VkImageUsageFlags image_usage);
+                VkImageUsageFlags image_usage,
+                bool support_external_usage);
         void destroy() noexcept;
 
         void overrideResourceState(ResourceStateMachine::TextureState value)
@@ -226,6 +237,12 @@ namespace RenderEngine
                                                 VkImageAspectFlags aspect,
                                                 VkShaderStageFlags shader_usage,
                                                 VkImageUsageFlags image_usage);
+
+        [[nodiscar]]
+        std::unique_ptr<Texture> createExternalNoUpload(Image image,
+                                                        VkImageAspectFlags aspect,
+                                                        VkShaderStageFlags shader_usage,
+                                                        VkImageUsageFlags image_usage);
     private:
 
         TransferEngine& _transfer_engine;

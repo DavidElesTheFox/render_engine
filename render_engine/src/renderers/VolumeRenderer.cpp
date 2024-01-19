@@ -3,10 +3,30 @@
 #include <render_engine/RenderContext.h>
 #include <render_engine/resources/Technique.h>
 
+#include <render_engine/cuda_compute/DistanceFieldTask.h>
+
 namespace RenderEngine
 {
     namespace
     {
+
+        class DistanceFieldFinishedCallback : public CudaCompute::IComputeCallback
+        {
+        public:
+            static constexpr auto kSemaphoreName = "distance_field_ready";
+            static constexpr auto kReadyValue = 1;
+            static constexpr auto kProcessValue = 0;
+            explicit DistanceFieldFinishedCallback(SynchronizationObject& sync_object)
+                : _sync_object(sync_object)
+            {}
+
+            void call() final
+            {
+                _sync_object.signalSemaphore(kSemaphoreName, kReadyValue);
+            }
+        private:
+            SynchronizationObject& _sync_object;
+        };
         /*
             #version 450
 
@@ -77,6 +97,9 @@ namespace RenderEngine
     VolumeRenderer::VolumeRenderer(IWindow& window, const RenderTarget& render_target, bool last_renderer)
         try : SingleColorOutputRenderer(window)
         , _render_target(render_target)
+        , _texture_factory(window.getTransferEngine(),
+                           { window.getRenderEngine().getQueueFamilyIndex(), window.getTransferEngine().getQueueFamilyIndex() },
+                           getPhysicalDevice(), getLogicalDevice())
     {
         std::array<VkAttachmentDescription, 3> attachments = {
             VkAttachmentDescription{},
@@ -172,6 +195,7 @@ namespace RenderEngine
         dependencies[1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
         dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
+        // TODO remove this dependency
         dependencies[2] = VkSubpassDependency{};
         dependencies[2].srcSubpass = 0;
         dependencies[2].dstSubpass = 1;
@@ -230,12 +254,6 @@ namespace RenderEngine
         const uint32_t material_instance_id = mesh_instance->getMaterialInstance()->getId();
         const Geometry& geometry = mesh->getGeometry();
 
-        auto it = std::ranges::find_if(_meshes,
-                                       [&](const MeshGroup& mesh_group)
-                                       {
-                                           return mesh_group.technique_data.volume_technique->getMaterialInstance().getId()
-                                               == material_instance_id;
-                                       });
 
         const Shader::MetaData& vertex_shader_meta_data = material.getVertexShader().getMetaData();
         MeshBuffers mesh_buffers;
@@ -259,15 +277,50 @@ namespace RenderEngine
                                                       transfer_engine, render_queue_family_index);
         }
         _mesh_buffers[mesh_instance->getMesh()] = std::move(mesh_buffers);
-
-        if (it == _meshes.end())
+        if (mesh_instance->getVolumeMaterialInstance()->getVolumeMaterial().isRequireDistanceField())
         {
-            _meshes.push_back(MeshGroup{ .technique_data = createTechniqueDataFor(*mesh_instance), .meshes = {mesh_instance} });
+            auto it = std::ranges::find_if(_meshes_with_distance_field,
+                                           [&](const MeshGroup& mesh_group)
+                                           {
+                                               return mesh_group.technique_data.volume_technique->getMaterialInstance().getId()
+                                                   == material_instance_id;
+                                           });
+            if (it == _meshes_with_distance_field.end())
+            {
+                _meshes_with_distance_field.push_back(MeshGroup{ .technique_data = createTechniqueDataFor(*mesh_instance), .meshes = {mesh_instance} });
+            }
+            else
+            {
+                it->meshes.push_back(mesh_instance);
+            }
         }
         else
         {
-            it->meshes.push_back(mesh_instance);
+            auto it = std::ranges::find_if(_meshes,
+                                           [&](const MeshGroup& mesh_group)
+                                           {
+                                               return mesh_group.technique_data.volume_technique->getMaterialInstance().getId()
+                                                   == material_instance_id;
+                                           });
+            if (it == _meshes.end())
+            {
+                _meshes.push_back(MeshGroup{ .technique_data = createTechniqueDataFor(*mesh_instance), .meshes = {mesh_instance} });
+            }
+            else
+            {
+                it->meshes.push_back(mesh_instance);
+            }
         }
+    }
+
+    SyncOperations VolumeRenderer::getSyncOperations(uint32_t image_index)
+    {
+        SyncOperations result;
+        for (auto& mesh_group : _meshes_with_distance_field)
+        {
+            result.unionWith(mesh_group.technique_data.synchronization_objects_out[image_index].getDefaultOperations());
+        }
+        return result;
     }
 
     void VolumeRenderer::draw(uint32_t swap_chain_image_index)
@@ -301,49 +354,102 @@ namespace RenderEngine
 
         for (auto& mesh_group : _meshes)
         {
-            //Front face rendering
-            {
-                auto marker = _performance_markers.createMarker(frame_data.command_buffer, "VolumeRenderer - front_face");
-
-                auto& technique = mesh_group.technique_data.front_face_technique;
-                drawWithTechnique(*technique, mesh_group.meshes, frame_data, swap_chain_image_index);
-
-                marker.finish();
-            }
-            vkCmdNextSubpass(frame_data.command_buffer, VK_SUBPASS_CONTENTS_INLINE);
-            //Back face rendering
-            {
-                auto marker = _performance_markers.createMarker(frame_data.command_buffer, "VolumeRenderer - back_face");
-
-                auto& technique = mesh_group.technique_data.back_face_technique;
-                drawWithTechnique(*technique, mesh_group.meshes, frame_data, swap_chain_image_index);
-
-                marker.finish();
-            }
-            vkCmdNextSubpass(frame_data.command_buffer, VK_SUBPASS_CONTENTS_INLINE);
-            // Volume rendering
-            {
-                auto marker = _performance_markers.createMarker(frame_data.command_buffer, "VolumeRenderer - volume_render");
-
-                auto& technique = mesh_group.technique_data.volume_technique;
-                drawWithTechnique(*technique, mesh_group.meshes, frame_data, swap_chain_image_index);
-
-                marker.finish();
-            }
+            constexpr bool calculate_distance_field = false;
+            renderMeshGroup(mesh_group, swap_chain_image_index, frame_data, calculate_distance_field);
         }
+        for (auto& mesh_group : _meshes_with_distance_field)
+        {
+            constexpr bool calculate_distance_field = true;
+            renderMeshGroup(mesh_group, swap_chain_image_index, frame_data, calculate_distance_field);
+        }
+
+
         vkCmdEndRenderPass(frame_data.command_buffer);
 
         if (vkEndCommandBuffer(frame_data.command_buffer) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to record command buffer!");
         }
+
+
+    }
+    void VolumeRenderer::renderMeshGroup(MeshGroup& mesh_group, uint32_t swap_chain_image_index, FrameData& frame_data, bool calculate_distance_field)
+    {
+        if (calculate_distance_field)
+        {
+            ResourceStateMachine resource_state_machine{};
+            auto& distance_field_texture = mesh_group.technique_data.distance_field_textures[swap_chain_image_index];
+            resource_state_machine.recordStateChange(distance_field_texture.get(),
+                                                     distance_field_texture->getResourceState().clone()
+                                                     .setImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL));
+            resource_state_machine.commitChanges(frame_data.command_buffer);
+        }
+        drawWithTechnique("VolumeRenderer - front_face",
+                          *mesh_group.technique_data.front_face_technique,
+                          mesh_group.meshes,
+                          frame_data,
+                          swap_chain_image_index);
+        vkCmdNextSubpass(frame_data.command_buffer, VK_SUBPASS_CONTENTS_INLINE);
+
+        drawWithTechnique("VolumeRenderer - back_face",
+                          *mesh_group.technique_data.back_face_technique,
+                          mesh_group.meshes,
+                          frame_data,
+                          swap_chain_image_index);
+        vkCmdNextSubpass(frame_data.command_buffer, VK_SUBPASS_CONTENTS_INLINE);
+
+        drawWithTechnique("VolumeRenderer - volume_render",
+                          *mesh_group.technique_data.volume_technique,
+                          mesh_group.meshes,
+                          frame_data,
+                          swap_chain_image_index);
+        if (calculate_distance_field)
+        {
+            startDistanceFieldTask(mesh_group, swap_chain_image_index);
+            cleanupDistanceFieldTasks(mesh_group);
+        }
     }
 
-    void VolumeRenderer::drawWithTechnique(Technique& technique,
+    void VolumeRenderer::startDistanceFieldTask(MeshGroup& mesh_group, uint32_t swap_chain_image_index)
+    {
+        mesh_group.technique_data.synchronization_objects[swap_chain_image_index].waitSemaphore(DistanceFieldFinishedCallback::kSemaphoreName,
+                                                                                                DistanceFieldFinishedCallback::kReadyValue);
+
+        const auto* input_surface = mesh_group.technique_data.intensity_surface[swap_chain_image_index].get();
+        CudaCompute::DistanceFieldTask::Description task_description{};
+        task_description.width = input_surface->getWidth();
+        task_description.height = input_surface->getHeight();
+        task_description.depth = input_surface->getDepth();
+        task_description.input_data = input_surface->getSurface();
+        task_description.output_data = mesh_group.technique_data.distance_field_surface[swap_chain_image_index]->getSurface();
+        task_description.on_finished_callback = std::make_unique<DistanceFieldFinishedCallback>(mesh_group.technique_data.synchronization_objects[swap_chain_image_index]);
+
+        task_description.segmentation_threshold = mesh_group.technique_data.segmentation_threshold;
+
+        CudaCompute::DistanceFieldTask distance_field_task{};
+
+        assert(getWindow().getDevice().hasCudaDevice());
+
+        auto& cuda_device = getWindow().getDevice().getCudaDevice();
+        distance_field_task.execute(std::move(task_description),
+                                    &cuda_device);
+        mesh_group.tasks.emplace_back(std::move(distance_field_task));
+    }
+
+    void VolumeRenderer::cleanupDistanceFieldTasks(MeshGroup& mesh_group)
+    {
+        std::erase_if(mesh_group.tasks, [](const auto& task) { return task.isReady(); });
+    }
+
+    void VolumeRenderer::drawWithTechnique(const std::string& subpass_name,
+                                           Technique& technique,
                                            const std::vector<const VolumetricObjectInstance*>& meshes,
                                            FrameData& frame_data,
                                            uint32_t swap_chain_image_index)
     {
+        auto marker = _performance_markers.createMarker(frame_data.command_buffer, subpass_name);
+
+
         MaterialInstance::UpdateContext material_update_context = technique.onFrameBegin(swap_chain_image_index, frame_data.command_buffer);
         vkCmdBindPipeline(frame_data.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, technique.getPipeline());
         auto render_area = getRenderArea();
@@ -377,7 +483,7 @@ namespace RenderEngine
         {
             technique.onDraw(material_update_context, mesh_instance);
             auto& mesh_buffers = _mesh_buffers.at(mesh_instance->getMesh());
-
+            // TODO: These draw calls can be done with only one binding. Same for Forward Renderer
             VkBuffer vertexBuffers[] = { mesh_buffers.vertex_buffer->getBuffer() };
             VkDeviceSize offsets[] = { 0 };
             vkCmdBindVertexBuffers(frame_data.command_buffer, 0, 1, vertexBuffers, offsets);
@@ -385,6 +491,7 @@ namespace RenderEngine
 
             vkCmdDrawIndexed(frame_data.command_buffer, static_cast<uint32_t>(mesh_buffers.index_buffer->getDeviceSize() / sizeof(uint16_t)), 1, 0, 0, 0);
         }
+        marker.finish();
     }
 
     void VolumeRenderer::initializeFrameBuffers(uint32_t back_buffer_count, const Image& ethalon_image)
@@ -405,12 +512,6 @@ namespace RenderEngine
         frame_buffer_data->texture_views_per_back_buffer.clear();
 
         Texture::SamplerData sampler_data{};
-        sampler_data.anisotroy_filter_enabled = false;
-        sampler_data.border_color = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
-        sampler_data.mag_filter = VK_FILTER_LINEAR;
-        sampler_data.min_filter = VK_FILTER_LINEAR;
-        sampler_data.sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        sampler_data.unnormalize_coordinate = false;
         for (uint32_t i = 0; i < back_buffer_count; ++i)
         {
             frame_buffer_data->textures_per_back_buffer.push_back(texture_factory.createNoUpload(ethalon_image,
@@ -431,12 +532,15 @@ namespace RenderEngine
     VolumeRenderer::TechniqueData VolumeRenderer::createTechniqueDataFor(const VolumetricObjectInstance& mesh)
     {
 
-        TechniqueData result{};
+        TechniqueData result;
+
+
         auto& gpu_resource_manager = getWindow().getRenderEngine().getGpuResourceManager();
-        auto front_face_material_data = mesh.getVolumeMaterialInstance()->cloneForFrontFacePass(createPrePassFragmentShader(),
-                                                                                                RenderContext::context().generateId());
-        auto back_face_material_data = mesh.getVolumeMaterialInstance()->cloneForBackFacePass(createPrePassFragmentShader(),
-                                                                                              RenderContext::context().generateId());
+        const auto* material_instance = mesh.getVolumeMaterialInstance();
+        auto front_face_material_data = material_instance->cloneForFrontFacePass(createPrePassFragmentShader(),
+                                                                                 RenderContext::context().generateId());
+        auto back_face_material_data = material_instance->cloneForBackFacePass(createPrePassFragmentShader(),
+                                                                               RenderContext::context().generateId());
 
         result.front_face_technique = front_face_material_data.instance->createTechnique(gpu_resource_manager,
                                                                                          {},
@@ -453,10 +557,75 @@ namespace RenderEngine
 
         std::unordered_map<int32_t, std::vector<std::unique_ptr<ITextureView>>> texture_bindings;
         const uint32_t back_buffer_size = gpu_resource_manager.getBackBufferSize();
+
+
+
+        const bool need_distance_field = material_instance->getVolumeMaterial().isRequireDistanceField();
+        if (need_distance_field)
+        {
+
+
+            const auto& intensity_image = material_instance->getIntensityImage();
+            result.segmentation_threshold = material_instance->getSegmentationThreshold();
+            for (uint32_t i = 0; i < back_buffer_size; ++i)
+            {
+
+                result.synchronization_objects.emplace_back(SynchronizationObject::CreateEmpty(getLogicalDevice()));
+                result.synchronization_objects.back().createTimelineSemaphore(DistanceFieldFinishedCallback::kSemaphoreName,
+                                                                              DistanceFieldFinishedCallback::kProcessValue);
+
+                result.synchronization_objects_out.emplace_back(SynchronizationObject::CreateEmpty(getLogicalDevice()));
+                result.synchronization_objects_out.back().addWaitOperation(result.synchronization_objects.back(),
+                                                                           DistanceFieldFinishedCallback::kSemaphoreName,
+                                                                           VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+                                                                           DistanceFieldFinishedCallback::kReadyValue);
+
+                result.distance_field_textures.push_back(_texture_factory.createExternalNoUpload(intensity_image,
+                                                                                                 VK_IMAGE_ASPECT_COLOR_BIT,
+                                                                                                 VK_SHADER_STAGE_FRAGMENT_BIT,
+                                                                                                 VK_IMAGE_USAGE_SAMPLED_BIT
+                                                                                                 | VK_IMAGE_USAGE_TRANSFER_DST_BIT
+                                                                                                 | VK_IMAGE_USAGE_TRANSFER_SRC_BIT));
+                result.distance_field_texture_views.push_back(
+                    std::make_unique<TextureView>(*result.distance_field_textures.back(),
+                                                  Texture::ImageViewData{},
+                                                  Texture::SamplerData{},
+                                                  getPhysicalDevice(),
+                                                  getLogicalDevice()));
+
+                cudaChannelFormatDesc channel_format{};
+                assert(intensity_image.getFormat() == VK_FORMAT_R8G8B8A8_SRGB);
+                channel_format.x = 8;
+                channel_format.y = 8;
+                channel_format.z = 8;
+                channel_format.w = 8;
+                channel_format.f = cudaChannelFormatKindUnsigned;
+                result.distance_field_surface.push_back(
+                    std::make_unique<CudaCompute::ExternalSurface>(intensity_image.getWidth(),
+                                                                   intensity_image.getHeight(),
+                                                                   intensity_image.getDepth(),
+                                                                   intensity_image.getSize(),
+                                                                   channel_format,
+                                                                   result.distance_field_textures.back()->getMemoryHandle()));
+                // TODO: When the texture can really change frame by frame it's gonna be a synchronization issue.
+                result.intensity_surface.push_back(
+                    std::make_unique<CudaCompute::ExternalSurface>(intensity_image.getWidth(),
+                                                                   intensity_image.getHeight(),
+                                                                   intensity_image.getDepth(),
+                                                                   intensity_image.getSize(),
+                                                                   channel_format,
+                                                                   material_instance->getIntensityTexture().getMemoryHandle()));
+            }
+        }
         for (uint32_t i = 0; i < back_buffer_size; ++i)
         {
-            texture_bindings[0].push_back(_front_face_frame_buffer.texture_views_per_back_buffer[i]->createReference());
-            texture_bindings[1].push_back(_back_face_frame_buffer.texture_views_per_back_buffer[i]->createReference());
+            texture_bindings[VolumeShader::MetaDataExtension::kFrontFaceTextureBinding].push_back(_front_face_frame_buffer.texture_views_per_back_buffer[i]->createReference());
+            texture_bindings[VolumeShader::MetaDataExtension::kBackFaceTextureBinding].push_back(_back_face_frame_buffer.texture_views_per_back_buffer[i]->createReference());
+            if (need_distance_field)
+            {
+                texture_bindings[VolumeShader::MetaDataExtension::kDistanceFieldBinding].push_back(result.distance_field_texture_views[i]->createReference());
+            }
+
         }
         result.volume_technique = mesh.getMaterialInstance()->createTechnique(gpu_resource_manager,
                                                                               TextureBindingMap{ std::move(texture_bindings) },

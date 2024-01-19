@@ -17,12 +17,6 @@ layout(push_constant, std430) uniform constants
     float step_size;
 };
 
-vec4 blendColors(vec4 src, vec4 dst)
-{
-    vec4 result = vec4(dst.rgb * dst.a + (1.0 - dst.a) * src.rgb, dst.a);
-    return result;
-}
-// TODO replace it with push constant
 void main() {
     const vec4 epsilon = vec4(0.1);
     const vec3 rayStart = subpassLoad(texRayStart).xyz;

@@ -81,6 +81,7 @@ namespace RenderEngine
         uint32_t getId() const { return _id; }
 
         const Material& getMaterial() const { return _material; }
+        const TextureBindingMap& getTextureBindings() const { return _texture_bindings; }
     protected:
         TextureBindingMap cloneBindings() const;
         const CallbackContainer& getCallbackContainer() const { return _callbacks; }

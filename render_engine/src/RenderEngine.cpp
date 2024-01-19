@@ -19,7 +19,7 @@ namespace RenderEngine
 
     }
 
-    void RenderEngine::submitDrawCalls(const std::vector<VkCommandBufferSubmitInfo>& command_buffers, SyncOperations& sync_operations)
+    void RenderEngine::submitDrawCalls(const std::vector<VkCommandBufferSubmitInfo>& command_buffers, const SyncOperations& sync_operations)
     {
         VkSubmitInfo2 submit_info{};
         submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;

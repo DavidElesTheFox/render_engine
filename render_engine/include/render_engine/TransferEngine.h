@@ -52,13 +52,13 @@ namespace RenderEngine
                        VkQueue transfer_queue);
 
         [[nodiscard]]
-        InFlightData transfer(SyncOperations sync_operations,
+        InFlightData transfer(const SyncOperations& sync_operations,
                               std::function<void(VkCommandBuffer)> record_transfer_command)
         {
             return transfer(sync_operations, record_transfer_command, _transfer_queue);
         }
         [[nodiscard]]
-        InFlightData transfer(SyncOperations sync_operations,
+        InFlightData transfer(const SyncOperations& sync_operations,
                               std::function<void(VkCommandBuffer)> record_transfer_command,
                               VkQueue transfer_queue_override);
 

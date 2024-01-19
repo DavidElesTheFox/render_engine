@@ -15,6 +15,7 @@
 namespace Assets
 {
     CtVolumeMaterial::CtVolumeMaterial(bool use_ao, uint32_t id)
+        : _use_ao(use_ao)
     {
         using namespace RenderEngine;
 
@@ -24,7 +25,7 @@ namespace Assets
             vertex_meta_data.setPushConstants(std::move(push_constants));
         }
 
-        VolumeShader::MetaDataExtension frament_meta_data = VolumeShader::MetaDataExtension::createForFragmentShader();
+        VolumeShader::MetaDataExtension frament_meta_data = VolumeShader::MetaDataExtension::createForFragmentShader(use_ao);
         {
             VolumeShader::MetaData::PushConstants push_constants{ .size = sizeof(FragmentPushConstants),.offset = sizeof(VertexPushConstants), .update_frequency = Shader::MetaData::UpdateFrequency::PerFrame };
             frament_meta_data.setPushConstants(std::move(push_constants));
@@ -55,6 +56,7 @@ namespace Assets
     std::unique_ptr<CtVolumeMaterial::Instance> CtVolumeMaterial::createInstance(std::unique_ptr<RenderEngine::ITextureView> texture_view, Scene::Scene* scene, uint32_t id)
     {
         using namespace RenderEngine;
+        auto& texture = texture_view->getTexture();
         std::unique_ptr<Instance> result = std::make_unique<Instance>();
         std::unordered_map<int32_t, std::unique_ptr<ITextureView>> texture_map;
         texture_map[2] = std::move(texture_view);
@@ -86,7 +88,11 @@ namespace Assets
                     update_context.getPushConstantUpdater().update(VK_SHADER_STAGE_VERTEX_BIT, offsetof(VertexPushConstants, model_view), data_view);
                 }
             };
+
+        assert((_use_ao == false || _segmentations.size() == 1) && "Only one segmentation is supported with AO calculation");
         result->_material_instance = std::make_unique<VolumeMaterialInstance>(*_material,
+                                                                              texture,
+                                                                              _segmentations.front().threshold,
                                                                               TextureBindingMap(std::move(texture_map)),
                                                                               VolumeMaterialInstance::CallbackContainer{
                                                                                   .on_frame_begin = std::move(on_begin_frame),

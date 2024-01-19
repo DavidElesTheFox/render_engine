@@ -98,6 +98,11 @@ namespace RenderEngine
         {
             _data = createEmptyData();
         }
+
+        Image(const Image&) = default;
+        Image& operator=(const Image&) = default;
+        Image(Image&&) = default;
+        Image& operator=(Image&&) = default;
         uint32_t getWidth() const { return _width; }
         uint32_t getHeight() const { return _height; }
         uint32_t getDepth() const { return _depth; }

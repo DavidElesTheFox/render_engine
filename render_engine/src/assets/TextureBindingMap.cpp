@@ -4,7 +4,7 @@
 
 namespace RenderEngine
 {
-    std::unordered_map<int32_t, std::vector<ITextureView*>> TextureBindingMap::createTextureViews(int32_t back_buffer_size) const
+    std::unordered_map<int32_t, std::vector<ITextureView*>> TextureBindingMap::collectTextureViews(int32_t back_buffer_size) const
     {
         std::unordered_map<int32_t, std::vector<ITextureView*>> result;
         assert(_general_texture_bindings.empty() || _back_buffered_texture_bindings.empty()

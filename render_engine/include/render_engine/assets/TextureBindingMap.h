@@ -21,9 +21,15 @@ namespace RenderEngine
             : _back_buffered_texture_bindings(std::move(back_buffered_bindings))
         {}
 
-        std::unordered_map<int32_t, std::vector<ITextureView*>> createTextureViews(int32_t back_buffer_size) const;
+        std::unordered_map<int32_t, std::vector<ITextureView*>> collectTextureViews(int32_t back_buffer_size) const;
 
         TextureBindingMap clone() const;
+
+        ITextureView* findGeneralBinding(int32_t binding) const
+        {
+            auto it = _general_texture_bindings.find(binding);
+            return it == _general_texture_bindings.end() ? nullptr : it->second.get();
+        }
     private:
         std::unordered_map<int32_t, std::unique_ptr<ITextureView>> _general_texture_bindings;
         std::unordered_map<int32_t, std::vector<std::unique_ptr<ITextureView>>> _back_buffered_texture_bindings;

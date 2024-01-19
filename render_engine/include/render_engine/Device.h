@@ -93,8 +93,8 @@ namespace RenderEngine
         VkPhysicalDevice getPhysicalDevice() { return _physical_device; }
         VkInstance& getVulkanInstance() { return _instance; }
 
-        CudaCompute::CudaDevice& getCudaDevice() const;
-        bool hasCudaDevice() const;
+        CudaCompute::CudaDevice& getCudaDevice() const { return *_cuda_device; }
+        bool hasCudaDevice() const { return _cuda_device != nullptr; }
     private:
         void destroy() noexcept;
 

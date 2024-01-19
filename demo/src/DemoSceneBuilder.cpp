@@ -199,12 +199,6 @@ namespace
                 auto billboard_material = _assets.getBaseMaterial<Assets::BillboardMaterial>();
                 _statue_texture = std::move(texture);
                 RenderEngine::Texture::SamplerData sampler_data{};
-                sampler_data.anisotroy_filter_enabled = false;
-                sampler_data.border_color = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
-                sampler_data.mag_filter = VK_FILTER_LINEAR;
-                sampler_data.min_filter = VK_FILTER_LINEAR;
-                sampler_data.sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-                sampler_data.unnormalize_coordinate = false;
 
                 auto view = std::make_unique<RenderEngine::TextureView>(*_statue_texture, RenderEngine::Texture::ImageViewData{}, sampler_data, physical_device, logical_device);
                 _assets.addMaterialInstance("Billboard - statue", billboard_material->createInstance(std::move(view), &_scene, ApplicationContext::instance().generateId()));
@@ -377,12 +371,7 @@ namespace
 
         _ct_texture = std::move(texture);
         RenderEngine::Texture::SamplerData sampler_data{};
-        sampler_data.anisotroy_filter_enabled = false;
-        sampler_data.border_color = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
-        sampler_data.mag_filter = VK_FILTER_LINEAR;
-        sampler_data.min_filter = VK_FILTER_LINEAR;
         sampler_data.sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-        sampler_data.unnormalize_coordinate = false;
 
         auto view = std::make_unique<RenderEngine::TextureView>(*_ct_texture, RenderEngine::Texture::ImageViewData{}, sampler_data, physical_device, logical_device);
         _assets.addMaterialInstance("CtVolume - ct_finger", ct_material->createInstance(std::move(view), &_scene, ApplicationContext::instance().generateId()));

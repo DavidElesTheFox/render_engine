@@ -55,7 +55,6 @@ namespace
                 && transfer_index != std::nullopt;
         }
     };
-    constexpr bool g_enable_validation_layers = true;
 
     // TODO Find multiple families
     QueueFamilyIndices findQueueFamilies(VkInstance instance, VkPhysicalDevice device)
@@ -134,7 +133,7 @@ namespace
                       devices.end());
         return devices;
     }
-    bool checkValidationLayerSupport(const std::vector<const char*>& validation_layers)
+    bool checkLayerSupport(const std::vector<std::string>& layers)
     {
         uint32_t layer_count;
         vkEnumerateInstanceLayerProperties(&layer_count, nullptr);
@@ -142,7 +141,7 @@ namespace
         std::vector<VkLayerProperties> available_layers(layer_count);
         vkEnumerateInstanceLayerProperties(&layer_count, available_layers.data());
 
-        for (std::string_view layer_name : validation_layers)
+        for (std::string_view layer_name : layers)
         {
             bool layerFound = false;
 
@@ -186,10 +185,10 @@ namespace RenderEngine
         assert(result._initialized);
         return result;
     }
-    void RenderContext::initialize(const std::vector<const char*>& validation_layers, std::unique_ptr<RendererFeactory> renderer_factory)
+    void RenderContext::initialize(InitializationInfo&& info)
     {
         auto& context = context_impl();
-        context.init(validation_layers, std::move(renderer_factory));
+        context.init(std::move(info));
     }
     RenderContext& RenderContext::context_impl()
     {
@@ -198,7 +197,7 @@ namespace RenderEngine
     }
 
 
-    void RenderContext::init(const std::vector<const char*>& validation_layers, std::unique_ptr<RendererFeactory> renderer_factory)
+    void RenderContext::init(InitializationInfo&& info)
     {
 #ifdef ENABLE_RENDERDOC
         if (HMODULE mod = LoadLibraryA(RENDERDOC_DLL); mod == nullptr)
@@ -221,30 +220,32 @@ namespace RenderEngine
             throw std::runtime_error("Cannot open the file handle: " + std::string{ RENDERDOC_DLL });
         }
 #endif
-        _renderer_factory = std::move(renderer_factory);
-        const bool enable_validation_layer = validation_layers.empty() == false;
+        _renderer_factory = std::move(info.renderer_factory);
 
         glfwInit();
         if (isVulkanInitialized() == false)
         {
-            initVulkan(validation_layers);
-            createDevices(validation_layers);
+            initVulkan(info);
+            createDevices(info);
         }
         _initialized = true;
     }
-    void RenderContext::initVulkan(const std::vector<const char*>& validation_layers)
+    void RenderContext::initVulkan(const InitializationInfo& init_info)
     {
         volkInitialize();
-        if (g_enable_validation_layers && checkValidationLayerSupport(validation_layers) == false)
+        if (checkLayerSupport(init_info.enabled_layers) == false)
         {
-            throw std::runtime_error("Validation layers requested but not available");
+            throw std::runtime_error("Instance layers requested but not available");
         }
-        auto app_info = createAppInfo();
+        if (init_info.app_info.apiVersion != VK_API_VERSION_1_3)
+        {
+            throw std::runtime_error("Not supported vulkan api version");
+        }
         VkInstanceCreateInfo create_info{};
         create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-        create_info.pApplicationInfo = &app_info;
+        create_info.pApplicationInfo = &init_info.app_info;
 
-        std::vector<const char*> instance_extensions = { VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME };
+        std::vector<const char*> instance_extensions = { VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, VK_EXT_DEBUG_UTILS_EXTENSION_NAME };
         {
             uint32_t glfw_extension_count = 0;
             const char** glfw_extensions = glfwGetRequiredInstanceExtensions(&glfw_extension_count);
@@ -252,18 +253,21 @@ namespace RenderEngine
             {
                 instance_extensions.push_back(glfw_extensions[i]);
             }
-            if (g_enable_validation_layers)
+            for (const auto& requested_extension : init_info.instance_extensions)
             {
-                instance_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+                instance_extensions.push_back(requested_extension.c_str());
             }
-
         }
 
         create_info.enabledExtensionCount = instance_extensions.size();
         create_info.ppEnabledExtensionNames = instance_extensions.data();
         VkDebugUtilsMessengerCreateInfoEXT debug_create_info{};
-
-        if (g_enable_validation_layers)
+        std::vector<const char*> enabled_layers(init_info.enabled_layers.size(), nullptr);
+        std::ranges::transform(init_info.enabled_layers, enabled_layers.begin(),
+                               [](const std::string& str) { return str.c_str(); });
+        create_info.enabledLayerCount = enabled_layers.size();
+        create_info.ppEnabledLayerNames = enabled_layers.data();
+        if (init_info.enable_validation_layers)
         {
             debug_create_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
             debug_create_info.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
@@ -274,14 +278,7 @@ namespace RenderEngine
                 | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
             debug_create_info.pfnUserCallback = debugCallback;
 
-            create_info.enabledLayerCount = validation_layers.size();
-            create_info.ppEnabledLayerNames = validation_layers.data();
             create_info.pNext = &debug_create_info;
-        }
-        else
-        {
-            create_info.enabledLayerCount = 0;
-            create_info.pNext = nullptr;
         }
 
         if (VkResult result = vkCreateInstance(&create_info, nullptr, &_instance); result != VK_SUCCESS)
@@ -292,33 +289,36 @@ namespace RenderEngine
 
     }
 
-    void RenderContext::createDevices(const std::vector<const char*>& validation_layers)
+    void RenderContext::createDevices(const InitializationInfo& info)
     {
         std::vector<const char*> device_extensions{ Window::kDeviceExtensions.begin(), Window::kDeviceExtensions.end() };
-        //device_extensions.push_back(VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME);
-        auto physical_devices = findPhysicalDevices(_instance, device_extensions);
-        if (physical_devices.empty())
+
+        DeviceLookup device_lookup(_instance);
+        VkPhysicalDevice physical_device = info.device_selector(device_lookup);
+
+        if (physical_device == VK_NULL_HANDLE)
         {
-            throw std::runtime_error("Cannot find suitable physical devices ");
+            throw std::runtime_error("Device selection failed");
         }
-        for (auto physical_device : physical_devices)
+
+        InitializationInfo::QueueFamilyIndexes queue_families = info.queue_family_selector(device_lookup.queryDeviceInfo(physical_device));
+
         {
-            auto indices = findQueueFamilies(_instance, physical_device);
+            std::vector<const char*> enabled_layers(info.enabled_layers.size(), nullptr);
+            std::ranges::transform(info.enabled_layers, enabled_layers.begin(),
+                                   [](const std::string& str) { return str.c_str(); });
             auto device = std::make_unique<Device>(_instance,
                                                    physical_device,
-                                                   *indices.graphics_index,
-                                                   *indices.presentation_index,
-                                                   *indices.transfer_index,
+                                                   queue_families.graphics,
+                                                   queue_families.present,
+                                                   queue_families.transfer,
                                                    device_extensions,
-                                                   validation_layers);
+                                                   enabled_layers);
             _devices.push_back(std::move(device));
-            // TODO implement volk device table usage
-            // Volk can load functions into table, and it might be different from device to device.
-            // Implement a VulkanLogicalDevice that has the api callbacks.
-            break;
-#ifdef ENABLE_RENDERDOC
-            break; // Renderdoc supports only one logical device
-#endif
+            /* TODO implement volk device table usage
+             * Volk can load functions into table, and it might be different from device to device.
+             * Implement a VulkanLogicalDevice that has the api callbacks.
+             */
         }
     }
 

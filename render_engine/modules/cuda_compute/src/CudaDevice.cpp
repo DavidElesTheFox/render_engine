@@ -21,14 +21,32 @@ namespace RenderEngine::CudaCompute
         {
             cudaDeviceProp deviceProp{};
             cudaGetDeviceProperties(&deviceProp, cuda_device_id);
-            if (std::equal(device_id.begin(), device_id.end(), deviceProp.uuid.bytes))
+            if (std::memcmp(device_id.data(), &deviceProp.uuid.bytes, sizeof(uint8_t) * device_id.size()) == 0)
             {
                 return std::make_unique<CudaDevice>(cuda_device_count, stream_count);
             }
         }
         return nullptr;
     }
-
+    bool CudaDevice::hasDeviceWithUUIDCudaSupport(std::span<uint8_t> device_id)
+    {
+        if (device_id.size() != 16)
+        {
+            throw std::runtime_error("Invalid device id");
+        }
+        int32_t cuda_device_count{ 0 };
+        cudaGetDeviceCount(&cuda_device_count);
+        for (int cuda_device_id = 0; cuda_device_id < cuda_device_count; cuda_device_id++)
+        {
+            cudaDeviceProp deviceProp{};
+            cudaGetDeviceProperties(&deviceProp, cuda_device_id);
+            if (std::memcmp(device_id.data(), &deviceProp.uuid.bytes, sizeof(uint8_t) * device_id.size()) == 0)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
     CudaDevice::CudaDevice(int32_t id, uint32_t stream_count)
         : _device_id{ id }
         , _stream_queue(stream_count, StreamSlot{})

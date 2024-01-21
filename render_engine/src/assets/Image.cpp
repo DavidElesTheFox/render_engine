@@ -1,5 +1,7 @@
 #include "render_engine/assets/Image.h"
 
+#include <render_engine/containers/VariantOverloaded.h>
+
 #include <fstream>
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -58,8 +60,12 @@ namespace RenderEngine
         _width = image_data.width;
         _height = image_data.height;
         _format = VK_FORMAT_R8G8B8A8_SRGB;
-        _data.resize(getSize());
-        std::copy(image_data.pixels, image_data.pixels + _data.size(), _data.data());
+        std::vector<uint8_t> image_row_data;
+
+        image_row_data.resize(getSize());
+
+        std::copy(image_data.pixels, image_data.pixels + image_row_data.size(), image_row_data.data());
+        _data = std::move(image_row_data);
     }
 
     Image::Image(const std::vector<std::filesystem::path>& path_container)
@@ -74,8 +80,9 @@ namespace RenderEngine
         _height = loaded_images[0].height;
         _format = VK_FORMAT_R8G8B8A8_SRGB;
         _depth = path_container.size();
-        _data.resize(getSize());
+        std::vector<uint8_t> image_row_data;
 
+        image_row_data.resize(getSize());
         const auto index_at_3d = [&](uint32_t u, uint32_t v, uint32_t s) { return 4 * (u + v * _width + s * (_width * _height)); };
         const auto index_at_2d = [&](uint32_t u, uint32_t v) { return (u + v * _width) * 4; };
         for (uint32_t s = 0; s < _depth; ++s)
@@ -84,19 +91,28 @@ namespace RenderEngine
             {
                 for (uint32_t u = 0; u < _width; ++u)
                 {
-                    _data[index_at_3d(u, v, s)] = loaded_images[s].pixels[index_at_2d(u, v)];
-                    _data[index_at_3d(u, v, s) + 1] = loaded_images[s].pixels[index_at_2d(u, v) + 1];
-                    _data[index_at_3d(u, v, s) + 2] = loaded_images[s].pixels[index_at_2d(u, v) + 2];
-                    _data[index_at_3d(u, v, s) + 3] = loaded_images[s].pixels[index_at_2d(u, v) + 3];
+                    image_row_data[index_at_3d(u, v, s)] = loaded_images[s].pixels[index_at_2d(u, v)];
+                    image_row_data[index_at_3d(u, v, s) + 1] = loaded_images[s].pixels[index_at_2d(u, v) + 1];
+                    image_row_data[index_at_3d(u, v, s) + 2] = loaded_images[s].pixels[index_at_2d(u, v) + 2];
+                    image_row_data[index_at_3d(u, v, s) + 3] = loaded_images[s].pixels[index_at_2d(u, v) + 3];
                 }
             }
         }
+        _data = std::move(image_row_data);
     }
 
-    std::vector<uint8_t> Image::createEmptyData() const
+    Image::RowData Image::createEmptyData() const
     {
-        std::vector<uint8_t> result(getSize(), static_cast<uint8_t>(0u));
-        return result;
+        switch (_format)
+        {
+            case VK_FORMAT_R8G8B8A8_SRGB:
+            case VK_FORMAT_B8G8R8A8_SRGB:
+                return std::vector<uint8_t>(getSize(), static_cast<uint8_t>(0));
+            case VK_FORMAT_R32_SFLOAT:
+                return std::vector<float>(getSize(), 0.0f);
+            default:
+                throw std::runtime_error("Unhandled image format");
+        }
     }
     BufferInfo Image::createBufferInfo() const
     {
@@ -109,16 +125,23 @@ namespace RenderEngine
     }
     VkDeviceSize Image::getSize() const
     {
-        VkDeviceSize result = getWidth() * getHeight() * _depth;
+        VkDeviceSize result = getWidth() * getHeight() * getDepth() * getPixelComponentCount();
+
+        return result;
+    }
+
+    uint32_t Image::getPixelComponentCount() const
+    {
         switch (_format)
         {
             case VK_FORMAT_R8G8B8A8_SRGB:
             case VK_FORMAT_B8G8R8A8_SRGB:
-                return result *= 4;
+                return 4;
+            case VK_FORMAT_R32_SFLOAT:
+                return 1;
             default:
                 throw std::runtime_error("Unhandled image format");
         }
-        return result;
     }
 
     void Image::processData(const ImageProcessor& image_processor)

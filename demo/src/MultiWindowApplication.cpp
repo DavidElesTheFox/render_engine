@@ -163,7 +163,9 @@ void MultiWindowApplication::updateImageStream()
     static const auto frame_duration = 1000ms / 30;
     if (now > _last_image_update + frame_duration)
     {
-        (*_image_stream) << _images[_current_image].getData();
+        // TODO support Depth/Stencil buffer data
+        // We assume the image has uint8_t data
+        (*_image_stream) << std::get<std::vector<uint8_t>>(_images[_current_image].getData());
         _last_image_update = now;
         _current_image = (_current_image + 1) % _images.size();
     }

@@ -3,6 +3,7 @@
 #include <volk.h>
 
 #include <filesystem>
+#include <variant>
 
 #include <render_engine/resources/Buffer.h>
 
@@ -18,26 +19,30 @@ namespace RenderEngine
         friend class DataAccessor2D;
         friend class DataAccessor3D;
 
-
         class DataAccessor2D
         {
         public:
             friend class Image;
             glm::vec4 getPixel(uint32_t u, uint32_t v)
             {
-                return {
-                    _image._data[(u + v * _image._width) * 4],
-                    _image._data[(u + v * _image._width) * 4 + 1],
-                    _image._data[(u + v * _image._width) * 4 + 2],
-                    _image._data[(u + v * _image._width) * 4 + 3]
-                };
+                assert(_image.getPixelComponentCount() == 4 && "Currently only 4 component is supported");
+                const uint32_t component_count = _image.getPixelComponentCount();
+                const uint32_t row_index = (u + v * _image._width) * component_count;
+                const auto& image_data = std::get<std::vector<uint8_t>>(_image._data);
+                return { image_data[row_index], image_data[row_index + 1], image_data[row_index + 2], image_data[row_index + 3] };
             }
             void setPixel(uint32_t u, uint32_t v, uint32_t s, const glm::vec4& data)
             {
-                _image._data[(u + v * _image._width) * 4] = data.r;
-                _image._data[(u + v * _image._width) * 4 + 1] = data.g;
-                _image._data[(u + v * _image._width) * 4 + 2] = data.b;
-                _image._data[(u + v * _image._width) * 4 + 3] = data.a;
+                assert(_image.getPixelComponentCount() == 4 && "Currently only 4 component is supported");
+
+                const uint32_t component_count = _image.getPixelComponentCount();
+                const uint32_t row_index = (u + v * _image._width) * component_count;
+                auto& image_data = std::get<std::vector<uint8_t>>(_image._data);
+
+                image_data[row_index] = data.r;
+                image_data[row_index + 1] = data.g;
+                image_data[row_index + 2] = data.b;
+                image_data[row_index + 3] = data.a;
             }
         private:
             explicit DataAccessor2D(Image& image)
@@ -51,21 +56,26 @@ namespace RenderEngine
             friend class Image;
             glm::vec4 getPixel(uint32_t u, uint32_t v, uint32_t s)
             {
-                const auto row_index = (u + v * _image._width + s * (_image._width * _image._height)) * 4;
-                return {
-                    _image._data[row_index],
-                    _image._data[row_index + 1],
-                    _image._data[row_index + 2],
-                    _image._data[row_index + 3]
-                };
+                assert(_image.getPixelComponentCount() == 4 && "Currently only 4 component is supported");
+
+                const uint32_t component_count = _image.getPixelComponentCount();
+                const auto row_index = (u + v * _image._width + s * (_image._width * _image._height)) * component_count;
+                const auto& image_data = std::get<std::vector<uint8_t>>(_image._data);
+                return { image_data[row_index], image_data[row_index + 1], image_data[row_index + 2], image_data[row_index + 3] };
             }
             void setPixel(uint32_t u, uint32_t v, uint32_t s, const glm::vec4& data)
             {
-                const auto row_index = (u + v * _image._width + s * (_image._width * _image._height)) * 4;
-                _image._data[row_index] = data.r;
-                _image._data[row_index + 1] = data.g;
-                _image._data[row_index + 2] = data.b;
-                _image._data[row_index + 3] = data.a;
+                assert(_image.getPixelComponentCount() == 4 && "Currently only 4 component is supported");
+
+                const uint32_t component_count = _image.getPixelComponentCount();
+
+                const auto row_index = (u + v * _image._width + s * (_image._width * _image._height)) * component_count;
+                auto& image_data = std::get<std::vector<uint8_t>>(_image._data);
+
+                image_data[row_index] = data.r;
+                image_data[row_index + 1] = data.g;
+                image_data[row_index + 2] = data.b;
+                image_data[row_index + 3] = data.a;
             }
         private:
             explicit DataAccessor3D(Image& image)
@@ -75,6 +85,7 @@ namespace RenderEngine
         };
 #pragma endregion
 
+        using RowData = std::variant<std::vector<float>, std::vector<uint8_t>>;
         explicit Image(const std::filesystem::path& path);
         explicit Image(const std::vector<std::filesystem::path>& path_container);
         Image(uint32_t width,
@@ -112,19 +123,19 @@ namespace RenderEngine
         bool is3D() const { return _depth != 1; }
 
         BufferInfo createBufferInfo() const;
-        const std::vector<uint8_t>& getData() const { return _data; }
+        const RowData& getData() const { return _data; }
         void setData(std::vector<uint8_t> value) { _data = std::move(value); }
         VkDeviceSize getSize() const;
 
         void processData(const ImageProcessor& image_processor);
     private:
-
-        std::vector<uint8_t> createEmptyData() const;
+        uint32_t getPixelComponentCount() const;
+        RowData createEmptyData() const;
         uint32_t _width{ 0 };
         uint32_t _height{ 0 };
         uint32_t _depth{ 1 };
         VkFormat _format{ VK_FORMAT_UNDEFINED };
-        std::vector<uint8_t> _data;
+        RowData _data;
     };
 
 

@@ -307,14 +307,7 @@ namespace RenderEngine
         static std::vector<uint8_t> image_data;
         image_data.clear();
         _image_stream >> image_data;
-        if (image_data.empty())
-        {
-            if (_image_cache.getData().empty())
-            {
-                return;
-            }
-        }
-        else
+        if (image_data.empty() == false)
         {
             _image_cache.setData(image_data);
         }

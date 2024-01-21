@@ -1,5 +1,7 @@
 #include <render_engine/resources/Texture.h>
 
+#include <render_engine/containers/VariantOverloaded.h>
+
 #include <cassert>
 #include <span>
 
@@ -123,8 +125,12 @@ namespace RenderEngine
         {
             throw std::runtime_error("Input image is incompatible with the texture");
         }
-        const std::vector<uint8_t>& image_data = image.getData();
-        _staging_buffer.uploadMapped(std::span<const uint8_t>(image_data.begin(), image_data.end()));
+        std::span<const uint8_t> data_view =
+            std::visit(overloaded{
+                       [&](const std::vector<uint8_t>& image_data) { return std::span(image_data); },
+                       [&](const std::vector<float>& image_data) { return std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(&image_data[0]), image_data.size() / sizeof(float)); } },
+                       image.getData());
+        _staging_buffer.uploadMapped(data_view);
 
         if (_texture_state.queue_family_index == std::nullopt)
         {

@@ -4,6 +4,7 @@
 
 #include <cstdint>
 
+
 namespace RenderEngine::CudaCompute
 {
     class ExternalSurface
@@ -14,7 +15,7 @@ namespace RenderEngine::CudaCompute
                         uint32_t depth,
                         uint64_t memory_size,
                         cudaChannelFormatDesc channel_format,
-                        int32_t memory_handle);
+                        void* memory_handle);
 
         ExternalSurface(const ExternalSurface&) = delete;
         ExternalSurface& operator=(const ExternalSurface&) = delete;

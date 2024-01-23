@@ -82,7 +82,7 @@ namespace RenderEngine
         if (support_external_usage)
         {
             external_create_info.sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO;
-            external_create_info.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT;
+            external_create_info.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
             image_info.pNext = &external_create_info;
         }
 
@@ -105,7 +105,7 @@ namespace RenderEngine
         if (support_external_usage)
         {
             export_alloc_info.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO;
-            export_alloc_info.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT;
+            export_alloc_info.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
             alloc_info.pNext = &export_alloc_info;
         }
         if (vkAllocateMemory(_logical_device, &alloc_info, nullptr, &_texture_memory) != VK_SUCCESS)
@@ -331,20 +331,18 @@ namespace RenderEngine
         vkDestroyImage(_logical_device, _texture, nullptr);
     }
 
-    int32_t Texture::getMemoryHandle() const
+    HANDLE Texture::getMemoryHandle() const
     {
-        int32_t fd = -1;
+        HANDLE result = nullptr;
 
-        VkMemoryGetFdInfoKHR vkMemoryGetFdInfoKHR = {};
-        vkMemoryGetFdInfoKHR.sType = VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR;
-        vkMemoryGetFdInfoKHR.pNext = NULL;
-        vkMemoryGetFdInfoKHR.memory = _texture_memory;
-        vkMemoryGetFdInfoKHR.handleType =
-            VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR;
+        VkMemoryGetWin32HandleInfoKHR memory_handle_info{};
+        memory_handle_info.sType = VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR;
+        memory_handle_info.memory = _texture_memory;
+        memory_handle_info.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
 
-        assert(vkGetMemoryFdKHR != nullptr);
-        vkGetMemoryFdKHR(_logical_device, &vkMemoryGetFdInfoKHR, &fd);
-        return fd;
+        assert(vkGetMemoryWin32HandleKHR != nullptr);
+        vkGetMemoryWin32HandleKHR(_logical_device, &memory_handle_info, &result);
+        return result;
     }
 
     std::unique_ptr<TextureViewReference> TextureView::createReference()

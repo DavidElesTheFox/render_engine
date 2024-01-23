@@ -303,7 +303,7 @@ namespace
     void VolumetricSceneBuilder::createBaseMaterials()
     {
         const glm::vec4 bone{ 0.89f, 0.85f, 0.78f, 1.f };
-        constexpr bool use_ao = false;
+        constexpr bool use_ao = true;
         auto ct_material = std::make_unique<Assets::CtVolumeMaterial>(use_ao, ApplicationContext::instance().generateId());
         ct_material->addSegmentation({ .threshold = 200, .color = bone });
         _assets.addBaseMaterial(std::move(ct_material));
@@ -348,7 +348,7 @@ namespace
 
         constexpr auto ct_image_count = 86;
         std::filesystem::path ct_base_path{ IMAGE_BASE };
-        ct_base_path /= "ct_finger";
+        ct_base_path /= "ct_finger_small";
 
         std::vector<std::filesystem::path> ct_image_path_container;
         for (uint32_t i = 0; i < ct_image_count; ++i)

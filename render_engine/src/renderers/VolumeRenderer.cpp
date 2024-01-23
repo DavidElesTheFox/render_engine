@@ -416,10 +416,11 @@ namespace RenderEngine
                                                                                                 DistanceFieldFinishedCallback::kReadyValue);
 
         const auto* input_surface = mesh_group.technique_data.intensity_surface[swap_chain_image_index].get();
+        const auto& intensity_image = mesh_group.technique_data.distance_field_textures[swap_chain_image_index]->getImage();
         CudaCompute::DistanceFieldTask::Description task_description{};
-        task_description.width = input_surface->getWidth();
-        task_description.height = input_surface->getHeight();
-        task_description.depth = input_surface->getDepth();
+        task_description.width = intensity_image.getWidth();
+        task_description.height = intensity_image.getHeight();
+        task_description.depth = intensity_image.getDepth();
         task_description.input_data = input_surface->getSurface();
         task_description.output_data = mesh_group.technique_data.distance_field_surface[swap_chain_image_index]->getSurface();
         task_description.on_finished_callback = std::make_unique<DistanceFieldFinishedCallback>(mesh_group.technique_data.synchronization_objects[swap_chain_image_index]);
@@ -563,10 +564,12 @@ namespace RenderEngine
         const bool need_distance_field = material_instance->getVolumeMaterial().isRequireDistanceField();
         if (need_distance_field)
         {
-
-
             const auto& intensity_image = material_instance->getIntensityImage();
             result.segmentation_threshold = material_instance->getSegmentationThreshold();
+            Image distance_field_image(intensity_image.getWidth(),
+                                       intensity_image.getHeight(),
+                                       intensity_image.getDepth(),
+                                       VK_FORMAT_R32_SFLOAT);
             for (uint32_t i = 0; i < back_buffer_size; ++i)
             {
 
@@ -580,41 +583,53 @@ namespace RenderEngine
                                                                            VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
                                                                            DistanceFieldFinishedCallback::kReadyValue);
 
-                result.distance_field_textures.push_back(_texture_factory.createExternalNoUpload(intensity_image,
+                // Create 2D Texture from the 3D image to be able to use the surface
+                result.distance_field_textures.push_back(_texture_factory.createExternalNoUpload(distance_field_image,
                                                                                                  VK_IMAGE_ASPECT_COLOR_BIT,
                                                                                                  VK_SHADER_STAGE_FRAGMENT_BIT,
                                                                                                  VK_IMAGE_USAGE_SAMPLED_BIT
                                                                                                  | VK_IMAGE_USAGE_TRANSFER_DST_BIT
                                                                                                  | VK_IMAGE_USAGE_TRANSFER_SRC_BIT));
+                // Create 3D Texture View to the 2D texture
                 result.distance_field_texture_views.push_back(
                     std::make_unique<TextureView>(*result.distance_field_textures.back(),
-                                                  Texture::ImageViewData{},
+                                                  Texture::ImageViewData{ },
                                                   Texture::SamplerData{},
                                                   getPhysicalDevice(),
                                                   getLogicalDevice()));
-
-                cudaChannelFormatDesc channel_format{};
-                assert(intensity_image.getFormat() == VK_FORMAT_R8G8B8A8_SRGB);
-                channel_format.x = 8;
-                channel_format.y = 8;
-                channel_format.z = 8;
-                channel_format.w = 8;
-                channel_format.f = cudaChannelFormatKindUnsigned;
-                result.distance_field_surface.push_back(
-                    std::make_unique<CudaCompute::ExternalSurface>(intensity_image.getWidth(),
-                                                                   intensity_image.getHeight(),
-                                                                   intensity_image.getDepth(),
-                                                                   intensity_image.getSize(),
-                                                                   channel_format,
-                                                                   result.distance_field_textures.back()->getMemoryHandle()));
-                // TODO: When the texture can really change frame by frame it's gonna be a synchronization issue.
-                result.intensity_surface.push_back(
-                    std::make_unique<CudaCompute::ExternalSurface>(intensity_image.getWidth(),
-                                                                   intensity_image.getHeight(),
-                                                                   intensity_image.getDepth(),
-                                                                   intensity_image.getSize(),
-                                                                   channel_format,
-                                                                   material_instance->getIntensityTexture().getMemoryHandle()));
+                {
+                    cudaChannelFormatDesc channel_format{};
+                    assert(distance_field_image.getFormat() == VK_FORMAT_R32_SFLOAT);
+                    channel_format.x = 32;
+                    channel_format.y = 0;
+                    channel_format.z = 0;
+                    channel_format.w = 0;
+                    channel_format.f = cudaChannelFormatKindFloat;
+                    result.distance_field_surface.push_back(
+                        std::make_unique<CudaCompute::ExternalSurface>(distance_field_image.getWidth(),
+                                                                       distance_field_image.getHeight(),
+                                                                       intensity_image.getDepth(),
+                                                                       intensity_image.getSize(),
+                                                                       channel_format,
+                                                                       result.distance_field_textures.back()->getMemoryHandle()));
+                }
+                {
+                    cudaChannelFormatDesc channel_format{};
+                    assert(intensity_image.getFormat() == VK_FORMAT_R8G8B8A8_SRGB);
+                    channel_format.x = 8;
+                    channel_format.y = 8;
+                    channel_format.z = 8;
+                    channel_format.w = 8;
+                    channel_format.f = cudaChannelFormatKindUnsigned;
+                    // TODO: When the texture can really change frame by frame it's gonna be a synchronization issue.
+                    result.intensity_surface.push_back(
+                        std::make_unique<CudaCompute::ExternalSurface>(intensity_image.getWidth(),
+                                                                       intensity_image.getHeight(),
+                                                                       intensity_image.getDepth(),
+                                                                       intensity_image.getSize(),
+                                                                       channel_format,
+                                                                       material_instance->getIntensityTexture().getMemoryHandle()));
+                }
             }
         }
         for (uint32_t i = 0; i < back_buffer_size; ++i)

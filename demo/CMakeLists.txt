@@ -87,6 +87,8 @@ resources/shaders/billboard.vert
 resources/shaders/billboard.frag
 resources/shaders/ct_volume.vert
 resources/shaders/ct_volume.frag
+resources/shaders/ct_volume_ao.vert
+resources/shaders/ct_volume_ao.frag
 )
 
 set(PARAM_SHADER_FLAGS "$<$<CONFIG:Debug>:-g>")

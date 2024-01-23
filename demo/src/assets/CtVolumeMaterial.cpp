@@ -34,7 +34,19 @@ namespace Assets
 
         if (use_ao)
         {
-            throw std::runtime_error("Not implemented feature");
+            constexpr bool require_distance_filed = true;
+            std::filesystem::path base_path = SHADER_BASE;
+            auto vertex_shader = std::make_unique<VolumeShader>(base_path / "ct_volume_ao.vert.spv", vertex_meta_data);
+            auto fretment_shader = std::make_unique<VolumeShader>(base_path / "ct_volume_ao.frag.spv", frament_meta_data);
+
+            _material = std::make_unique<VolumeMaterial>(std::move(vertex_shader),
+                                                         std::move(fretment_shader),
+                                                         require_distance_filed,
+                                                         id);
+            _material->setColorBlending(_material->getColorBlending().clone()
+                                        .setEnabled(true));
+            _material->setAlphaBlending(_material->getAlpheBlending().clone()
+                                        .setEnabled(true));
         }
         else
         {

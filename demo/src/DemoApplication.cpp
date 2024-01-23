@@ -103,8 +103,8 @@ void DemoApplication::initializeRenderers()
 
     DeviceSelector device_selector;
     RenderContext::InitializationInfo init_info{};
-    init_info.app_info.apiVersion = VK_API_VERSION_1_3;
     init_info.app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+    init_info.app_info.apiVersion = VK_API_VERSION_1_3;
     init_info.app_info.applicationVersion = 0;
     init_info.app_info.engineVersion = 0;
     init_info.app_info.pApplicationName = "DemoApplication";

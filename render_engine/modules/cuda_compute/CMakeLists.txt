@@ -40,6 +40,11 @@ target_include_directories(CudaCompute
                 # for vs intellisense
         "C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v12.3\\include"
 )
+
+target_compile_definitions(CudaCompute 
+    PUBLIC
+    NOMINMAX)
+
 target_compile_options(CudaCompute PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-g -G>)
 
 

@@ -292,7 +292,11 @@ namespace RenderEngine
     void RenderContext::createDevices(const InitializationInfo& info)
     {
         std::vector<const char*> device_extensions{ Window::kDeviceExtensions.begin(), Window::kDeviceExtensions.end() };
+        device_extensions.push_back(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME);
 
+        std::ranges::transform(info.device_extensions,
+                               std::back_inserter(device_extensions),
+                               [](const std::string& name) { return name.c_str(); });
         DeviceLookup device_lookup(_instance);
         VkPhysicalDevice physical_device = info.device_selector(device_lookup);
 
@@ -339,6 +343,6 @@ namespace RenderEngine
 #else
         throw std::runtime_error("Cannot enable renderdoc, feature is disabled in this build");
 #endif
-    }
+}
 
 }

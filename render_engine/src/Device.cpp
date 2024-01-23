@@ -50,9 +50,14 @@ namespace
         }
 
         {
+
+
+            VkPhysicalDeviceTimelineSemaphoreFeatures timeline_semaphore_feature{};
+            timeline_semaphore_feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES;
+
             VkPhysicalDeviceSynchronization2Features synchronization_2_feature{};
             synchronization_2_feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
-            //synchronization_2_feature.synchronization2 = true;
+            synchronization_2_feature.pNext = &timeline_semaphore_feature;
 
             VkPhysicalDeviceFeatures2KHR features =
             {
@@ -65,11 +70,19 @@ namespace
             {
                 throw std::runtime_error("synchronization2 feature is not supported");
             }
+            if (timeline_semaphore_feature.timelineSemaphore == false)
+            {
+                throw std::runtime_error("timeline semaphores feature is not supported");
+            }
         }
+        VkPhysicalDeviceTimelineSemaphoreFeatures timeline_semaphore_feature{};
+        timeline_semaphore_feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES;
+        timeline_semaphore_feature.timelineSemaphore = true;
 
         VkPhysicalDeviceSynchronization2Features synchronization_2_feature{};
         synchronization_2_feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
         synchronization_2_feature.synchronization2 = true;
+        synchronization_2_feature.pNext = &timeline_semaphore_feature;
 
         VkPhysicalDeviceFeatures2 device_features{};
         device_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;

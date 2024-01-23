@@ -29,6 +29,7 @@ namespace RenderEngine
             std::vector<std::string> enabled_layers;
             std::unique_ptr<RendererFeactory> renderer_factory;
             std::vector<std::string> instance_extensions;
+            std::vector<std::string> device_extensions;
             VkApplicationInfo app_info{};
             bool enable_validation_layers{ true };
         };

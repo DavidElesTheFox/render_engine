@@ -69,7 +69,7 @@ namespace RenderEngine
             return _texture_state;
         }
 
-        int32_t getMemoryHandle() const;
+        HANDLE getMemoryHandle() const;
     private:
         Texture(Image image,
                 VkPhysicalDevice physical_device,

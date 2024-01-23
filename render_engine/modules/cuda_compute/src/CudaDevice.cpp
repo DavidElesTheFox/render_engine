@@ -23,7 +23,7 @@ namespace RenderEngine::CudaCompute
             cudaGetDeviceProperties(&deviceProp, cuda_device_id);
             if (std::memcmp(device_id.data(), &deviceProp.uuid.bytes, sizeof(uint8_t) * device_id.size()) == 0)
             {
-                return std::make_unique<CudaDevice>(cuda_device_count, stream_count);
+                return std::make_unique<CudaDevice>(cuda_device_id, stream_count);
             }
         }
         return nullptr;

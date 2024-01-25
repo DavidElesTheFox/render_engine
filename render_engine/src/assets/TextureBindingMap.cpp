@@ -7,14 +7,15 @@ namespace RenderEngine
     std::unordered_map<int32_t, std::vector<ITextureView*>> TextureBindingMap::collectTextureViews(int32_t back_buffer_size) const
     {
         std::unordered_map<int32_t, std::vector<ITextureView*>> result;
-        assert(_general_texture_bindings.empty() || _back_buffered_texture_bindings.empty()
-               && "Textures are assigned per frame buffers or general. Mixture is not allowed");
         for (auto& [binding, texture_view] : _general_texture_bindings)
         {
             result[binding] = std::vector(back_buffer_size, texture_view.get());
         }
         for (auto& [binding, texture_views] : _back_buffered_texture_bindings)
         {
+            assert(result.contains(binding) == false
+                   && ("Somehow the binding is already occupied. Something went wrong with the setup."
+                       " This should only happen with a merge operation but that should protect the overlapping bindings."));
             std::ranges::transform(texture_views, std::back_inserter(result[binding]),
                                    [](auto& ptr) { return ptr.get(); });
         }

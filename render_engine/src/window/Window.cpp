@@ -220,7 +220,6 @@ namespace RenderEngine
             VkPresentInfoKHR presentInfo{};
             presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 
-
             presentInfo.waitSemaphoreCount = 1;
             presentInfo.pWaitSemaphores = &frame_data.synch_render.getPrimitives().getSemaphore("render-finished");
             VkSwapchainKHR swapChains[] = { _swap_chain->getDetails().swap_chain };

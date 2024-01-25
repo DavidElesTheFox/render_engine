@@ -348,7 +348,7 @@ namespace
 
         constexpr auto ct_image_count = 86;
         std::filesystem::path ct_base_path{ IMAGE_BASE };
-        ct_base_path /= "ct_finger_small";
+        ct_base_path /= "ct_finger";
 
         std::vector<std::filesystem::path> ct_image_path_container;
         for (uint32_t i = 0; i < ct_image_count; ++i)
@@ -362,11 +362,11 @@ namespace
 
         ct_material->processImage(&image_3d);
 
-        auto [texture, transfer_data] = _texture_factory.create(image_3d, VK_IMAGE_ASPECT_COLOR_BIT,
-                                                                VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                                sync_object.getDefaultOperations(),
-                                                                _render_engine.getQueueFamilyIndex(),
-                                                                VK_IMAGE_USAGE_SAMPLED_BIT);
+        auto [texture, transfer_data] = _texture_factory.createExternal(image_3d, VK_IMAGE_ASPECT_COLOR_BIT,
+                                                                        VK_SHADER_STAGE_FRAGMENT_BIT,
+                                                                        sync_object.getDefaultOperations(),
+                                                                        _render_engine.getQueueFamilyIndex(),
+                                                                        VK_IMAGE_USAGE_SAMPLED_BIT);
         vkWaitForFences(logical_device, 1, sync_object.getDefaultOperations().getFence(), VK_TRUE, UINT64_MAX);
 
         _ct_texture = std::move(texture);

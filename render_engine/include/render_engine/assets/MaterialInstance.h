@@ -51,7 +51,8 @@ namespace RenderEngine
         std::unique_ptr<Technique> createTechnique(GpuResourceManager& gpu_resource_manager,
                                                    TextureBindingMap&& subpass_textures,
                                                    VkRenderPass render_pass,
-                                                   uint32_t corresponding_subpass) const;
+                                                   uint32_t corresponding_subpass,
+                                                   TextureBindingMap&& additional_bindings = {}) const;
 
         void onFrameBegin(UpdateContext& update_context, uint32_t frame_number) const
         {

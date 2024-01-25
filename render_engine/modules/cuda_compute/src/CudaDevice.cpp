@@ -59,6 +59,7 @@ namespace RenderEngine::CudaCompute
         {
             CUDA_CHECKED_CALL(cudaStreamCreate(&_stream_queue[i].stream));
         }
+
     }
 
     CudaDevice::Stream CudaDevice::getAvailableStream()

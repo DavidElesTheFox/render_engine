@@ -10,7 +10,8 @@ namespace RenderEngine
     std::unique_ptr<Technique> MaterialInstance::createTechnique(GpuResourceManager& gpu_resource_manager,
                                                                  TextureBindingMap&& subpass_textures,
                                                                  VkRenderPass render_pass,
-                                                                 uint32_t corresponding_subpass) const
+                                                                 uint32_t corresponding_subpass,
+                                                                 TextureBindingMap&& additional_bindings) const
     {
         const uint32_t back_buffer_size = gpu_resource_manager.getBackBufferSize();
         const Shader& vertex_shader = _material.getVertexShader();
@@ -19,7 +20,14 @@ namespace RenderEngine
         TextureAssignment texture_assignment({
             { vertex_shader, VK_SHADER_STAGE_VERTEX_BIT },
             { fragment_shader, VK_SHADER_STAGE_FRAGMENT_BIT} });
-        texture_assignment.assignTextures(_texture_bindings, back_buffer_size);
+        if (additional_bindings.isEmpty() == false)
+        {
+            texture_assignment.assignTextures(additional_bindings.merge(_texture_bindings.clone()), back_buffer_size);
+        }
+        else
+        {
+            texture_assignment.assignTextures(_texture_bindings, back_buffer_size);
+        }
         texture_assignment.assignInputAttachments(subpass_textures, back_buffer_size);
         GpuResourceSet constant_resources(gpu_resource_manager,
                                           texture_assignment.getBindings(Shader::MetaData::UpdateFrequency::Constant));

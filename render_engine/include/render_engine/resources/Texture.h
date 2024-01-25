@@ -70,6 +70,7 @@ namespace RenderEngine
         }
 
         HANDLE getMemoryHandle() const;
+        const VkMemoryRequirements& getMemoryRequirements() const { return _memory_requirements; }
     private:
         Texture(Image image,
                 VkPhysicalDevice physical_device,
@@ -95,6 +96,7 @@ namespace RenderEngine
         VkShaderStageFlags _shader_usage{ VK_SHADER_STAGE_ALL };
         std::set<uint32_t> _compatible_queue_family_indexes;
         ResourceStateMachine::TextureState _texture_state;
+        VkMemoryRequirements _memory_requirements{};
     };
 
     class ITextureView
@@ -151,16 +153,9 @@ namespace RenderEngine
         VkImageView getImageView() override final { return _image_view; }
         VkSampler getSamler() override final { return _sampler; }
 
-        std::unique_ptr<TextureViewReference> createReference();
+        std::unique_ptr<TextureViewReference> createReference() const;
 
-        std::unique_ptr<ITextureView> clone() const override final
-        {
-            return std::unique_ptr<TextureView>(new TextureView(_texture,
-                                                                _image_view_data,
-                                                                _sampler_data,
-                                                                _physical_device,
-                                                                _logical_device));
-        }
+        std::unique_ptr<ITextureView> clone() const override final;
     protected:
         /**
         * Used when TextureViewReference is created
@@ -231,7 +226,13 @@ namespace RenderEngine
                                                                                   const SyncOperations& synchronization_primitive,
                                                                                   uint32_t dst_queue_family_index,
                                                                                   VkImageUsageFlagBits image_usage);
-
+        [[nodiscar]]
+        std::tuple<std::unique_ptr<Texture>, TransferEngine::InFlightData> createExternal(Image image,
+                                                                                          VkImageAspectFlags aspect,
+                                                                                          VkShaderStageFlags shader_usage,
+                                                                                          const SyncOperations& synchronization_primitive,
+                                                                                          uint32_t dst_queue_family_index,
+                                                                                          VkImageUsageFlagBits image_usage);
         [[nodiscar]]
         std::unique_ptr<Texture> createNoUpload(Image image,
                                                 VkImageAspectFlags aspect,

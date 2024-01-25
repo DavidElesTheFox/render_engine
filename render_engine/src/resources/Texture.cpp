@@ -93,17 +93,16 @@ namespace RenderEngine
             throw std::runtime_error("Cannot create image");
         }
 
-        VkMemoryRequirements memory_requirements{};
-        vkGetImageMemoryRequirements(_logical_device, _texture, &memory_requirements);
+        vkGetImageMemoryRequirements(_logical_device, _texture, &_memory_requirements);
 
         VkMemoryAllocateInfo alloc_info{};
         alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        alloc_info.allocationSize = memory_requirements.size;
-        alloc_info.memoryTypeIndex = findMemoryType(_physical_device, memory_requirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        alloc_info.allocationSize = _memory_requirements.size;
+        alloc_info.memoryTypeIndex = findMemoryType(_physical_device, _memory_requirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-        VkExportMemoryAllocateInfo export_alloc_info{};
         if (support_external_usage)
         {
+            VkExportMemoryAllocateInfo export_alloc_info{};
             export_alloc_info.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO;
             export_alloc_info.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
             alloc_info.pNext = &export_alloc_info;
@@ -345,9 +344,14 @@ namespace RenderEngine
         return result;
     }
 
-    std::unique_ptr<TextureViewReference> TextureView::createReference()
+    std::unique_ptr<TextureViewReference> TextureView::createReference() const
     {
         return std::unique_ptr<TextureViewReference>(new TextureViewReference{ TextureView(*this) });
+    }
+
+    std::unique_ptr<ITextureView> TextureView::clone() const
+    {
+        return createReference();
     }
 
     [[nodiscar]]
@@ -359,6 +363,28 @@ namespace RenderEngine
                                                                                               VkImageUsageFlagBits image_usage)
     {
         constexpr bool support_external_usage = false;
+        std::unique_ptr<Texture> result{ new Texture(image,
+            _physical_device, _logical_device,
+            aspect,
+            shader_usage,
+            _compatible_queue_family_indexes,
+            image_usage,
+            support_external_usage) };
+        auto inflight_data = result->upload(image,
+                                            sync_operations,
+                                            _transfer_engine,
+                                            dst_queue_family_index);
+        return { std::move(result), std::move(inflight_data) };
+    }
+    [[nodiscar]]
+    std::tuple<std::unique_ptr<Texture>, TransferEngine::InFlightData> TextureFactory::createExternal(Image image,
+                                                                                                      VkImageAspectFlags aspect,
+                                                                                                      VkShaderStageFlags shader_usage,
+                                                                                                      const SyncOperations& sync_operations,
+                                                                                                      uint32_t dst_queue_family_index,
+                                                                                                      VkImageUsageFlagBits image_usage)
+    {
+        constexpr bool support_external_usage = true;
         std::unique_ptr<Texture> result{ new Texture(image,
             _physical_device, _logical_device,
             aspect,

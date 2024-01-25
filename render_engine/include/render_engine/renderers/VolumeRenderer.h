@@ -69,7 +69,8 @@ namespace RenderEngine
         void drawWithTechnique(const std::string& subpass_name,
                                Technique& technique,
                                const std::vector<const VolumetricObjectInstance*>& meshes,
-                               FrameData& frame_data, uint32_t swap_chain_image_index);
+                               FrameData& frame_data,
+                               uint32_t swap_chain_image_index);
         void renderMeshGroup(MeshGroup& mesh_group, uint32_t swap_chain_image_index, FrameData& frame_data, bool calculate_distance_field);
         void startDistanceFieldTask(MeshGroup& mesh_group, uint32_t swap_chain_image_index);
         void cleanupDistanceFieldTasks(MeshGroup& mesh_group);

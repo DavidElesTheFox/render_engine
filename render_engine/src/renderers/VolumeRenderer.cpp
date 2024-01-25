@@ -185,7 +185,6 @@ namespace RenderEngine
         dependencies[0].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
         dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
-
         dependencies[1] = VkSubpassDependency{};
         dependencies[1].srcSubpass = 1;
         dependencies[1].dstSubpass = 2;
@@ -195,7 +194,6 @@ namespace RenderEngine
         dependencies[1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
         dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
-        // TODO remove this dependency
         dependencies[2] = VkSubpassDependency{};
         dependencies[2].srcSubpass = 0;
         dependencies[2].dstSubpass = 1;
@@ -349,7 +347,16 @@ namespace RenderEngine
         };
         render_pass_info.clearValueCount = clearColors.size();
         render_pass_info.pClearValues = clearColors.data();
-
+        for (auto& mesh_group : _meshes_with_distance_field)
+        {
+            ResourceStateMachine resource_state_machine{};
+            resource_state_machine.recordStateChange(mesh_group.technique_data.distance_field_textures[swap_chain_image_index].get(),
+                                                     mesh_group.technique_data.distance_field_textures[swap_chain_image_index]->getResourceState().clone()
+                                                     .setImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+                                                     .setPipelineStage(VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT)
+                                                     .setAccessFlag(VK_ACCESS_2_SHADER_SAMPLED_READ_BIT));
+            resource_state_machine.commitChanges(frame_data.command_buffer);
+        }
         vkCmdBeginRenderPass(frame_data.command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
 
         for (auto& mesh_group : _meshes)
@@ -375,15 +382,7 @@ namespace RenderEngine
     }
     void VolumeRenderer::renderMeshGroup(MeshGroup& mesh_group, uint32_t swap_chain_image_index, FrameData& frame_data, bool calculate_distance_field)
     {
-        if (calculate_distance_field)
-        {
-            ResourceStateMachine resource_state_machine{};
-            auto& distance_field_texture = mesh_group.technique_data.distance_field_textures[swap_chain_image_index];
-            resource_state_machine.recordStateChange(distance_field_texture.get(),
-                                                     distance_field_texture->getResourceState().clone()
-                                                     .setImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL));
-            resource_state_machine.commitChanges(frame_data.command_buffer);
-        }
+
         drawWithTechnique("VolumeRenderer - front_face",
                           *mesh_group.technique_data.front_face_technique,
                           mesh_group.meshes,
@@ -412,8 +411,9 @@ namespace RenderEngine
 
     void VolumeRenderer::startDistanceFieldTask(MeshGroup& mesh_group, uint32_t swap_chain_image_index)
     {
-        mesh_group.technique_data.synchronization_objects[swap_chain_image_index].waitSemaphore(DistanceFieldFinishedCallback::kSemaphoreName,
-                                                                                                DistanceFieldFinishedCallback::kReadyValue);
+        auto& synchronization_object = mesh_group.technique_data.synchronization_objects[swap_chain_image_index];
+        synchronization_object.waitSemaphore(DistanceFieldFinishedCallback::kSemaphoreName,
+                                             DistanceFieldFinishedCallback::kReadyValue);
 
         const auto* input_surface = mesh_group.technique_data.intensity_surface[swap_chain_image_index].get();
         const auto& intensity_image = mesh_group.technique_data.distance_field_textures[swap_chain_image_index]->getImage();
@@ -532,7 +532,6 @@ namespace RenderEngine
 
     VolumeRenderer::TechniqueData VolumeRenderer::createTechniqueDataFor(const VolumetricObjectInstance& mesh)
     {
-
         TechniqueData result;
 
 
@@ -556,10 +555,9 @@ namespace RenderEngine
         result.subpass_materials.push_back(std::move(back_face_material_data.material));
         result.subpass_material_instance.push_back(std::move(back_face_material_data.instance));
 
-        std::unordered_map<int32_t, std::vector<std::unique_ptr<ITextureView>>> texture_bindings;
+        std::unordered_map<int32_t, std::vector<std::unique_ptr<ITextureView>>> additional_texture_bindings;
+        std::unordered_map<int32_t, std::vector<std::unique_ptr<ITextureView>>> subpass_texture_bindings;
         const uint32_t back_buffer_size = gpu_resource_manager.getBackBufferSize();
-
-
 
         const bool need_distance_field = material_instance->getVolumeMaterial().isRequireDistanceField();
         if (need_distance_field)
@@ -608,8 +606,8 @@ namespace RenderEngine
                     result.distance_field_surface.push_back(
                         std::make_unique<CudaCompute::ExternalSurface>(distance_field_image.getWidth(),
                                                                        distance_field_image.getHeight(),
-                                                                       intensity_image.getDepth(),
-                                                                       intensity_image.getSize(),
+                                                                       distance_field_image.getDepth(),
+                                                                       result.distance_field_textures.back()->getMemoryRequirements().size,
                                                                        channel_format,
                                                                        result.distance_field_textures.back()->getMemoryHandle()));
                 }
@@ -626,7 +624,7 @@ namespace RenderEngine
                         std::make_unique<CudaCompute::ExternalSurface>(intensity_image.getWidth(),
                                                                        intensity_image.getHeight(),
                                                                        intensity_image.getDepth(),
-                                                                       intensity_image.getSize(),
+                                                                       material_instance->getIntensityTexture().getMemoryRequirements().size,
                                                                        channel_format,
                                                                        material_instance->getIntensityTexture().getMemoryHandle()));
                 }
@@ -634,18 +632,19 @@ namespace RenderEngine
         }
         for (uint32_t i = 0; i < back_buffer_size; ++i)
         {
-            texture_bindings[VolumeShader::MetaDataExtension::kFrontFaceTextureBinding].push_back(_front_face_frame_buffer.texture_views_per_back_buffer[i]->createReference());
-            texture_bindings[VolumeShader::MetaDataExtension::kBackFaceTextureBinding].push_back(_back_face_frame_buffer.texture_views_per_back_buffer[i]->createReference());
+            subpass_texture_bindings[VolumeShader::MetaDataExtension::kFrontFaceTextureBinding].push_back(_front_face_frame_buffer.texture_views_per_back_buffer[i]->createReference());
+            subpass_texture_bindings[VolumeShader::MetaDataExtension::kBackFaceTextureBinding].push_back(_back_face_frame_buffer.texture_views_per_back_buffer[i]->createReference());
             if (need_distance_field)
             {
-                texture_bindings[VolumeShader::MetaDataExtension::kDistanceFieldBinding].push_back(result.distance_field_texture_views[i]->createReference());
+                additional_texture_bindings[VolumeShader::MetaDataExtension::kDistanceFieldBinding].push_back(result.distance_field_texture_views[i]->createReference());
             }
 
         }
         result.volume_technique = mesh.getMaterialInstance()->createTechnique(gpu_resource_manager,
-                                                                              TextureBindingMap{ std::move(texture_bindings) },
+                                                                              TextureBindingMap{ std::move(subpass_texture_bindings) },
                                                                               getRenderPass(),
-                                                                              2);
+                                                                              2,
+                                                                              TextureBindingMap{ std::move(additional_texture_bindings) });
 
         return result;
     }

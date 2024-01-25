@@ -31,9 +31,11 @@ namespace Assets
             frament_meta_data.setPushConstants(std::move(push_constants));
         }
         frament_meta_data.addSampler(2, Shader::MetaData::Sampler{ .binding = 2, .update_frequency = Shader::MetaData::UpdateFrequency::PerFrame });
-
         if (use_ao)
         {
+            frament_meta_data.addSampler(3, Shader::MetaData::Sampler{ .binding = 3, .update_frequency = Shader::MetaData::UpdateFrequency::PerFrame });
+
+
             constexpr bool require_distance_filed = true;
             std::filesystem::path base_path = SHADER_BASE;
             auto vertex_shader = std::make_unique<VolumeShader>(base_path / "ct_volume_ao.vert.spv", vertex_meta_data);

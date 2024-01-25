@@ -30,6 +30,33 @@ namespace RenderEngine
             auto it = _general_texture_bindings.find(binding);
             return it == _general_texture_bindings.end() ? nullptr : it->second.get();
         }
+        TextureBindingMap& merge(TextureBindingMap&& o)
+        {
+            for (auto&& [binding, texture] : o._general_texture_bindings)
+            {
+                if (_general_texture_bindings.contains(binding))
+                {
+                    throw std::runtime_error("binding merge is failed, slot is occuppied");
+                }
+                _general_texture_bindings[binding] = std::move(texture);
+            }
+            for (auto&& [binding, texture_container] : o._back_buffered_texture_bindings)
+            {
+                if (_back_buffered_texture_bindings.contains(binding))
+                {
+                    throw std::runtime_error("binding merge is failed, slot is occuppied");
+                }
+                _back_buffered_texture_bindings[binding] = std::move(texture_container);
+            }
+            o._back_buffered_texture_bindings.clear();
+            o._general_texture_bindings.clear();
+            return *this;
+        }
+
+        bool isEmpty() const
+        {
+            return _general_texture_bindings.empty() && _back_buffered_texture_bindings.empty();
+        }
     private:
         std::unordered_map<int32_t, std::unique_ptr<ITextureView>> _general_texture_bindings;
         std::unordered_map<int32_t, std::vector<std::unique_ptr<ITextureView>>> _back_buffered_texture_bindings;

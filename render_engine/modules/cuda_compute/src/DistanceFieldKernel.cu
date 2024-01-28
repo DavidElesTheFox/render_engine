@@ -14,6 +14,9 @@ using std::max;
 
 #define CUDA_CHECKED_CALL(exp) {cudaError e = (exp); assert(e == cudaSuccess && #exp);}
 #define ENABLE_QUERY_DEBUG false
+
+#define SQ(a) ((a) * (a))
+#define COMPONENT_AT(point, idx)  (reinterpret_cast<const uint32_t*>(&(point)))[idx]
 namespace
 {
 
@@ -75,22 +78,15 @@ namespace
      *
      * Thus, any shift which is applied on the numbers on the [0,1023] range will result overflow.
      */
-    __device__ bool msbIsLess(int32_t x, int32_t y)
-    {
-        return x < y && x < (x ^ y);
-    }
+#define msbIsLess(x, y) (x) < (y) && (x) < ((x) ^ (y))
 
     __device__ int32_t cmpShuffle(const uint3& p, const uint3 q)
     {
-        auto component_at = [](const uint3& point, uint32_t idx) -> const uint32_t&
-            {
-                return (reinterpret_cast<const uint32_t*>(&point))[idx];
-            };
         uint32_t less_idx = 0;
         uint32_t less_value = p.x ^ q.x;
         for (uint32_t k = 1; k < 3; ++k)
         {
-            const uint32_t value = (component_at(p, k)) ^ (component_at(q, k));
+            const uint32_t value = (COMPONENT_AT(p, k)) ^ (COMPONENT_AT(q, k));
 
             if (msbIsLess(less_value, value))
             {
@@ -98,7 +94,7 @@ namespace
                 less_value = value;
             }
         }
-        return component_at(p, less_idx) - component_at(q, less_idx);
+        return COMPONENT_AT(p, less_idx) - COMPONENT_AT(q, less_idx);
     }
 
     __global__ void segmentationKernel(cudaSurfaceObject_t input,
@@ -198,10 +194,9 @@ namespace
 
     __device__ void check_dist(const uint3& p, const uint3& q, QueryData& query_data)
     {
-        auto sq = [](uint32_t a) { return a * a; };
-        float distance_sq = sq(p.x - q.x);
-        distance_sq += sq(p.y - q.y);
-        distance_sq += sq(p.z - q.z);
+        float distance_sq = SQ(p.x - q.x);
+        distance_sq += SQ(p.y - q.y);
+        distance_sq += SQ(p.z - q.z);
         if (distance_sq < query_data.distance_sq)
         {
             query_data.distance_sq = distance_sq;
@@ -221,39 +216,31 @@ namespace
     // comparing to the original implementation shift is not used. It is because all the points are already shifted during projection
     __device__ float dist_sq_to_box(const uint3& q, const uint3& p1, const uint3& p2)
     {
-        auto component_at = [](const uint3& point, uint32_t idx) -> const uint32_t&
-            {
-                return (reinterpret_cast<const uint32_t*>(&point))[idx];
-            };
-        auto sq = [](uint32_t a) { return a * a; };
 
-        float less_value = 0.0f;
-        for (uint32_t k = 0; k < 3; ++k)
+        uint32_t less_value = p1.x ^ p2.x;
+        for (uint32_t k = 1; k < 3; ++k)
         {
-            const float value = (component_at(p1, k)) ^ (component_at(p2, k));
+            const uint32_t value = (COMPONENT_AT(p1, k)) ^ (COMPONENT_AT(p2, k));
             if (msbIsLess(less_value, value))
             {
                 less_value = value;
             }
         }
         int32_t normalization_exponent = 0;
-        if (less_value != 0.0f)
-        {
-            frexp(less_value, &normalization_exponent);
-        }
+        frexp(float(less_value), &normalization_exponent);
         float distance = 0.0f;
         for (uint32_t j = 0; j < 3; j++)
         {
-            uint32_t p1_bottom = ((component_at(p1, j)) >> normalization_exponent) << normalization_exponent;
-            uint32_t p1_up = p1_bottom + (1 << normalization_exponent);
+            const uint32_t p1_bottom = ((COMPONENT_AT(p1, j)) >> normalization_exponent) << normalization_exponent;
+            const uint32_t p1_up = p1_bottom + (1 << normalization_exponent);
 
-            if (component_at(q, j) < p1_bottom)
+            if (COMPONENT_AT(q, j) < p1_bottom)
             {
-                distance += sq(component_at(q, j) - p1_bottom);
+                distance += SQ(COMPONENT_AT(q, j) - p1_bottom);
             }
-            else if (component_at(q, j) > p1_up)
+            else if (COMPONENT_AT(q, j) > p1_up)
             {
-                distance += sq(component_at(q, j) - p1_up);
+                distance += SQ(COMPONENT_AT(q, j) - p1_up);
             }
         }
         return distance;
@@ -267,7 +254,6 @@ namespace
                                 QueryData& out_result)
     {
 
-        auto sq = [](uint32_t a) { return a * a; };
 
         const uint32_t range_length = range_end - range_begin;
         if (range_length == 0)
@@ -279,7 +265,7 @@ namespace
 
         check_dist(d_coordinates[range_center], point, out_result);
         if (range_length == 1
-            || dist_sq_to_box(point, d_coordinates[range_begin], d_coordinates[range_end - 1]) * sq(1 + epsilon_distance) > out_result.distance_sq)
+            || dist_sq_to_box(point, d_coordinates[range_begin], d_coordinates[range_end - 1]) * SQ(1 + epsilon_distance) > out_result.distance_sq)
         {
             return;
         }
@@ -332,7 +318,7 @@ namespace
                                              float epsilon_distance,
                                              QueryData& out_result)
     {
-        enum class Phase
+        enum class Phase : uint8_t
         {
             None = 0,
             CheckLowerRange_1,
@@ -346,11 +332,10 @@ namespace
             uint32_t range_end{};
             Phase phase{ Phase::None };
         };
-        constexpr uint32_t max_depth = 30;
+        constexpr int8_t max_depth = 25;
         SearchState search_space[max_depth] = {};
-        int32_t current_depth = 0;
+        int8_t current_depth = 0;
         search_space[current_depth] = SearchState{ in_range_begin, in_range_end, Phase::None };
-        auto sq = [](uint32_t a) { return a * a; };
 
         while (current_depth >= 0)
         {
@@ -367,13 +352,13 @@ namespace
             {
                 check_dist(d_coordinates[range_center], point, out_result);
                 if (range_length == 1
-                    || dist_sq_to_box(point, d_coordinates[search_data.range_begin], d_coordinates[search_data.range_end - 1]) * sq(1 + epsilon_distance) > out_result.distance_sq)
+                    || dist_sq_to_box(point, d_coordinates[search_data.range_begin], d_coordinates[search_data.range_end - 1]) * SQ(1 + epsilon_distance) > out_result.distance_sq)
                 {
                     current_depth--;
                     continue;
                 }
             }
-            const int cmp_result = cmpShuffle(point, d_coordinates[range_center]);
+            const int32_t cmp_result = cmpShuffle(point, d_coordinates[range_center]);
             if (cmp_result < 0)
             {
                 assert(search_data.phase != Phase::CheckLowerRange_2
@@ -463,7 +448,7 @@ namespace
     }
 
     __global__ void
-        __launch_bounds__(288, 8)
+        __launch_bounds__(512, 3)
         distanceFieldKernel(uint3* d_coordinates,
                             uint32_t point_count,
                             float epsilon_distance,

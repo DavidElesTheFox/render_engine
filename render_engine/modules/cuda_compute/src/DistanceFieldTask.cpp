@@ -18,8 +18,8 @@ namespace RenderEngine::CudaCompute
                                                DistanceFieldTask::ExecutionParameters execution_params)
         {
             DistanceFieldKernel::KernelParameters kernel_params;
-
-            kernel_params.block_size = dim3(execution_params.thread_count_per_block / 3, execution_params.thread_count_per_block / 3, execution_params.thread_count_per_block / 3);
+            auto block_size_per_dim = std::round(std::pow(execution_params.thread_count_per_block, 0.333));
+            kernel_params.block_size = dim3(block_size_per_dim, block_size_per_dim, block_size_per_dim);
             kernel_params.grid_size.x = std::ceil(task_description.width / static_cast<float>(kernel_params.block_size.x));
             kernel_params.grid_size.y = std::ceil(task_description.height / static_cast<float>(kernel_params.block_size.y));
             kernel_params.grid_size.z = std::ceil(task_description.depth / static_cast<float>(kernel_params.block_size.z));

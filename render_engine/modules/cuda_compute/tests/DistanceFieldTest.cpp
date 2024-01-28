@@ -522,6 +522,7 @@ namespace RenderEngine::CudaCompute::Tests
     }
     TEST_F(DistanceFieldTest, distance_complex_3d)
     {
+        setVerbose(true);
         const uint32_t image_width = 256;
         const uint32_t image_height = 256;
         const uint32_t image_depth = 86;
@@ -542,9 +543,7 @@ namespace RenderEngine::CudaCompute::Tests
         auto result = createOutputSurface(image_width, image_height, image_depth);
 
         CudaDevice device(0, 1);
-        // Currently the 'image size' is determined by the kernel parameters that calculated from the thread count. 
-        // If there are too many threads the algorithm will give less precise result due to the integer projection [0,1] -> [0, 1023]
-        DistanceFieldTask task(DistanceFieldTask::ExecutionParameters{ .thread_count_per_block = 288 });
+        DistanceFieldTask task(DistanceFieldTask::ExecutionParameters{ .thread_count_per_block = 512 });
 
         // This pointer will be valid until the result is not fetched form the task or clearResult is not called
         TaskFinishedCallback* finish_callback_reference{ nullptr };
@@ -560,16 +559,18 @@ namespace RenderEngine::CudaCompute::Tests
             task.execute(std::move(task_description), &device);
             task.waitResult();
         }
-        //readBack(result_data, result.memory, image_width, image_height, image_depth);
+        return;
+        readBack(result_data, result.memory, image_width, image_height, image_depth);
 
-        /*
+        constexpr auto depth_level = 0;
+
         for (uint32_t i = 0; i < image_width; ++i)
         {
             for (uint32_t j = 0; j < image_height; ++j)
             {
                 if (isVerbose())
                 {
-                    std::cout << std::format("{0:.2f}f, ", result_data[j * image_width + i]);
+                    std::cout << std::format("{0:.2f}f, ", result_data[j * image_width + i + (image_width * image_height) * depth_level]);
                 }
                 else
                 {
@@ -580,6 +581,6 @@ namespace RenderEngine::CudaCompute::Tests
             {
                 std::cout << std::endl;
             }
-        }*/
+        }
     }
 }

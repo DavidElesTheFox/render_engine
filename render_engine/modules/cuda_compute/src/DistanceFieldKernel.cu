@@ -203,13 +203,14 @@ namespace
             query_data.distance = std::sqrt(distance_sq);
             query_data.point = p;
 
-            query_data.aabb.min.x = max(q.x - std::ceil(query_data.distance), 0.0f);
-            query_data.aabb.min.y = max(q.y - std::ceil(query_data.distance), 0.0f);
-            query_data.aabb.min.z = max(q.z - std::ceil(query_data.distance), 0.0f);
+            const float int_distance = std::ceil(query_data.distance);
+            query_data.aabb.min.x = max(q.x - int_distance, 0.0f);
+            query_data.aabb.min.y = max(q.y - int_distance, 0.0f);
+            query_data.aabb.min.z = max(q.z - int_distance, 0.0f);
 
-            query_data.aabb.min.x = min(q.x + std::ceil(query_data.distance), float(g_max_distance));
-            query_data.aabb.min.y = min(q.y + std::ceil(query_data.distance), float(g_max_distance));
-            query_data.aabb.min.z = min(q.z + std::ceil(query_data.distance), float(g_max_distance));
+            query_data.aabb.min.x = min(q.x + int_distance, float(g_max_distance));
+            query_data.aabb.min.y = min(q.y + int_distance, float(g_max_distance));
+            query_data.aabb.min.z = min(q.z + int_distance, float(g_max_distance));
 
             /*query_data.aabb.min.x = q.x > query_data.distance ? q.x - std::ceil(query_data.distance) : 0;
             query_data.aabb.min.y = q.y > query_data.distance ? q.y - std::ceil(query_data.distance) : 0;

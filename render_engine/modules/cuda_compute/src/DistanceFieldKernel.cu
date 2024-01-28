@@ -6,8 +6,8 @@
 
 #include <cub/device/device_radix_sort.cuh>
 
-#include <cmath>
 #include <cstdio>
+#include <math.h>
 
 using std::min;
 using std::max;
@@ -34,7 +34,7 @@ namespace
     constexpr uint32_t g_no_data_value = 0xffffffff;
     constexpr uint32_t g_max_coordinate = 4096;
 
-    constexpr auto g_max_distance = 5000;
+    constexpr auto g_max_distance = 5000u;
 
 #pragma region Segmentation And MortonCode
     // See more details https://developer.nvidia.com/blog/thinking-parallel-part-iii-tree-construction-gpu/
@@ -203,13 +203,21 @@ namespace
             query_data.distance = std::sqrt(distance_sq);
             query_data.point = p;
 
-            query_data.aabb.min.x = q.x > query_data.distance ? q.x - std::ceil(query_data.distance) : 0;
+            query_data.aabb.min.x = max(q.x - std::ceil(query_data.distance), 0.0f);
+            query_data.aabb.min.y = max(q.y - std::ceil(query_data.distance), 0.0f);
+            query_data.aabb.min.z = max(q.z - std::ceil(query_data.distance), 0.0f);
+
+            query_data.aabb.min.x = min(q.x + std::ceil(query_data.distance), float(g_max_distance));
+            query_data.aabb.min.y = min(q.y + std::ceil(query_data.distance), float(g_max_distance));
+            query_data.aabb.min.z = min(q.z + std::ceil(query_data.distance), float(g_max_distance));
+
+            /*query_data.aabb.min.x = q.x > query_data.distance ? q.x - std::ceil(query_data.distance) : 0;
             query_data.aabb.min.y = q.y > query_data.distance ? q.y - std::ceil(query_data.distance) : 0;
             query_data.aabb.min.z = q.z > query_data.distance ? q.z - std::ceil(query_data.distance) : 0;
 
             query_data.aabb.max.x = q.x + query_data.distance < g_max_distance ? q.x + std::ceil(query_data.distance) : g_max_distance;
             query_data.aabb.max.y = q.y + query_data.distance < g_max_distance ? q.y + std::ceil(query_data.distance) : g_max_distance;
-            query_data.aabb.max.z = q.z + query_data.distance < g_max_distance ? q.z + std::ceil(query_data.distance) : g_max_distance;
+            query_data.aabb.max.z = q.z + query_data.distance < g_max_distance ? q.z + std::ceil(query_data.distance) : g_max_distance;*/
         }
     }
 
@@ -363,7 +371,26 @@ namespace
             {
                 assert(search_data.phase != Phase::CheckLowerRange_2
                        && search_data.phase != Phase::CheckUpperRange_2);
-
+                switch (search_data.phase)
+                {
+                    case Phase::None:
+                        search_data.phase = Phase::CheckLowerRange_1;
+                        break;
+                    case Phase::CheckLowerRange_1:
+                        if (cmpShuffle(out_result.aabb.max, d_coordinates[range_center]) > 0)
+                        {
+                            search_data.phase = Phase::CheckUpperRange_1;
+                        }
+                        else
+                        {
+                            search_data.phase = Phase::None;
+                        }
+                        break;
+                    case Phase::CheckUpperRange_1:
+                        search_data.phase = Phase::None;
+                        break;
+                }
+                /*
                 if (search_data.phase == Phase::None)
                 {
                     search_data.phase = Phase::CheckLowerRange_1;
@@ -385,14 +412,33 @@ namespace
                     assert(search_data.phase == Phase::CheckLowerRange_1 && "We should come to here from only the lower range calculation.");
                     search_data.phase = Phase::None;
                 }
-
+                */
             }
             else
             {
                 assert(search_data.phase != Phase::CheckLowerRange_1
                        && search_data.phase != Phase::CheckUpperRange_1);
 
-                if (search_data.phase == Phase::None)
+                switch (search_data.phase)
+                {
+                    case Phase::None:
+                        search_data.phase = Phase::CheckUpperRange_2;
+                        break;
+                    case Phase::CheckUpperRange_2:
+                        if (cmpShuffle(out_result.aabb.min, d_coordinates[range_center]) < 0)
+                        {
+                            search_data.phase = Phase::CheckLowerRange_2;
+                        }
+                        else
+                        {
+                            search_data.phase = Phase::None;
+                        }
+                        break;
+                    case Phase::CheckLowerRange_2:
+                        search_data.phase = Phase::None;
+                        break;
+                }
+                /*if (search_data.phase == Phase::None)
                 {
                     search_data.phase = Phase::CheckUpperRange_2;
                 }
@@ -413,7 +459,7 @@ namespace
                 {
                     assert(search_data.phase == Phase::CheckUpperRange_2 && "We should come to here from only the upper range calculation.");
                     search_data.phase = Phase::None;
-                }
+                }*/
             }
 
             switch (search_data.phase)
@@ -448,7 +494,7 @@ namespace
     }
 
     __global__ void
-        __launch_bounds__(512, 3)
+        //__launch_bounds__(512, 3)
         distanceFieldKernel(uint3* d_coordinates,
                             uint32_t point_count,
                             float epsilon_distance,

@@ -559,7 +559,6 @@ namespace RenderEngine::CudaCompute::Tests
             task.execute(std::move(task_description), &device);
             task.waitResult();
         }
-        return;
         readBack(result_data, result.memory, image_width, image_height, image_depth);
 
         constexpr auto depth_level = 0;

@@ -30,13 +30,10 @@ namespace RenderEngine
         {
             std::optional<TransferEngine::InFlightData> inflight_data;
             SynchronizationObject synchronization_object;
-            SynchronizationObject synchronization_object_out;
             UploadData(TransferEngine::InFlightData inflight_data,
-                       SynchronizationObject synchronization_object,
-                       SynchronizationObject synchronization_object_out)
+                       SynchronizationObject synchronization_object)
                 : inflight_data(std::move(inflight_data))
                 , synchronization_object(std::move(synchronization_object))
-                , synchronization_object_out(std::move(synchronization_object_out))
             {}
         };
         void destroy() noexcept;

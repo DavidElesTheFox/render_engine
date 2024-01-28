@@ -50,7 +50,6 @@ namespace RenderEngine
             std::vector<std::unique_ptr<Texture>> distance_field_textures;
             std::vector<std::unique_ptr<TextureView>> distance_field_texture_views;
             std::vector<SynchronizationObject> synchronization_objects;
-            std::vector<SynchronizationObject> synchronization_objects_out;
             uint32_t segmentation_threshold{};
         };
         struct MeshGroup

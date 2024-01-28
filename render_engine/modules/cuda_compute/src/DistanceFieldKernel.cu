@@ -13,7 +13,7 @@ using std::min;
 using std::max;
 
 #define CUDA_CHECKED_CALL(exp) {cudaError e = (exp); assert(e == cudaSuccess && #exp);}
-
+#define ENABLE_QUERY_DEBUG false
 namespace
 {
 
@@ -31,7 +31,7 @@ namespace
     constexpr uint32_t g_no_data_value = 0xffffffff;
     constexpr uint32_t g_max_coordinate = 4096;
 
-    constexpr auto g_max_distance = 1 << 29;
+    constexpr auto g_max_distance = 5000;
 
 #pragma region Segmentation And MortonCode
     // See more details https://developer.nvidia.com/blog/thinking-parallel-part-iii-tree-construction-gpu/
@@ -87,10 +87,11 @@ namespace
                 return (reinterpret_cast<const uint32_t*>(&point))[idx];
             };
         uint32_t less_idx = 0;
-        uint32_t less_value = 0;
-        for (uint32_t k = 0; k < 3; ++k)
+        uint32_t less_value = p.x ^ q.x;
+        for (uint32_t k = 1; k < 3; ++k)
         {
-            uint32_t value = (component_at(p, k)) ^ (component_at(q, k));
+            const uint32_t value = (component_at(p, k)) ^ (component_at(q, k));
+
             if (msbIsLess(less_value, value))
             {
                 less_idx = k;
@@ -137,21 +138,64 @@ namespace
 
     struct AABB
     {
-        uint3 min;
-        uint3 max;
+        uint3 min{ g_max_coordinate, g_max_coordinate, g_max_coordinate };
+        uint3 max{ 0, 0, 0 };
     };
 
+    struct DebugData
+    {
+        uint32_t range_begin{};
+        uint32_t range_end{};
+        uint32_t range_center{};
+        uint3 position;
+        float3 normalized_position;
+        uint32_t depth{};
+        bool is_point_to_debug{ false };
+    };
     struct QueryData
     {
         float distance{ FLT_MAX };
         float distance_sq{ FLT_MAX };
         uint3 point;
         AABB aabb;
+#if ENABLE_QUERY_DEBUG
+        DebugData debug_data{};
+#endif
     };
 
 #pragma region Approximated Nearest Neighbor
 
-    // comparing to the original implementation shift is not used. It is because all the points are already shifted during projection.
+#if ENABLE_QUERY_DEBUG
+    __device__ void debugKernel(const QueryData& query_data, uint3* d_coordinates, const char* label = "")
+    {
+        if (query_data.debug_data.is_point_to_debug == false)
+        {
+            return;
+        }
+
+        printf("  [%d] %d--%d-->%d: {%s} Distance: %0.2f, AABB: (%d,%d,%d)->(%d, %d, %d), check: (%d, %d, %d) current best: (%d, %d, %d)\n",
+               query_data.debug_data.depth,
+               query_data.debug_data.range_begin,
+               query_data.debug_data.range_center,
+               query_data.debug_data.range_end,
+               label,
+               query_data.distance,
+               query_data.aabb.min.x,
+               query_data.aabb.min.y,
+               query_data.aabb.min.z,
+               query_data.aabb.max.x,
+               query_data.aabb.max.y,
+               query_data.aabb.max.z,
+               d_coordinates[query_data.debug_data.range_center].x,
+               d_coordinates[query_data.debug_data.range_center].y,
+               d_coordinates[query_data.debug_data.range_center].z,
+               query_data.point.x,
+               query_data.point.y,
+               query_data.point.z);
+    }
+#endif
+    // comparing to the original implementation shift is not used. It is because all the points are already shifted during projection
+
     __device__ void check_dist(const uint3& p, const uint3& q, QueryData& query_data)
     {
         auto sq = [](uint32_t a) { return a * a; };
@@ -193,7 +237,10 @@ namespace
             }
         }
         int32_t normalization_exponent = 0;
-        frexp(less_value, &normalization_exponent);
+        if (less_value != 0.0f)
+        {
+            frexp(less_value, &normalization_exponent);
+        }
         float distance = 0.0f;
         for (uint32_t j = 0; j < 3; j++)
         {
@@ -219,6 +266,7 @@ namespace
                                 float epsilon_distance,
                                 QueryData& out_result)
     {
+
         auto sq = [](uint32_t a) { return a * a; };
 
         const uint32_t range_length = range_end - range_begin;
@@ -227,6 +275,8 @@ namespace
             return;
         }
         const uint32_t range_center = range_begin + range_length / 2;
+
+
         check_dist(d_coordinates[range_center], point, out_result);
         if (range_length == 1
             || dist_sq_to_box(point, d_coordinates[range_begin], d_coordinates[range_end - 1]) * sq(1 + epsilon_distance) > out_result.distance_sq)
@@ -241,6 +291,7 @@ namespace
                         point,
                         epsilon_distance,
                         out_result);
+
             if (cmpShuffle(out_result.aabb.max, d_coordinates[range_center]) > 0)
             {
                 query_point(d_coordinates,
@@ -260,6 +311,7 @@ namespace
                         point,
                         epsilon_distance,
                         out_result);
+
             if (cmpShuffle(out_result.aabb.min, d_coordinates[range_center]) < 0)
             {
                 query_point(d_coordinates,
@@ -268,14 +320,154 @@ namespace
                             point,
                             epsilon_distance,
                             out_result);
+
             }
         }
     }
 
-    __global__ void distanceFieldKernel(uint3* d_coordinates,
-                                        uint32_t point_count,
-                                        float epsilon_distance,
-                                        cudaSurfaceObject_t output)
+    __device__ void query_point_no_recursion(uint3* d_coordinates,
+                                             uint32_t in_range_begin,
+                                             uint32_t in_range_end,
+                                             uint3 point,
+                                             float epsilon_distance,
+                                             QueryData& out_result)
+    {
+        enum class Phase
+        {
+            None = 0,
+            CheckLowerRange_1,
+            CheckUpperRange_1,
+            CheckLowerRange_2,
+            CheckUpperRange_2
+        };
+        struct SearchState
+        {
+            uint32_t range_begin{};
+            uint32_t range_end{};
+            Phase phase{ Phase::None };
+        };
+        constexpr uint32_t max_depth = 30;
+        SearchState search_space[max_depth] = {};
+        int32_t current_depth = 0;
+        search_space[current_depth] = SearchState{ in_range_begin, in_range_end, Phase::None };
+        auto sq = [](uint32_t a) { return a * a; };
+
+        while (current_depth >= 0)
+        {
+            auto& search_data = search_space[current_depth];
+            const uint32_t range_length = search_data.range_end - search_data.range_begin;
+
+            if (range_length == 0)
+            {
+                current_depth--;
+                continue;
+            }
+            const uint32_t range_center = search_data.range_begin + range_length / 2;
+            if (search_data.phase == Phase::None)
+            {
+                check_dist(d_coordinates[range_center], point, out_result);
+                if (range_length == 1
+                    || dist_sq_to_box(point, d_coordinates[search_data.range_begin], d_coordinates[search_data.range_end - 1]) * sq(1 + epsilon_distance) > out_result.distance_sq)
+                {
+                    current_depth--;
+                    continue;
+                }
+            }
+            const int cmp_result = cmpShuffle(point, d_coordinates[range_center]);
+            if (cmp_result < 0)
+            {
+                assert(search_data.phase != Phase::CheckLowerRange_2
+                       && search_data.phase != Phase::CheckUpperRange_2);
+
+                if (search_data.phase == Phase::None)
+                {
+                    search_data.phase = Phase::CheckLowerRange_1;
+                }
+                else if (cmpShuffle(out_result.aabb.max, d_coordinates[range_center]) > 0)
+                {
+                    if (search_data.phase == Phase::CheckLowerRange_1)
+                    {
+                        search_data.phase = Phase::CheckUpperRange_1;
+                    }
+                    else
+                    {
+                        assert(search_data.phase == Phase::CheckUpperRange_1 && "We should come to here from only the upper range calculation.");
+                        search_data.phase = Phase::None;
+                    }
+                }
+                else
+                {
+                    assert(search_data.phase == Phase::CheckLowerRange_1 && "We should come to here from only the lower range calculation.");
+                    search_data.phase = Phase::None;
+                }
+
+            }
+            else
+            {
+                assert(search_data.phase != Phase::CheckLowerRange_1
+                       && search_data.phase != Phase::CheckUpperRange_1);
+
+                if (search_data.phase == Phase::None)
+                {
+                    search_data.phase = Phase::CheckUpperRange_2;
+                }
+                else if (cmpShuffle(out_result.aabb.min, d_coordinates[range_center]) < 0)
+                {
+                    if (search_data.phase == Phase::CheckUpperRange_2)
+                    {
+                        search_data.phase = Phase::CheckLowerRange_2;
+                    }
+                    else
+                    {
+                        assert(search_data.phase == Phase::CheckLowerRange_2 && "We should come to here from only the lower range calculation.");
+
+                        search_data.phase = Phase::None;
+                    }
+                }
+                else
+                {
+                    assert(search_data.phase == Phase::CheckUpperRange_2 && "We should come to here from only the upper range calculation.");
+                    search_data.phase = Phase::None;
+                }
+            }
+
+            switch (search_data.phase)
+            {
+                case Phase::None:
+                    current_depth--;
+                    break;
+                case Phase::CheckUpperRange_1:
+                case Phase::CheckUpperRange_2:
+                    current_depth++;
+                    assert(current_depth < max_depth);
+                    search_space[current_depth] = {
+                        range_center + 1,
+                        search_data.range_end,
+                        Phase::None
+                    };
+                    break;
+                case Phase::CheckLowerRange_1:
+                case Phase::CheckLowerRange_2:
+                    current_depth++;
+                    assert(current_depth < max_depth);
+                    search_space[current_depth] = {
+                        search_data.range_begin,
+                        range_center,
+                        Phase::None
+                    };
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+
+    __global__ void
+        __launch_bounds__(288, 8)
+        distanceFieldKernel(uint3* d_coordinates,
+                            uint32_t point_count,
+                            float epsilon_distance,
+                            cudaSurfaceObject_t output)
     {
         const int image_width = blockDim.x * gridDim.x;
         const int image_height = blockDim.y * gridDim.y;
@@ -290,12 +482,14 @@ namespace
         z / static_cast<float>(image_depth) };
         QueryData result{};
         uint3 p = projectToIntegerSpace(normalized_p);
-        query_point(d_coordinates,
-                    0,
-                    point_count,
-                    p,
-                    epsilon_distance,
-                    result);
+
+
+        query_point_no_recursion(d_coordinates,
+                                 0,
+                                 point_count,
+                                 p,
+                                 epsilon_distance,
+                                 result);
         surf3Dwrite(result.distance / 1023.0f, output, x * 4, y, z, cudaBoundaryModeZero);
     }
 #pragma endregion
@@ -348,12 +542,12 @@ namespace RenderEngine
             const uint32_t width = _kernel_parameters.block_size.x * _kernel_parameters.grid_size.x;
             const uint32_t height = _kernel_parameters.block_size.y * _kernel_parameters.grid_size.y;
             const uint32_t depth = _kernel_parameters.block_size.z * _kernel_parameters.grid_size.z;
-            const uint32_t num_items = width * height * depth;
+            uint32_t num_items = width * height * depth;
 
 
 
             uint32_t* d_kd_tree_morton_codes{ nullptr };
-            CUDA_CHECKED_CALL(cudaMalloc(&d_kd_tree_morton_codes, num_items * sizeof(uint3)));
+            CUDA_CHECKED_CALL(cudaMalloc(&d_kd_tree_morton_codes, num_items * sizeof(uint32_t)));
             uint3* d_kd_tree_coordinates{ nullptr };
             CUDA_CHECKED_CALL(cudaMalloc(&d_kd_tree_coordinates, num_items * sizeof(uint3)));
             segmentationKernel << <_kernel_parameters.grid_size, _kernel_parameters.block_size, 0, _cuda_stream >> > (
@@ -390,16 +584,28 @@ namespace RenderEngine
                                                    sizeof(uint32_t) * 8,
                                                    _cuda_stream));
 
-            distanceFieldKernel << <_kernel_parameters.grid_size, _kernel_parameters.block_size, 0, _cuda_stream >> > (
-                d_kd_tree_coordinates_sorted,
-                num_items,
-                epsilon_distance,
-                d_output_data);
+
+            std::vector<uint32_t> kd_tree_morton_codes_sorted(num_items, uint32_t{});
+            CUDA_CHECKED_CALL(cudaMemcpy(kd_tree_morton_codes_sorted.data(), d_kd_tree_morton_codes_sorted, num_items * sizeof(uint32_t), cudaMemcpyDeviceToHost));
+
+            const uint32_t num_of_zeros_at_end = std::find_if(kd_tree_morton_codes_sorted.rbegin(), kd_tree_morton_codes_sorted.rend(),
+                                                              [](uint32_t morton_code) { return morton_code != g_no_data_value; })
+                - kd_tree_morton_codes_sorted.rbegin();
+
+
             CUDA_CHECKED_CALL(cudaFree(d_temporary_memory));
             CUDA_CHECKED_CALL(cudaFree(d_kd_tree_coordinates));
-            CUDA_CHECKED_CALL(cudaFree(d_kd_tree_coordinates_sorted));
             CUDA_CHECKED_CALL(cudaFree(d_kd_tree_morton_codes));
             CUDA_CHECKED_CALL(cudaFree(d_kd_tree_morton_codes_sorted));
+
+
+            distanceFieldKernel << <_kernel_parameters.grid_size, _kernel_parameters.block_size, 0, _cuda_stream >> > (
+                d_kd_tree_coordinates_sorted,
+                num_items - num_of_zeros_at_end,
+                epsilon_distance,
+                d_output_data);
+            CUDA_CHECKED_CALL(cudaFree(d_kd_tree_coordinates_sorted));
+
         }
     }
 }

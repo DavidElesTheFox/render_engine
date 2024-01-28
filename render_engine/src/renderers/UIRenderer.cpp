@@ -142,14 +142,14 @@ namespace RenderEngine
                 SynchronizationObject sync_object = SynchronizationObject::CreateWithFence(logical_device, 0);
 
                 // Use the render queue to upload the data, while queue ownership transfer cannot be defined for ImGui.
-                auto inflight_data = window.getTransferEngine().transfer(sync_object.getDefaultOperations(),
+                auto inflight_data = window.getTransferEngine().transfer(sync_object.getOperationsGroup(SyncGroups::kInner),
                                                                          [transfer_queue_index = window.getTransferEngine().getQueueFamilyIndex(), render_queue_index = window.getRenderEngine().getQueueFamilyIndex()](VkCommandBuffer command_buffer)
                                                                          {
                                                                              ImGui_ImplVulkan_CreateFontsTexture(command_buffer);
                                                                          },
                                                                          window.getRenderEngine().getRenderQueue());
 
-                vkWaitForFences(logical_device, 1, sync_object.getDefaultOperations().getFence(), VK_TRUE, UINT64_MAX);
+                vkWaitForFences(logical_device, 1, sync_object.getOperationsGroup(SyncGroups::kInner).getFence(), VK_TRUE, UINT64_MAX);
 
             }
             ImGui_ImplVulkan_DestroyFontUploadObjects();

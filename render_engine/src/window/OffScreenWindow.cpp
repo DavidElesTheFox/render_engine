@@ -19,6 +19,12 @@ struct NullRenderdocApi
 
 namespace RenderEngine
 {
+    namespace SyncGroups
+    {
+        constexpr auto kEmpty = "EmptyGroup";
+        constexpr auto kPresent = "PresentGroup";
+    }
+
     OffScreenWindow::OffScreenWindow(Device& device,
                                      std::unique_ptr<RenderEngine>&& render_engine,
                                      std::unique_ptr<TransferEngine>&& transfer_engine,
@@ -38,9 +44,7 @@ namespace RenderEngine
         {
             _back_buffer.emplace_back(FrameData{
                 // TODO fence is only necessary because of the download is a blocking command and waits for the finish
-                .synch_present = SynchronizationObject::CreateWithFence(device.getLogicalDevice(), 0)
-                , .synch_render = SynchronizationObject::CreateWithFence(device.getLogicalDevice(), VK_FENCE_CREATE_SIGNALED_BIT)
-                , .synch_render_empty_scene = SynchronizationObject::CreateWithFence(device.getLogicalDevice(), VK_FENCE_CREATE_SIGNALED_BIT) });
+                .synch_render = SynchronizationObject::CreateWithFence(device.getLogicalDevice(), VK_FENCE_CREATE_SIGNALED_BIT) });
         }
         Texture::ImageViewData image_view_data;
         for (auto& texture : _textures)
@@ -83,17 +87,26 @@ namespace RenderEngine
     {
         for (FrameData& frame_data : _back_buffer)
         {
-            frame_data.synch_present.createSemaphore("image-available");
+            frame_data.synch_render.createSemaphore("image-available");
             frame_data.synch_render.createSemaphore("render-finished");
 
-            connectVia("image-available",
-                       frame_data.synch_present, VK_PIPELINE_STAGE_2_COPY_BIT,
-                       frame_data.synch_render, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
+            frame_data.synch_render.addSignalOperationToGroup(SyncGroups::kPresent,
+                                                              "image-available",
+                                                              VK_PIPELINE_STAGE_2_COPY_BIT);
+            frame_data.synch_render.addWaitOperationToGroup(SyncGroups::kInner,
+                                                            "image-available",
+                                                            VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
 
-            connectVia("render-finished",
-                       frame_data.synch_render, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                       frame_data.synch_present, VK_PIPELINE_STAGE_2_COPY_BIT);
-            frame_data.synch_render.addSignalOperationToGroup("Empty-Render", "render-finished", VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+            frame_data.synch_render.addSignalOperationToGroup(SyncGroups::kInner,
+                                                              "render-finished",
+                                                              VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+            frame_data.synch_render.addSignalOperationToGroup(SyncGroups::kEmpty,
+                                                              "render-finished",
+                                                              VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+            frame_data.synch_render.addWaitOperationToGroup(SyncGroups::kPresent,
+                                                            "render-finished",
+                                                            VK_PIPELINE_STAGE_2_COPY_BIT);
+
 
         }
     }
@@ -162,13 +175,13 @@ namespace RenderEngine
         // TODO this fance basically doesn't necessary because download is a blocking command.
         // Using a concurent queue in ImageStream and using there a future can obsolate this call.
         auto logical_device = _device.getLogicalDevice();
-        assert(frame_data.synch_render.getDefaultOperations().hasAnyFence() && "Render sync operation needs a fence");
-        vkWaitForFences(logical_device, 1, frame_data.synch_render.getDefaultOperations().getFence(), VK_TRUE, UINT64_MAX);
+        assert(frame_data.synch_render.getOperationsGroup(SyncGroups::kInner).hasAnyFence() && "Render sync operation needs a fence");
+        vkWaitForFences(logical_device, 1, frame_data.synch_render.getOperationsGroup(SyncGroups::kInner).getFence(), VK_TRUE, UINT64_MAX);
 
-        vkResetFences(logical_device, 1, frame_data.synch_render.getDefaultOperations().getFence());
+        vkResetFences(logical_device, 1, frame_data.synch_render.getOperationsGroup(SyncGroups::kInner).getFence());
         _render_engine->onFrameBegin(renderers, getCurrentImageIndex());
 
-        const std::string operation_group_name = frame_data.contains_image ? SynchronizationObject::kDefaultOperationGroup : "Empty-Render";
+        const std::string operation_group_name = frame_data.contains_image ? SyncGroups::kInner : SyncGroups::kEmpty;
 
         bool draw_call_submitted = _render_engine->render(frame_data.synch_render.getOperationsGroup(operation_group_name),
                                                           _renderers | std::views::transform([](const auto& ptr) { return ptr.get(); }),
@@ -182,7 +195,7 @@ namespace RenderEngine
             return;
         }
 
-        std::vector<uint8_t> image_data = _textures[getOldestImageIndex()]->download(frame.synch_present.getDefaultOperations(),
+        std::vector<uint8_t> image_data = _textures[getOldestImageIndex()]->download(frame.synch_render.getOperationsGroup(SyncGroups::kPresent),
                                                                                      *_transfer_engine);
 
         _image_stream << std::move(image_data);

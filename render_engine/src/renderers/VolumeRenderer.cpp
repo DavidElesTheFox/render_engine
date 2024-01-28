@@ -14,8 +14,8 @@ namespace RenderEngine
         {
         public:
             static constexpr auto kSemaphoreName = "distance_field_ready";
-            static constexpr auto kReadyValue = 1;
-            static constexpr auto kProcessValue = 0;
+            static constexpr auto kReadyValue = 2;
+            static constexpr auto kProcessValue = 1;
             explicit DistanceFieldFinishedCallback(SynchronizationObject& sync_object)
                 : _sync_object(sync_object)
             {}
@@ -316,7 +316,7 @@ namespace RenderEngine
         SyncOperations result;
         for (auto& mesh_group : _meshes_with_distance_field)
         {
-            result.unionWith(mesh_group.technique_data.synchronization_objects_out[image_index].getDefaultOperations());
+            result.unionWith(mesh_group.technique_data.synchronization_objects[image_index].getOperationsGroup(SyncGroups::kOuter));
         }
         return result;
     }
@@ -382,7 +382,11 @@ namespace RenderEngine
     }
     void VolumeRenderer::renderMeshGroup(MeshGroup& mesh_group, uint32_t swap_chain_image_index, FrameData& frame_data, bool calculate_distance_field)
     {
-
+        if (calculate_distance_field)
+        {
+            startDistanceFieldTask(mesh_group, swap_chain_image_index);
+            cleanupDistanceFieldTasks(mesh_group);
+        }
         drawWithTechnique("VolumeRenderer - front_face",
                           *mesh_group.technique_data.front_face_technique,
                           mesh_group.meshes,
@@ -402,18 +406,19 @@ namespace RenderEngine
                           mesh_group.meshes,
                           frame_data,
                           swap_chain_image_index);
-        if (calculate_distance_field)
-        {
-            startDistanceFieldTask(mesh_group, swap_chain_image_index);
-            cleanupDistanceFieldTasks(mesh_group);
-        }
+
     }
 
     void VolumeRenderer::startDistanceFieldTask(MeshGroup& mesh_group, uint32_t swap_chain_image_index)
     {
         auto& synchronization_object = mesh_group.technique_data.synchronization_objects[swap_chain_image_index];
+        bool wait_failed = true;
+        uint32_t try_count{ 0 };
+
         synchronization_object.waitSemaphore(DistanceFieldFinishedCallback::kSemaphoreName,
                                              DistanceFieldFinishedCallback::kReadyValue);
+
+        synchronization_object.stepTimeline(DistanceFieldFinishedCallback::kSemaphoreName);
 
         const auto* input_surface = mesh_group.technique_data.intensity_surface[swap_chain_image_index].get();
         const auto& intensity_image = mesh_group.technique_data.distance_field_textures[swap_chain_image_index]->getImage();
@@ -573,13 +578,13 @@ namespace RenderEngine
 
                 result.synchronization_objects.emplace_back(SynchronizationObject::CreateEmpty(getLogicalDevice()));
                 result.synchronization_objects.back().createTimelineSemaphore(DistanceFieldFinishedCallback::kSemaphoreName,
-                                                                              DistanceFieldFinishedCallback::kProcessValue);
+                                                                              DistanceFieldFinishedCallback::kReadyValue,
+                                                                              DistanceFieldFinishedCallback::kReadyValue - DistanceFieldFinishedCallback::kProcessValue + 1);
 
-                result.synchronization_objects_out.emplace_back(SynchronizationObject::CreateEmpty(getLogicalDevice()));
-                result.synchronization_objects_out.back().addWaitOperation(result.synchronization_objects.back(),
-                                                                           DistanceFieldFinishedCallback::kSemaphoreName,
-                                                                           VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
-                                                                           DistanceFieldFinishedCallback::kReadyValue);
+                result.synchronization_objects.back().addWaitOperationToGroup(SyncGroups::kOuter,
+                                                                              DistanceFieldFinishedCallback::kSemaphoreName,
+                                                                              VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+                                                                              DistanceFieldFinishedCallback::kReadyValue);
 
                 // Create 2D Texture from the 3D image to be able to use the surface
                 result.distance_field_textures.push_back(_texture_factory.createExternalNoUpload(distance_field_image,

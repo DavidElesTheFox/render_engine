@@ -48,17 +48,20 @@ namespace RenderEngine
         }
         SynchronizationPrimitives(SynchronizationPrimitives&& o)
             : _semaphore_map(std::move(o._semaphore_map))
+            , _timeline_data(std::move(o._timeline_data))
             , _logical_device(o._logical_device)
             , _fence(o._fence)
         {
             o._logical_device = VK_NULL_HANDLE;
             o._fence = VK_NULL_HANDLE;
             o._semaphore_map.clear();
+            o._timeline_data.clear();
         }
         SynchronizationPrimitives(const SynchronizationPrimitives& o) = delete;
         SynchronizationPrimitives& operator=(SynchronizationPrimitives&& o)
         {
             std::swap(o._semaphore_map, _semaphore_map);
+            std::swap(o._timeline_data, _timeline_data);
             std::swap(o._logical_device, _logical_device);
             std::swap(o._fence, _fence);
             return *this;
@@ -76,7 +79,8 @@ namespace RenderEngine
             }
             _semaphore_map.emplace(std::move(name), semaphore);
         }
-        void createTimelineSemaphore(std::string name, uint64_t initial_value)
+
+        void createTimelineSemaphore(std::string name, uint64_t initial_value, uint64_t timeline_width)
         {
             VkSemaphoreTypeCreateInfo type_info{};
             type_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO;
@@ -91,8 +95,11 @@ namespace RenderEngine
             {
                 throw std::runtime_error("Cannot create semaphore");
             }
-            _semaphore_map.emplace(std::move(name), semaphore);
+            _semaphore_map.emplace(name, semaphore);
+            _timeline_data.emplace(std::move(name),
+                                   TimelineSemaphoreData{ .timeline_width = timeline_width, .initial_value = initial_value });
         }
+
         const VkSemaphore& getSemaphore(const std::string& name) const
         {
             return _semaphore_map.at(name);
@@ -101,12 +108,35 @@ namespace RenderEngine
         VkFence getFence() const { return _fence; }
 
         VkDevice getLogicalDevice() const { return _logical_device; }
+
+        uint64_t getTimelineOffset(const std::string& name)
+        {
+            return _timeline_data.at(name).timeline_offset;
+        }
+
+        uint64_t stepTimeline(const std::string& name)
+        {
+            auto& timeline_data = _timeline_data.at(name);
+            // TODO recreate Timeline semaphore when overflow happened. initial value is stored so probably it is a small fix.
+            assert(timeline_data.timeline_offset < timeline_data.timeline_offset + timeline_data.timeline_width
+                   && "Overflow happened. Semaphore needs to be recreated to be able to continue");
+
+            timeline_data.timeline_offset += timeline_data.timeline_width;
+            return timeline_data.timeline_width;
+        }
     private:
+        struct TimelineSemaphoreData
+        {
+            uint64_t timeline_width{ 0 };
+            uint64_t timeline_offset{ 0 };
+            uint64_t initial_value{ 0 };
+        };
         SynchronizationPrimitives(VkDevice logical_device) :
             _logical_device(logical_device)
         {}
 
         std::unordered_map<std::string, VkSemaphore> _semaphore_map;
+        std::unordered_map<std::string, TimelineSemaphoreData> _timeline_data;
         VkFence _fence{ VK_NULL_HANDLE };
 
         VkDevice _logical_device{ VK_NULL_HANDLE };
@@ -140,7 +170,8 @@ namespace RenderEngine
             submit_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
             submit_info.semaphore = sync_object.getSemaphore(semaphore_name);
             submit_info.stageMask = stage_mask;
-            submit_info.value = value;
+            submit_info.value = sync_object.getTimelineOffset(semaphore_name) + value;
+            _wait_semaphore_dependency.emplace_back(std::move(submit_info));
         }
 
         void addSignalOperation(SynchronizationPrimitives& sync_object, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask)
@@ -158,7 +189,7 @@ namespace RenderEngine
             submit_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
             submit_info.semaphore = sync_object.getSemaphore(semaphore_name);
             submit_info.stageMask = stage_mask;
-            submit_info.value = value;
+            submit_info.value = sync_object.getTimelineOffset(semaphore_name) + value;
             _signal_semaphore_dependency.emplace_back(std::move(submit_info));
         }
 
@@ -194,6 +225,20 @@ namespace RenderEngine
             return result.unionWith(o);
         }
 
+        void shiftTimelineSemaphoreValues(uint64_t offset)
+        {
+            for (auto& submit_info : _signal_semaphore_dependency)
+            {
+                // Shifting all values is not an issue, because this field is used only for timeline semaphores
+                submit_info.value += offset;
+            }
+            for (auto& submit_info : _wait_semaphore_dependency)
+            {
+                // Shifting all values is not an issue, because this field is used only for timeline semaphores
+                submit_info.value += offset;
+            }
+        }
+
     private:
 
         std::vector<VkSemaphoreSubmitInfo> _wait_semaphore_dependency;
@@ -201,10 +246,16 @@ namespace RenderEngine
         VkFence _fence{ VK_NULL_HANDLE };
     };
 
+    namespace SyncGroups
+    {
+        constexpr auto kInner = "InnerGroup";
+        constexpr auto kOuter = "OuterGroup";
+    }
+
     class SynchronizationObject
     {
     public:
-        static constexpr auto kDefaultOperationGroup = "Default";
+
 
         static SynchronizationObject CreateEmpty(VkDevice logical_device)
         {
@@ -214,13 +265,7 @@ namespace RenderEngine
         {
             return SynchronizationObject(logical_device, true, create_flags);
         }
-        const SyncOperations& getDefaultOperations() const { return _operation_groups.at(kDefaultOperationGroup); }
         const SyncOperations& getOperationsGroup(const std::string& name) const { return _operation_groups.at(name); }
-
-        void addSignalOperation(const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask)
-        {
-            _operation_groups.at(kDefaultOperationGroup).addSignalOperation(_primitives, semaphore_name, stage_mask);
-        }
 
         void addSignalOperationToGroup(const std::string& group_name, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask)
         {
@@ -232,15 +277,7 @@ namespace RenderEngine
             it->second.addSignalOperation(_primitives, semaphore_name, stage_mask);
         }
 
-        void addWaitOperation(SynchronizationObject& sync_object, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask)
-        {
-            _operation_groups.at(kDefaultOperationGroup).addWaitOperation(sync_object._primitives, semaphore_name, stage_mask);
-        }
-        void addWaitOperation(SynchronizationObject& sync_object, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask, int64_t value)
-        {
-            _operation_groups.at(kDefaultOperationGroup).addWaitOperation(sync_object._primitives, semaphore_name, stage_mask, value);
-        }
-        void addWaitOperationToGroup(const std::string& group_name, SynchronizationObject& sync_object, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask)
+        void addWaitOperationToGroup(const std::string& group_name, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask)
         {
             auto it = _operation_groups.find(group_name);
             if (it == _operation_groups.end())
@@ -250,6 +287,16 @@ namespace RenderEngine
             it->second.addWaitOperation(_primitives, semaphore_name, stage_mask);
         }
 
+        void addWaitOperationToGroup(const std::string& group_name, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask, uint64_t value)
+        {
+            auto it = _operation_groups.find(group_name);
+            if (it == _operation_groups.end())
+            {
+                it = _operation_groups.insert({ group_name, SyncOperations{_primitives.getFence()} }).first;
+            }
+            it->second.addWaitOperation(_primitives, semaphore_name, stage_mask, value);
+        }
+
         void signalSemaphore(const std::string& name, uint64_t value)
         {
             auto semaphore = _primitives.getSemaphore(name);
@@ -257,7 +304,7 @@ namespace RenderEngine
             VkSemaphoreSignalInfo signal_info{};
             signal_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SIGNAL_INFO;
             signal_info.semaphore = semaphore;
-            signal_info.value = value;
+            signal_info.value = _primitives.getTimelineOffset(name) + value;
             if (vkSignalSemaphore(_primitives.getLogicalDevice(), &signal_info) != VK_SUCCESS)
             {
                 throw std::runtime_error("Couldn't signal semaphore: " + name);
@@ -268,11 +315,13 @@ namespace RenderEngine
         {
             auto semaphore = _primitives.getSemaphore(name);
 
+            const uint64_t value_to_wait = _primitives.getTimelineOffset(name) + value;
+
             VkSemaphoreWaitInfo wait_info{};
             wait_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
             wait_info.pSemaphores = &semaphore;
             wait_info.semaphoreCount = 1;
-            wait_info.pValues = &value;
+            wait_info.pValues = &value_to_wait;
             if (vkWaitSemaphores(_primitives.getLogicalDevice(), &wait_info, UINT64_MAX) != VK_SUCCESS)
             {
                 throw std::runtime_error("Couldn't signal semaphore: " + name);
@@ -286,25 +335,29 @@ namespace RenderEngine
             _primitives.createSemaphore(std::move(name));
         }
 
-        void createTimelineSemaphore(std::string name, uint64_t initial_value)
+        void createTimelineSemaphore(std::string name, uint64_t initial_value, uint64_t timeline_width)
         {
-            _primitives.createTimelineSemaphore(std::move(name), initial_value);
+            _primitives.createTimelineSemaphore(std::move(name), initial_value, timeline_width);
         }
+
+        void stepTimeline(const std::string& name)
+        {
+            const uint64_t offset = _primitives.stepTimeline(name);
+            for (auto& sync_operation : _operation_groups | std::views::values)
+            {
+                sync_operation.shiftTimelineSemaphoreValues(offset);
+            }
+        }
+
     private:
 
         SynchronizationObject(VkDevice logical_device, bool create_with_fence, VkFenceCreateFlags create_flags = 0)
             : _primitives(create_with_fence ? SynchronizationPrimitives::CreateWithFence(logical_device, create_flags)
                           : SynchronizationPrimitives::CreateEmpty(logical_device))
-            , _operation_groups{ { std::string(kDefaultOperationGroup), SyncOperations{_primitives.getFence()} } }
+            , _operation_groups{ { std::string(SyncGroups::kInner), SyncOperations{_primitives.getFence()} },
+            { std::string(SyncGroups::kOuter), SyncOperations{_primitives.getFence()} } }
         {}
         SynchronizationPrimitives _primitives;
         std::unordered_map<std::string, SyncOperations> _operation_groups;
     };
-    inline void connectVia(const std::string& semaphore_name,
-                           SynchronizationObject& signaling_object, VkPipelineStageFlags2 signal_stage,
-                           SynchronizationObject& wait_object, VkPipelineStageFlagBits2 wait_stage)
-    {
-        signaling_object.addSignalOperation(semaphore_name, signal_stage);
-        wait_object.addWaitOperation(signaling_object, semaphore_name, wait_stage);
-    }
 }

@@ -101,7 +101,7 @@ namespace RenderEngine
         _data = std::move(image_row_data);
     }
 
-    Image::RowData Image::createEmptyData() const
+    Image::RawData Image::createEmptyData() const
     {
         switch (_format)
         {
@@ -159,6 +159,15 @@ namespace RenderEngine
         {
             DataAccessor2D accessor(*this);
             image_processor.get2DCallback()(_width, _height, accessor);
+        }
+    }
+
+    void Image::saveRawDataToFile(const std::filesystem::path& file_path) const
+    {
+        std::ofstream os(file_path.c_str(), std::ios::app | std::ios::binary);
+        for (uint8_t data : std::get<std::vector<uint8_t>>(_data))
+        {
+            os << data;
         }
     }
 }

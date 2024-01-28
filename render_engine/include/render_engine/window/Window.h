@@ -63,7 +63,6 @@ namespace RenderEngine
     private:
         struct FrameData
         {
-            SynchronizationObject synch_present;
             SynchronizationObject synch_render;
         };
         void initSynchronizationObjects();

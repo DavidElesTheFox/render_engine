@@ -22,11 +22,12 @@ namespace RenderEngine::CudaCompute
             uint32_t width{ 0 };
             uint32_t height{ 0 };
             uint32_t depth{ 0 };
+            float epsilon_distance{ 0.20f };
             std::unique_ptr<IComputeCallback> on_finished_callback{ nullptr };
         };
         struct ExecutionParameters
         {
-            uint32_t thread_count_per_block = 512;
+            uint32_t thread_count_per_block = 256;
             float algorithms_epsilon = 0.01f;
         };
         explicit DistanceFieldTask(ExecutionParameters execution_parameters = {})

@@ -47,8 +47,7 @@ namespace RenderEngine
         for (uint32_t i = 0; i < _back_buffer_size; ++i)
         {
             _back_buffer.emplace_back(FrameData{
-                .synch_present = SynchronizationObject::CreateEmpty(device.getLogicalDevice())
-                , .synch_render = SynchronizationObject::CreateWithFence(device.getLogicalDevice(), VK_FENCE_CREATE_SIGNALED_BIT) });
+                .synch_render = SynchronizationObject::CreateWithFence(device.getLogicalDevice(), VK_FENCE_CREATE_SIGNALED_BIT) });
         }
         initSynchronizationObjects();
     }
@@ -102,17 +101,18 @@ namespace RenderEngine
     {
         for (FrameData& frame_data : _back_buffer)
         {
-            frame_data.synch_present.createSemaphore("image-available");
+            frame_data.synch_render.createSemaphore("image-available");
             frame_data.synch_render.createSemaphore("render-finished");
 
             // the signal is sent from swap chain acquire image
-            frame_data.synch_render.addWaitOperation(frame_data.synch_present,
-                                                     "image-available",
-                                                     VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
+            frame_data.synch_render.addWaitOperationToGroup(SyncGroups::kInner,
+                                                            "image-available",
+                                                            VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
 
             // the signal is waited in presentInfo during presen
-            frame_data.synch_render.addSignalOperation("render-finished",
-                                                       VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT);
+            frame_data.synch_render.addSignalOperationToGroup(SyncGroups::kInner,
+                                                              "render-finished",
+                                                              VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT);
 
         }
     }
@@ -188,11 +188,11 @@ namespace RenderEngine
         if (_swap_chain_image_index == std::nullopt)
         {
             uint32_t image_index = 0;
-            vkWaitForFences(logical_device, 1, frame_data.synch_render.getDefaultOperations().getFence(), VK_TRUE, UINT64_MAX);
+            vkWaitForFences(logical_device, 1, frame_data.synch_render.getOperationsGroup(SyncGroups::kInner).getFence(), VK_TRUE, UINT64_MAX);
             auto call_result = vkAcquireNextImageKHR(logical_device,
                                                      _swap_chain->getDetails().swap_chain,
                                                      UINT64_MAX,
-                                                     frame_data.synch_present.getPrimitives().getSemaphore("image-available"),
+                                                     frame_data.synch_render.getPrimitives().getSemaphore("image-available"),
                                                      VK_NULL_HANDLE,
                                                      &image_index);
             switch (call_result)
@@ -208,11 +208,11 @@ namespace RenderEngine
             }
             _swap_chain_image_index = image_index;
         }
-        vkResetFences(logical_device, 1, frame_data.synch_render.getDefaultOperations().getFence());
+        vkResetFences(logical_device, 1, frame_data.synch_render.getOperationsGroup(SyncGroups::kInner).getFence());
         _render_engine->onFrameBegin(renderers, *_swap_chain_image_index);
 
 
-        bool draw_call_recorded = _render_engine->render(frame_data.synch_render.getDefaultOperations(),
+        bool draw_call_recorded = _render_engine->render(frame_data.synch_render.getOperationsGroup(SyncGroups::kInner),
                                                          renderers,
                                                          *_swap_chain_image_index);
         if (draw_call_recorded)

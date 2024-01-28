@@ -3,6 +3,8 @@ cmake_minimum_required(VERSION 3.18)
 include(FetchContent)
 
 set(CMAKE_CXX_STANDARD 20)
+set(TESTS_DATA_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+configure_file(tests_resource_config_in.h "${CMAKE_CURRENT_SOURCE_DIR}/tests_resource_config.h")
 
 FetchContent_Declare(
   googletest
@@ -16,6 +18,7 @@ set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
 set(TESTS_SRC
+    tests_resource_config.h
     DistanceFieldTest.cpp 
     CudaDeviceTest.cpp)
 

@@ -19,15 +19,15 @@ namespace RenderEngine::CudaCompute
         {
             DistanceFieldKernel::KernelParameters kernel_params;
 
-            kernel_params.block_size = dim3(execution_params.thread_count_per_block / 3);
+            kernel_params.block_size = dim3(execution_params.thread_count_per_block / 3, execution_params.thread_count_per_block / 3, execution_params.thread_count_per_block / 3);
             kernel_params.grid_size.x = std::ceil(task_description.width / static_cast<float>(kernel_params.block_size.x));
-            kernel_params.grid_size.y = std::ceil(task_description.width / static_cast<float>(kernel_params.block_size.y));
-            kernel_params.grid_size.z = std::ceil(task_description.width / static_cast<float>(kernel_params.block_size.z));
+            kernel_params.grid_size.y = std::ceil(task_description.height / static_cast<float>(kernel_params.block_size.y));
+            kernel_params.grid_size.z = std::ceil(task_description.depth / static_cast<float>(kernel_params.block_size.z));
 
             auto stream = cudaDevice->getAvailableStream();
             DistanceFieldKernel kernel(std::move(kernel_params));
 
-            kernel.run(task_description.input_data, task_description.output_data, task_description.segmentation_threshold, 0.0f);
+            kernel.run(task_description.input_data, task_description.output_data, task_description.segmentation_threshold, task_description.epsilon_distance);
 
             if (task_description.on_finished_callback != nullptr)
             {

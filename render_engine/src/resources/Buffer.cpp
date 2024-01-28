@@ -122,7 +122,7 @@ namespace RenderEngine
             _buffer_state.queue_family_index = transfer_engine.getQueueFamilyIndex();
         }
         SynchronizationObject sync_object = SynchronizationObject::CreateWithFence(_logical_device, 0);
-        auto inflight_data = transfer_engine.transfer(sync_object.getDefaultOperations(),
+        auto inflight_data = transfer_engine.transfer(sync_object.getOperationsGroup(SyncGroups::kInner),
                                                       [&](VkCommandBuffer command_buffer)
                                                       {
                                                           ResourceStateMachine state_machine;
@@ -140,7 +140,7 @@ namespace RenderEngine
                                                           state_machine.commitChanges(command_buffer);
                                                       });
 
-        vkWaitForFences(_logical_device, 1, sync_object.getDefaultOperations().getFence(), VK_TRUE, UINT64_MAX);
+        vkWaitForFences(_logical_device, 1, sync_object.getOperationsGroup(SyncGroups::kInner).getFence(), VK_TRUE, UINT64_MAX);
 
         vkDestroyBuffer(_logical_device, staging_buffer, nullptr);
         vkFreeMemory(_logical_device, staging_memory, nullptr);

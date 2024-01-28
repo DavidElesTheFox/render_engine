@@ -5,7 +5,11 @@
 #include <render_engine/cuda_compute/DistanceFieldKernel.h>
 #include <render_engine/cuda_compute/DistanceFieldTask.h>
 
+#include <filesystem>
 #include <format>
+#include <fstream>
+
+#include "tests_resource_config.h"
 
 namespace RenderEngine::CudaCompute::Tests
 {
@@ -208,10 +212,13 @@ namespace RenderEngine::CudaCompute::Tests
         {
             for (uint32_t j = 0; j < image_height; ++j)
             {
-                EXPECT_TRUE(epsilonEquals(expected_distances[j * image_width + i], result_data[j * image_width + i]));
                 if (isVerbose())
                 {
                     std::cout << std::format("{0:.2f}f, ", result_data[j * image_width + i]);
+                }
+                else
+                {
+                    EXPECT_TRUE(epsilonEquals(expected_distances[j * image_width + i], result_data[j * image_width + i]));
                 }
             }
             if (isVerbose())
@@ -320,10 +327,14 @@ namespace RenderEngine::CudaCompute::Tests
         {
             for (uint32_t j = 0; j < image_height; ++j)
             {
-                //EXPECT_TRUE(epsilonEquals(expected_distances[j * image_width + i], result_data[j * image_width + i]));
                 if (isVerbose())
                 {
                     std::cout << std::format("{0:.2f}f, ", result_data[j * image_width + i]);
+                }
+                else
+                {
+                    EXPECT_TRUE(epsilonEquals(expected_distances[j * image_width + i], result_data[j * image_width + i]));
+
                 }
             }
             if (isVerbose())
@@ -508,5 +519,67 @@ namespace RenderEngine::CudaCompute::Tests
                 std::cout << std::endl;
             }
         }
+    }
+    TEST_F(DistanceFieldTest, distance_complex_3d)
+    {
+        const uint32_t image_width = 256;
+        const uint32_t image_height = 256;
+        const uint32_t image_depth = 86;
+        std::vector<uint32_t> data;
+        {
+
+            std::ifstream is(std::filesystem::path{ TESTS_DATA_DIR } / "test_3d_image_data_512_512_86.dat", std::ios_base::app | std::ios_base::binary);
+            is.seekg(0, std::ios::end);
+            size_t length = is.tellg();
+            is.seekg(0, std::ios::beg);
+            data.resize(std::ceil(length / 4.0f));
+            is.read(reinterpret_cast<char*>(data.data()), length);
+        }
+        std::vector<float> result_data(image_width * image_height * image_depth, -1.0f);
+
+
+        auto input = createInputSurface(data, image_width, image_height, image_depth);
+        auto result = createOutputSurface(image_width, image_height, image_depth);
+
+        CudaDevice device(0, 1);
+        // Currently the 'image size' is determined by the kernel parameters that calculated from the thread count. 
+        // If there are too many threads the algorithm will give less precise result due to the integer projection [0,1] -> [0, 1023]
+        DistanceFieldTask task(DistanceFieldTask::ExecutionParameters{ .thread_count_per_block = 288 });
+
+        // This pointer will be valid until the result is not fetched form the task or clearResult is not called
+        TaskFinishedCallback* finish_callback_reference{ nullptr };
+        {
+            DistanceFieldTask::Description task_description;
+            task_description.width = image_width;
+            task_description.height = image_height;
+            task_description.depth = image_depth;
+            task_description.input_data = input.surface;
+            task_description.output_data = result.surface;
+            task_description.segmentation_threshold = 200;
+
+            task.execute(std::move(task_description), &device);
+            task.waitResult();
+        }
+        //readBack(result_data, result.memory, image_width, image_height, image_depth);
+
+        /*
+        for (uint32_t i = 0; i < image_width; ++i)
+        {
+            for (uint32_t j = 0; j < image_height; ++j)
+            {
+                if (isVerbose())
+                {
+                    std::cout << std::format("{0:.2f}f, ", result_data[j * image_width + i]);
+                }
+                else
+                {
+                    //EXPECT_TRUE(epsilonEquals(expected_distances[j * image_width + i], result_data[j * image_width + i]));
+                }
+            }
+            if (isVerbose())
+            {
+                std::cout << std::endl;
+            }
+        }*/
     }
 }

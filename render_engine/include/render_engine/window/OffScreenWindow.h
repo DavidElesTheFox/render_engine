@@ -45,9 +45,7 @@ namespace RenderEngine
     private:
         struct FrameData
         {
-            SynchronizationObject synch_present;
             SynchronizationObject synch_render;
-            SynchronizationObject synch_render_empty_scene;
             bool contains_image{ false };
         };
         void initSynchronizationObjects();

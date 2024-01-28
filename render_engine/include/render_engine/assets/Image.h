@@ -85,7 +85,7 @@ namespace RenderEngine
         };
 #pragma endregion
 
-        using RowData = std::variant<std::vector<float>, std::vector<uint8_t>>;
+        using RawData = std::variant<std::vector<float>, std::vector<uint8_t>>;
         explicit Image(const std::filesystem::path& path);
         explicit Image(const std::vector<std::filesystem::path>& path_container);
         Image(uint32_t width,
@@ -123,19 +123,20 @@ namespace RenderEngine
         bool is3D() const { return _depth != 1; }
 
         BufferInfo createBufferInfo() const;
-        const RowData& getData() const { return _data; }
+        const RawData& getData() const { return _data; }
         void setData(std::vector<uint8_t> value) { _data = std::move(value); }
         VkDeviceSize getSize() const;
 
         void processData(const ImageProcessor& image_processor);
+        void saveRawDataToFile(const std::filesystem::path& file_path) const;
     private:
         uint32_t getPixelComponentCount() const;
-        RowData createEmptyData() const;
+        RawData createEmptyData() const;
         uint32_t _width{ 0 };
         uint32_t _height{ 0 };
         uint32_t _depth{ 1 };
         VkFormat _format{ VK_FORMAT_UNDEFINED };
-        RowData _data;
+        RawData _data;
     };
 
 

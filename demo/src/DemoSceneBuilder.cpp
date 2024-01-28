@@ -191,10 +191,10 @@ namespace
                 RenderEngine::Image image(std::filesystem::path{ IMAGE_BASE } / "test_img.jpg");
                 auto [texture, transfer_data] = _texture_factory.create(image, VK_IMAGE_ASPECT_COLOR_BIT,
                                                                         VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                                        sync_object.getDefaultOperations(),
+                                                                        sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInner),
                                                                         _render_engine.getQueueFamilyIndex(),
                                                                         VK_IMAGE_USAGE_SAMPLED_BIT);
-                vkWaitForFences(logical_device, 1, sync_object.getDefaultOperations().getFence(), VK_TRUE, UINT64_MAX);
+                vkWaitForFences(logical_device, 1, sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInner).getFence(), VK_TRUE, UINT64_MAX);
 
                 auto billboard_material = _assets.getBaseMaterial<Assets::BillboardMaterial>();
                 _statue_texture = std::move(texture);
@@ -348,7 +348,7 @@ namespace
 
         constexpr auto ct_image_count = 86;
         std::filesystem::path ct_base_path{ IMAGE_BASE };
-        ct_base_path /= "ct_finger";
+        ct_base_path /= "ct_finger_small";
 
         std::vector<std::filesystem::path> ct_image_path_container;
         for (uint32_t i = 0; i < ct_image_count; ++i)
@@ -360,14 +360,14 @@ namespace
             RenderEngine::SynchronizationObject::CreateWithFence(logical_device, 0);
         RenderEngine::Image image_3d(ct_image_path_container);
 
-        ct_material->processImage(&image_3d);
+        //ct_material->processImage(&image_3d);
 
         auto [texture, transfer_data] = _texture_factory.createExternal(image_3d, VK_IMAGE_ASPECT_COLOR_BIT,
                                                                         VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                                        sync_object.getDefaultOperations(),
+                                                                        sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInner),
                                                                         _render_engine.getQueueFamilyIndex(),
                                                                         VK_IMAGE_USAGE_SAMPLED_BIT);
-        vkWaitForFences(logical_device, 1, sync_object.getDefaultOperations().getFence(), VK_TRUE, UINT64_MAX);
+        vkWaitForFences(logical_device, 1, sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInner).getFence(), VK_TRUE, UINT64_MAX);
 
         _ct_texture = std::move(texture);
         RenderEngine::Texture::SamplerData sampler_data{};

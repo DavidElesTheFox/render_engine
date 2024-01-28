@@ -99,10 +99,10 @@ namespace RenderEngine
         alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
         alloc_info.allocationSize = _memory_requirements.size;
         alloc_info.memoryTypeIndex = findMemoryType(_physical_device, _memory_requirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        VkExportMemoryAllocateInfo export_alloc_info{};
 
         if (support_external_usage)
         {
-            VkExportMemoryAllocateInfo export_alloc_info{};
             export_alloc_info.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO;
             export_alloc_info.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
             alloc_info.pNext = &export_alloc_info;

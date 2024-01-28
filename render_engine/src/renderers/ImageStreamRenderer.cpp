@@ -290,7 +290,7 @@ namespace RenderEngine
             return {};
         }
 
-        return it->second.synchronization_object_out.getDefaultOperations();
+        return it->second.synchronization_object.getOperationsGroup(SyncGroups::kOuter);
     }
 
     void ImageStreamRenderer::destroy() noexcept
@@ -298,7 +298,6 @@ namespace RenderEngine
         for (auto& upload_data : _upload_data | std::ranges::views::values)
         {
             upload_data.synchronization_object = SynchronizationObject::CreateEmpty(getLogicalDevice());
-            upload_data.synchronization_object_out = SynchronizationObject::CreateEmpty(getLogicalDevice());
         }
     }
 
@@ -321,31 +320,30 @@ namespace RenderEngine
                 SynchronizationObject sync_objcet = SynchronizationObject::CreateWithFence(logical_device, 0);
 
                 sync_objcet.createSemaphore("copy-finished");
-                sync_objcet.addSignalOperation("copy-finished",
-                                               VK_PIPELINE_STAGE_2_COPY_BIT);
+                sync_objcet.addSignalOperationToGroup(SyncGroups::kInner,
+                                                      "copy-finished",
+                                                      VK_PIPELINE_STAGE_2_COPY_BIT);
 
-                SynchronizationObject sync_objcet_out = SynchronizationObject::CreateEmpty(logical_device);
 
-                sync_objcet_out.addWaitOperation(sync_objcet,
-                                                 "copy-finished",
-                                                 VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT); // TODO add as pipeline dependency
+                sync_objcet.addWaitOperationToGroup(SyncGroups::kOuter,
+                                                    "copy-finished",
+                                                    VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT); // TODO add as pipeline dependency
 
                 auto inflight_data = upload_texture->upload(_image_cache,
-                                                            sync_objcet.getDefaultOperations(),
+                                                            sync_objcet.getOperationsGroup(SyncGroups::kInner),
                                                             getWindow().getTransferEngine(),
                                                             getWindow().getRenderEngine().getQueueFamilyIndex());
                 _upload_data.insert(std::make_pair(upload_texture.get(),
                                                    UploadData(std::move(inflight_data),
-                                                              std::move(sync_objcet),
-                                                              std::move(sync_objcet_out))));
+                                                              std::move(sync_objcet))));
             }
             else
             {
-                vkWaitForFences(logical_device, 1, it->second.synchronization_object.getDefaultOperations().getFence(), VK_TRUE, UINT64_MAX);
-                vkResetFences(logical_device, 1, it->second.synchronization_object.getDefaultOperations().getFence());
+                vkWaitForFences(logical_device, 1, it->second.synchronization_object.getOperationsGroup(SyncGroups::kInner).getFence(), VK_TRUE, UINT64_MAX);
+                vkResetFences(logical_device, 1, it->second.synchronization_object.getOperationsGroup(SyncGroups::kInner).getFence());
 
                 it->second.inflight_data = upload_texture->upload(_image_cache,
-                                                                  it->second.synchronization_object.getDefaultOperations(),
+                                                                  it->second.synchronization_object.getOperationsGroup(SyncGroups::kInner),
                                                                   getWindow().getTransferEngine(),
                                                                   getWindow().getRenderEngine().getQueueFamilyIndex());
             }

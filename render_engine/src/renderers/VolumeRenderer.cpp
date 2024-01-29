@@ -23,9 +23,15 @@ namespace RenderEngine
             void call() final
             {
                 _sync_object.signalSemaphore(kSemaphoreName, kReadyValue);
+                _is_called = true;
+            }
+            bool isCalled() const final
+            {
+                return _is_called;
             }
         private:
             SynchronizationObject& _sync_object;
+            std::atomic_bool _is_called{ false };
         };
         /*
             #version 450
@@ -412,8 +418,6 @@ namespace RenderEngine
     void VolumeRenderer::startDistanceFieldTask(MeshGroup& mesh_group, uint32_t swap_chain_image_index)
     {
         auto& synchronization_object = mesh_group.technique_data.synchronization_objects[swap_chain_image_index];
-        bool wait_failed = true;
-        uint32_t try_count{ 0 };
 
         synchronization_object.waitSemaphore(DistanceFieldFinishedCallback::kSemaphoreName,
                                              DistanceFieldFinishedCallback::kReadyValue);
@@ -432,7 +436,7 @@ namespace RenderEngine
 
         task_description.segmentation_threshold = mesh_group.technique_data.segmentation_threshold;
 
-        CudaCompute::DistanceFieldTask distance_field_task{};
+        CudaCompute::DistanceFieldTask distance_field_task(CudaCompute::DistanceFieldTask::ExecutionParameters{ .thread_count_per_block = 512 });
 
         assert(getWindow().getDevice().hasCudaDevice());
 
@@ -444,7 +448,7 @@ namespace RenderEngine
 
     void VolumeRenderer::cleanupDistanceFieldTasks(MeshGroup& mesh_group)
     {
-        std::erase_if(mesh_group.tasks, [](const auto& task) { return task.isReady(); });
+        std::erase_if(mesh_group.tasks, [](auto& task) { return task.isReady(); });
     }
 
     void VolumeRenderer::drawWithTechnique(const std::string& subpass_name,
@@ -586,20 +590,22 @@ namespace RenderEngine
                                                                               VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
                                                                               DistanceFieldFinishedCallback::kReadyValue);
 
-                // Create 2D Texture from the 3D image to be able to use the surface
                 result.distance_field_textures.push_back(_texture_factory.createExternalNoUpload(distance_field_image,
                                                                                                  VK_IMAGE_ASPECT_COLOR_BIT,
                                                                                                  VK_SHADER_STAGE_FRAGMENT_BIT,
                                                                                                  VK_IMAGE_USAGE_SAMPLED_BIT
                                                                                                  | VK_IMAGE_USAGE_TRANSFER_DST_BIT
                                                                                                  | VK_IMAGE_USAGE_TRANSFER_SRC_BIT));
-                // Create 3D Texture View to the 2D texture
                 result.distance_field_texture_views.push_back(
                     std::make_unique<TextureView>(*result.distance_field_textures.back(),
                                                   Texture::ImageViewData{ },
-                                                  Texture::SamplerData{},
-                                                  getPhysicalDevice(),
-                                                  getLogicalDevice()));
+                                                  Texture::SamplerData{
+                                                      .mag_filter = VK_FILTER_NEAREST,
+                                                      .min_filter = VK_FILTER_NEAREST,
+                                                      .sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+                                                      .border_color = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE },
+                                                      getPhysicalDevice(),
+                                                      getLogicalDevice()));
                 {
                     cudaChannelFormatDesc channel_format{};
                     assert(distance_field_image.getFormat() == VK_FORMAT_R32_SFLOAT);

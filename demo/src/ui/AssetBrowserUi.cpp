@@ -62,10 +62,10 @@ namespace Ui
             {
                 scene_object = volume_object;
             }
-            glm::vec3 rotation = scene_object->getTransformation().getEulerAngles();
-            if (ImGui::SliderFloat3(("Rotation - " + mesh_instance_name).c_str(), &rotation.x, -glm::pi<float>(), glm::pi<float>()))
+            glm::vec3 rotation = glm::degrees(scene_object->getTransformation().getEulerAngles());
+            if (ImGui::SliderFloat3(("Rotation - " + mesh_instance_name).c_str(), &rotation.x, -180, 180))
             {
-                scene_object->getTransformation().setEulerAngles(rotation);
+                scene_object->getTransformation().setEulerAngles(glm::radians(rotation));
             }
             glm::vec3 position = scene_object->getTransformation().getPosition();
             if (ImGui::InputFloat3(("Position - " + mesh_instance_name).c_str(), &position.x))

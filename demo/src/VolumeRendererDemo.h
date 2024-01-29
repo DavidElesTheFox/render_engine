@@ -28,7 +28,7 @@
 class VolumeRendererDemo
 {
 public:
-    void init();
+    void init(bool use_ao);
 
     void run();
 

@@ -25,7 +25,7 @@ namespace
 {
     // TODO support multiple queue count
     constexpr size_t k_supported_queue_count = 1;
-    constexpr size_t k_num_of_cuda_streams = 4;
+    constexpr size_t k_num_of_cuda_streams = 8;
 
     VkDevice createLogicalDevice(size_t queue_count,
                                  VkPhysicalDevice physical_device,

@@ -43,5 +43,14 @@ namespace RenderEngine::CudaCompute
         _result = std::async(std::launch::async, runTask, std::move(task_description), cudaDevice, _execution_parameters);
     }
 
+    DistanceFieldTask::~DistanceFieldTask()
+    {
+        if (_execution_result.on_finished_callback != nullptr)
+        {
+            // Do busy wait until the cuda task is not finished. When this object normally called isReady should be true.
+            while (isReady() == false);
+        }
+    }
+
 
 }

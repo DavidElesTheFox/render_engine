@@ -20,29 +20,26 @@ namespace RenderEngine::CudaCompute::Tests
         public:
             void call() override
             {
-                {
-                    std::lock_guard lock{ _task_mutex };
-                    _task_finished = true;
-                }
                 _task_condition.notify_one();
+                _is_called = true;
             }
 
             template<typename T>
             void wait_for(const T& timeout)
             {
                 std::unique_lock lock(_task_mutex);
-                _task_condition.wait_for(lock, timeout, [&] { return _task_finished; });
+                _task_condition.wait_for(lock, timeout, [&]()->bool { return _is_called; });
             }
 
-            bool isTaskFinished() const
+
+            bool isCalled() const final
             {
-                std::lock_guard lock(_task_mutex);
-                return _task_finished;
+                return _is_called;
             }
         private:
-            bool _task_finished = false;
             mutable std::mutex _task_mutex;
             std::condition_variable _task_condition;
+            std::atomic_bool _is_called{ false };
         };
     }
 
@@ -489,7 +486,7 @@ namespace RenderEngine::CudaCompute::Tests
         {
             using namespace std::chrono_literals;
             finish_callback_reference->wait_for(30s);
-            ASSERT_TRUE(finish_callback_reference->isTaskFinished()) << "Task time out error";
+            ASSERT_TRUE(finish_callback_reference->isCalled()) << "Task time out error";
         }
         readBack(result_data, result.memory, image_width, image_height, image_depth);
 

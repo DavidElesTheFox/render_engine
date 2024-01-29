@@ -21,7 +21,7 @@
 #include <DemoSceneBuilder.h>
 #include <DeviceSelector.h>
 
-void VolumeRendererDemo::init()
+void VolumeRendererDemo::init(bool use_ao)
 {
     using namespace RenderEngine;
 
@@ -37,7 +37,8 @@ void VolumeRendererDemo::init()
     _scene_resources = demoSceneBuilder.buildVolumetricScene(_assets,
                                                              *_scene,
                                                              *_texture_factory,
-                                                             getRenderingWindow().getRenderEngine());
+                                                             getRenderingWindow().getRenderEngine(),
+                                                             use_ao);
 
     ApplicationContext::instance().init(_scene.get(), getUiWindow().getWindowHandle());
 

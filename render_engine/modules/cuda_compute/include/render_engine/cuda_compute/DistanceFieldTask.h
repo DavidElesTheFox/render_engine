@@ -42,7 +42,7 @@ namespace RenderEngine::CudaCompute
         DistanceFieldTask& operator=(DistanceFieldTask&&) = default;
 
 
-        ~DistanceFieldTask() = default;
+        ~DistanceFieldTask();
 
         void execute(Description&& task_description, CudaDevice* cudaDevice);
 
@@ -54,9 +54,23 @@ namespace RenderEngine::CudaCompute
         {
             return _result.wait_for(timeout_duration);
         }
-        bool isReady() const { return waitResultFor(std::chrono::seconds(0)) == std::future_status::ready; }
+        bool isExecuted() const { return _result.valid() == false || waitResultFor(std::chrono::seconds(0)) == std::future_status::ready; }
+        void readExecutionResult() { _execution_result = _result.get(); }
+        bool isReady()
+        {
+            if (isExecuted() == false)
+            {
+                return false;
+            }
+            if (_result.valid())
+            {
+                readExecutionResult();
+            }
+            return _execution_result.on_finished_callback->isCalled();
+        }
     private:
         ExecutionParameters _execution_parameters{};
         std::future<Description> _result;
+        Description _execution_result{};
     };
 }

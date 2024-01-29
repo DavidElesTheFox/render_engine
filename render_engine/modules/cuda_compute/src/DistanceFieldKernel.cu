@@ -123,9 +123,9 @@ namespace
         }
         else
         {
-            const float3 normalized_coordinate{ 1.0f / static_cast<float>(image_width) * x,
-                1.0f / static_cast<float>(image_height) * y,
-                1.0f / static_cast<float>(image_depth) * z };
+            const float3 normalized_coordinate{ x / static_cast<float>(image_width),
+                y / static_cast<float>(image_height),
+                z / static_cast<float>(image_depth) };
             d_image_points[flat_coordinate] = projectToIntegerSpace(normalized_coordinate);
             d_morton_codes[flat_coordinate] = morton3D(normalized_coordinate);
         }
@@ -495,7 +495,7 @@ namespace
     }
 
     __global__ void
-        //__launch_bounds__(512, 3)
+        __launch_bounds__(512, 4) // Based on occupancy calculator it should ensure 40 registers for the kernel.
         distanceFieldKernel(uint3* d_coordinates,
                             uint32_t point_count,
                             float epsilon_distance,

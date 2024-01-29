@@ -2,7 +2,6 @@
 
 #include <render_engine/assets/Geometry.h>
 #include <render_engine/assets/Shader.h>
-#include <render_engine/containers/VariantOverloaded.h>
 #include <render_engine/Device.h>
 #include <render_engine/GpuResourceManager.h>
 #include <render_engine/resources/GpuResourceSet.h>
@@ -13,7 +12,6 @@
 #include <numeric>
 #include <ranges>
 #include <set>
-#include <variant>
 
 namespace RenderEngine
 {

@@ -50,7 +50,7 @@ namespace RenderEngine
 
         ~ExampleRenderer() override;
 
-        std::vector<VkSemaphoreSubmitInfo> getWaitSemaphores(uint32_t image_index) override final
+        SyncOperations getSyncOperations(uint32_t image_index) override final
         {
             return {};
         }

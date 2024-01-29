@@ -233,12 +233,6 @@ namespace RenderEngine
                                                               material_id);
 
             Texture::SamplerData sampler_data{};
-            sampler_data.anisotroy_filter_enabled = false;
-            sampler_data.border_color = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
-            sampler_data.mag_filter = VK_FILTER_LINEAR;
-            sampler_data.min_filter = VK_FILTER_LINEAR;
-            sampler_data.sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-            sampler_data.unnormalize_coordinate = false;
 
 
             std::unordered_map<int32_t, std::vector<std::unique_ptr<ITextureView>>> texture_bindings;
@@ -283,7 +277,7 @@ namespace RenderEngine
         }
     }
 
-    std::vector<VkSemaphoreSubmitInfo> ImageStreamRenderer::getWaitSemaphores(uint32_t image_index)
+    SyncOperations ImageStreamRenderer::getSyncOperations(uint32_t image_index)
     {
         if (skipDrawCall(image_index))
         {
@@ -296,27 +290,14 @@ namespace RenderEngine
             return {};
         }
 
-        std::vector<VkSemaphoreSubmitInfo> result;
-        for (auto& signal_info : it->second.synchronization_primitives.signal_semaphores)
-        {
-            VkSemaphoreSubmitInfo wait_semaphore_info{};
-            wait_semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
-            wait_semaphore_info.semaphore = signal_info.semaphore;
-            wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
-            result.push_back(wait_semaphore_info);
-        }
-        return result;
+        return it->second.synchronization_object.getOperationsGroup(SyncGroups::kOuter);
     }
 
     void ImageStreamRenderer::destroy() noexcept
     {
         for (auto& upload_data : _upload_data | std::ranges::views::values)
         {
-            vkDestroyFence(getLogicalDevice(), upload_data.synchronization_primitives.on_finished_fence, nullptr);
-            for (auto semaphore_submit_info : upload_data.synchronization_primitives.signal_semaphores)
-            {
-                vkDestroySemaphore(getLogicalDevice(), semaphore_submit_info.semaphore, nullptr);
-            }
+            upload_data.synchronization_object = SynchronizationObject::CreateEmpty(getLogicalDevice());
         }
     }
 
@@ -325,14 +306,7 @@ namespace RenderEngine
         static std::vector<uint8_t> image_data;
         image_data.clear();
         _image_stream >> image_data;
-        if (image_data.empty())
-        {
-            if (_image_cache.getData().empty())
-            {
-                return;
-            }
-        }
-        else
+        if (image_data.empty() == false)
         {
             _image_cache.setData(image_data);
         }
@@ -343,36 +317,33 @@ namespace RenderEngine
             auto it = _upload_data.find(upload_texture.get());
             if (it == _upload_data.end())
             {
-                SynchronizationPrimitives synchronization_primitives = SynchronizationPrimitives::CreateWithFence(logical_device);
-                {
-                    VkSemaphore semaphore;
-                    VkSemaphoreCreateInfo create_info{};
-                    create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+                SynchronizationObject sync_objcet = SynchronizationObject::CreateWithFence(logical_device, 0);
 
-                    vkCreateSemaphore(logical_device, &create_info, nullptr, &semaphore);
-                    VkSemaphoreSubmitInfo signal_semaphore_info{};
-                    signal_semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
-                    signal_semaphore_info.semaphore = semaphore;
-                    signal_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_COPY_BIT;
+                sync_objcet.createSemaphore("copy-finished");
+                sync_objcet.addSignalOperationToGroup(SyncGroups::kInner,
+                                                      "copy-finished",
+                                                      VK_PIPELINE_STAGE_2_COPY_BIT);
 
-                    synchronization_primitives.signal_semaphores.push_back(signal_semaphore_info);
 
-                }
+                sync_objcet.addWaitOperationToGroup(SyncGroups::kOuter,
+                                                    "copy-finished",
+                                                    VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT); // TODO add as pipeline dependency
+
                 auto inflight_data = upload_texture->upload(_image_cache,
-                                                            synchronization_primitives,
+                                                            sync_objcet.getOperationsGroup(SyncGroups::kInner),
                                                             getWindow().getTransferEngine(),
                                                             getWindow().getRenderEngine().getQueueFamilyIndex());
                 _upload_data.insert(std::make_pair(upload_texture.get(),
                                                    UploadData(std::move(inflight_data),
-                                                              std::move(synchronization_primitives))));
+                                                              std::move(sync_objcet))));
             }
             else
             {
-                vkWaitForFences(logical_device, 1, &it->second.synchronization_primitives.on_finished_fence, VK_TRUE, UINT64_MAX);
-                vkResetFences(logical_device, 1, &it->second.synchronization_primitives.on_finished_fence);
+                vkWaitForFences(logical_device, 1, it->second.synchronization_object.getOperationsGroup(SyncGroups::kInner).getFence(), VK_TRUE, UINT64_MAX);
+                vkResetFences(logical_device, 1, it->second.synchronization_object.getOperationsGroup(SyncGroups::kInner).getFence());
 
                 it->second.inflight_data = upload_texture->upload(_image_cache,
-                                                                  it->second.synchronization_primitives,
+                                                                  it->second.synchronization_object.getOperationsGroup(SyncGroups::kInner),
                                                                   getWindow().getTransferEngine(),
                                                                   getWindow().getRenderEngine().getQueueFamilyIndex());
             }

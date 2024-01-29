@@ -74,7 +74,7 @@ namespace Assets
             return _name;
         }
 
-        explicit CtVolumeMaterial(uint32_t id);
+        explicit CtVolumeMaterial(bool use_ao, uint32_t id);
         ~CtVolumeMaterial() override = default;
 
         std::unique_ptr<Instance> createInstance(std::unique_ptr<RenderEngine::ITextureView> texture_view, Scene::Scene* scene, uint32_t id);
@@ -91,5 +91,6 @@ namespace Assets
     private:
         std::unique_ptr<RenderEngine::VolumeMaterial> _material;
         std::vector<SegmentationData> _segmentations;
+        bool _use_ao{ false };
     };
 }

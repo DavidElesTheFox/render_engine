@@ -28,3 +28,4 @@ Library uses
   - [Off-Screen Rendering](render_engine/documentation/offscreen-rendering.md)
   - [DescriptorSetLayout Setup](render_engine/documentation/descriptor-set-layout-setup.md)
   - [Volume Rendering](render_engine/documentation/volume-rendering.md)
+  - [Distance Field Calculation and Compute](render_engine/documentation/distance-field-calculation.md)

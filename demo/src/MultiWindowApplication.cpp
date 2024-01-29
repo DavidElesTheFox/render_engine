@@ -5,6 +5,8 @@
 
 #include<demo/resource_config.h>
 
+#include<DeviceSelector.h>
+
 #include <format>
 
 void MultiWindowApplication::init()
@@ -120,7 +122,21 @@ void MultiWindowApplication::initEngine()
                                 {
                                     return std::make_unique<ImageStreamRenderer>(window, *_image_stream, render_target, back_buffer_count, has_next);
                                 });
-    RenderContext::initialize({ "VK_LAYER_KHRONOS_validation" }, std::move(renderers));
+
+    DeviceSelector device_selector;
+    RenderContext::InitializationInfo init_info{};
+    init_info.app_info.apiVersion = VK_API_VERSION_1_3;
+    init_info.app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+    init_info.app_info.applicationVersion = 0;
+    init_info.app_info.engineVersion = 0;
+    init_info.app_info.pApplicationName = "MultiWindow Application";
+    init_info.app_info.pEngineName = "FoxEngine";
+    init_info.enable_validation_layers = true;
+    init_info.enabled_layers = { "VK_LAYER_KHRONOS_validation" };
+    init_info.renderer_factory = std::move(renderers);
+    init_info.device_selector = [&](const DeviceLookup& lookup) ->VkPhysicalDevice { return device_selector.askForDevice(lookup); };
+    init_info.queue_family_selector = [&](const DeviceLookup::DeviceInfo& info) { return device_selector.askForQueueFamilies(info); };
+    RenderContext::initialize(std::move(init_info));
 }
 
 void MultiWindowApplication::initImages()
@@ -147,7 +163,9 @@ void MultiWindowApplication::updateImageStream()
     static const auto frame_duration = 1000ms / 30;
     if (now > _last_image_update + frame_duration)
     {
-        (*_image_stream) << _images[_current_image].getData();
+        // TODO support Depth/Stencil buffer data
+        // We assume the image has uint8_t data
+        (*_image_stream) << std::get<std::vector<uint8_t>>(_images[_current_image].getData());
         _last_image_update = now;
         _current_image = (_current_image + 1) % _images.size();
     }

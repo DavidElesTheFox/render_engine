@@ -40,7 +40,7 @@ namespace RenderEngine
 
         ~UIRenderer();
 
-        std::vector<VkSemaphoreSubmitInfo> getWaitSemaphores(uint32_t frame_number) override final
+        SyncOperations getSyncOperations(uint32_t image_index) final
         {
             return {};
         }

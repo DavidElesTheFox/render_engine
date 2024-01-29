@@ -33,15 +33,15 @@ namespace RenderEngine
             }
         }
         [[nodiscard]]
-        bool render(SynchronizationPrimitives* synchronization_primitives,
+        bool render(const SyncOperations& sync_operations,
                     const std::ranges::input_range auto& renderers,
                     uint32_t image_index)
         {
             std::vector<VkCommandBufferSubmitInfo> command_buffer_infos = executeDrawCalls(renderers, image_index);
-            addWaitSemaphoresFromRenderers(renderers, synchronization_primitives, image_index);
+            auto all_sync_operations = addWaitSemaphoresFromRenderers(renderers, sync_operations, image_index);
             if (command_buffer_infos.empty() == false)
             {
-                submitDrawCalls(command_buffer_infos, *synchronization_primitives);
+                submitDrawCalls(command_buffer_infos, all_sync_operations);
                 return true;
             }
             return false;
@@ -72,20 +72,21 @@ namespace RenderEngine
             return command_buffers;
         }
 
-        void addWaitSemaphoresFromRenderers(const std::ranges::input_range auto& renderers,
-                                            SynchronizationPrimitives* synchronization_primitives,
-                                            uint32_t image_index)
+        SyncOperations addWaitSemaphoresFromRenderers(const std::ranges::input_range auto& renderers,
+                                                      const SyncOperations& sync_operations,
+                                                      uint32_t image_index)
         {
+            SyncOperations result = sync_operations;
             for (AbstractRenderer* drawer : renderers)
             {
-                auto wait_semaphores = drawer->getWaitSemaphores(image_index);
-                std::ranges::copy(wait_semaphores,
-                                  std::back_inserter(synchronization_primitives->wait_semaphores));
+                auto renderer_sync_operations = drawer->getSyncOperations(image_index);
+                result.unionWith(renderer_sync_operations);
             }
+            return result;
         }
 
         void submitDrawCalls(const std::vector<VkCommandBufferSubmitInfo>& command_buffers,
-                             const SynchronizationPrimitives& synchronization_primitives);
+                             const SyncOperations& sync_operations);
 
 
         Device& _device;

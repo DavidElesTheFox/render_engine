@@ -115,7 +115,7 @@ void ApplicationContext::onFrameEnd()
         return;
     }
     auto fps = 1000 / static_cast<float>(frame_time_ms);
-    _current_fps = (_current_fps + fps) / 2.0f;
+    _current_fps = fps;
 }
 
 void ApplicationContext::updateKeyboardEvent()

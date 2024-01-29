@@ -20,10 +20,11 @@ namespace RenderEngine
 
             static constexpr uint32_t kFrontFaceTextureBinding = 0;
             static constexpr uint32_t kBackFaceTextureBinding = 1;
+            static constexpr uint32_t kDistanceFieldBinding = 3;
 
             static MetaDataExtension createForVertexShader();
 
-            static MetaDataExtension createForFragmentShader();
+            static MetaDataExtension createForFragmentShader(bool use_distance_field);
 
             void addUniformBuffer(uint32_t binding, UniformBuffer buffer)
             {

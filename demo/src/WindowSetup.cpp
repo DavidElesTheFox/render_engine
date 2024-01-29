@@ -9,7 +9,7 @@ SingleWindowSetup::SingleWindowSetup(std::vector<uint32_t> renderer_ids)
     using namespace RenderEngine;
 
     renderer_ids.push_back(UIRenderer::kRendererId);
-    _window = RenderContext::context().getDevice(0).createWindow("Demo window", 2);
+    _window = RenderContext::context().getDevice(0).createWindow("Demo window", 3);
     _window->registerRenderers(renderer_ids);
 }
 

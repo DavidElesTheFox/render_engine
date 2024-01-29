@@ -41,7 +41,7 @@ namespace RenderEngine
         void onFrameBegin(uint32_t image_index) override;
         void addMesh(const MeshInstance* mesh_instance);
         void draw(uint32_t swap_chain_image_index) override;
-        std::vector<VkSemaphoreSubmitInfo> getWaitSemaphores(uint32_t image_index) override
+        SyncOperations getSyncOperations(uint32_t image_index) final
         {
             return {};
         }

@@ -1,12 +1,15 @@
 #version 460
+precision mediump int;
+
 layout(location = 0) in vec3 fragTexCoord;
 
 layout(location = 0) out vec4 outColor;
 
-layout(binding = 2) uniform sampler3D texIntensity;
-
 layout (input_attachment_index = 0, set = 0, binding = 0) uniform subpassInput texRayStart;
 layout (input_attachment_index = 1, set = 0, binding = 1) uniform subpassInput texRayEnd;
+
+layout(binding = 2) uniform sampler3D texIntensity;
+
 
 layout(push_constant, std430) uniform constants
 {
@@ -15,27 +18,20 @@ layout(push_constant, std430) uniform constants
     float step_size;
 };
 
-vec4 blendColors(vec4 src, vec4 dst)
-{
-    vec4 result = vec4(dst.rgb * dst.a + (1.0 - dst.a) * src.rgb, dst.a);
-    return result;
-}
-// TODO replace it with push constant
 void main() {
-    vec3 rayStart = subpassLoad(texRayStart).xyz;
-    vec3 rayEnd = subpassLoad(texRayEnd).xyz;
+    const vec4 epsilon = vec4(0.1);
+    const vec3 rayStart = subpassLoad(texRayStart).xyz;
+    const vec3 rayEnd = subpassLoad(texRayEnd).xyz;
     vec3 p = rayStart;
-    vec3 dir = normalize(rayEnd - rayStart);
-    float intensity = 0.0f;
+    const vec3 dir = normalize(rayEnd - rayStart);
     int stepCount = 0;
-    outColor = vec4(0.0);
-    while(stepCount < c_num_steps)
+    vec4 resultColor = vec4(0.0);
+    while(stepCount < c_num_steps && dot(resultColor, resultColor) < epsilon.x)
     {
         p += dir * step_size;
         vec4 currentColor = texture(texIntensity, p);
-        outColor = blendColors(outColor, currentColor);
+        resultColor += step(epsilon, currentColor) * currentColor;
         stepCount++;
     }
-    // TODO remove this for supporting proper visibility
-    outColor.a = 1.0;
+    outColor = resultColor;
 }

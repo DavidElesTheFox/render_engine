@@ -12,11 +12,15 @@ namespace RenderEngine
         return extension;
 
     }
-    VolumeShader::MetaDataExtension VolumeShader::MetaDataExtension::createForFragmentShader()
+    VolumeShader::MetaDataExtension VolumeShader::MetaDataExtension::createForFragmentShader(bool use_distance_field)
     {
         MetaDataExtension extension;
         extension._meta_data.input_attachments[kFrontFaceTextureBinding] = InputAttachment{ .binding = kFrontFaceTextureBinding };
         extension._meta_data.input_attachments[kBackFaceTextureBinding] = InputAttachment{ .binding = kBackFaceTextureBinding };
+        if (use_distance_field)
+        {
+            extension._meta_data.samplers[kDistanceFieldBinding] = Sampler{ .binding = kDistanceFieldBinding, .update_frequency = MetaData::UpdateFrequency::PerDrawCall };
+        }
         return extension;
 
     }

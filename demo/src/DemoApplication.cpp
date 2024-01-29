@@ -18,6 +18,7 @@
 #include <demo/resource_config.h>
 
 #include <DemoSceneBuilder.h>
+#include <DeviceSelector.h>
 
 void DemoApplication::init()
 {
@@ -99,7 +100,21 @@ void DemoApplication::initializeRenderers()
                                     return std::make_unique<ImageStreamRenderer>(window, window.getTunnel()->getOriginWindow().getImageStream(), render_target, back_buffer_count, has_next);
 
                                 });
-    RenderContext::initialize({ "VK_LAYER_KHRONOS_validation" }, std::move(renderers));
+
+    DeviceSelector device_selector;
+    RenderContext::InitializationInfo init_info{};
+    init_info.app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+    init_info.app_info.apiVersion = VK_API_VERSION_1_3;
+    init_info.app_info.applicationVersion = 0;
+    init_info.app_info.engineVersion = 0;
+    init_info.app_info.pApplicationName = "DemoApplication";
+    init_info.app_info.pEngineName = "FoxEngine";
+    init_info.enable_validation_layers = true;
+    init_info.enabled_layers = { "VK_LAYER_KHRONOS_validation" };
+    init_info.renderer_factory = std::move(renderers);
+    init_info.device_selector = [&](const DeviceLookup& lookup) ->VkPhysicalDevice { return device_selector.askForDevice(lookup); };
+    init_info.queue_family_selector = [&](const DeviceLookup::DeviceInfo& info) { return device_selector.askForQueueFamilies(info); };
+    RenderContext::initialize(std::move(init_info));
 }
 
 
@@ -117,7 +132,7 @@ void DemoApplication::onGui()
 void DemoApplication::createWindowSetup()
 {
     using namespace RenderEngine;
-    constexpr bool use_offscreen_rendering = true;
+    constexpr bool use_offscreen_rendering = false;
 
     if constexpr (use_offscreen_rendering)
     {

@@ -1,5 +1,7 @@
 #include <render_engine/resources/Texture.h>
 
+#include <render_engine/containers/VariantOverloaded.h>
+
 #include <cassert>
 #include <span>
 
@@ -42,7 +44,8 @@ namespace RenderEngine
                      VkImageAspectFlags aspect,
                      VkShaderStageFlags shader_usage,
                      std::set<uint32_t> compatible_queue_family_indexes,
-                     VkImageUsageFlags image_usage)
+                     VkImageUsageFlags image_usage,
+                     bool support_external_usage)
         try : _physical_device(physical_device)
         , _logical_device(logical_device)
         , _staging_buffer(physical_device, logical_device, image.createBufferInfo())
@@ -75,6 +78,14 @@ namespace RenderEngine
         image_info.queueFamilyIndexCount = queue_family_indices.size();
         image_info.pQueueFamilyIndices = queue_family_indices.data();
 
+        VkExternalMemoryImageCreateInfo external_create_info{};
+        if (support_external_usage)
+        {
+            external_create_info.sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO;
+            external_create_info.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
+            image_info.pNext = &external_create_info;
+        }
+
         _texture_state.layout = image_info.initialLayout;
 
         if (vkCreateImage(_logical_device, &image_info, nullptr, &_texture) != VK_SUCCESS)
@@ -82,14 +93,20 @@ namespace RenderEngine
             throw std::runtime_error("Cannot create image");
         }
 
-        VkMemoryRequirements memory_requirements{};
-        vkGetImageMemoryRequirements(_logical_device, _texture, &memory_requirements);
+        vkGetImageMemoryRequirements(_logical_device, _texture, &_memory_requirements);
 
         VkMemoryAllocateInfo alloc_info{};
         alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        alloc_info.allocationSize = memory_requirements.size;
-        alloc_info.memoryTypeIndex = findMemoryType(_physical_device, memory_requirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        alloc_info.allocationSize = _memory_requirements.size;
+        alloc_info.memoryTypeIndex = findMemoryType(_physical_device, _memory_requirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        VkExportMemoryAllocateInfo export_alloc_info{};
 
+        if (support_external_usage)
+        {
+            export_alloc_info.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO;
+            export_alloc_info.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
+            alloc_info.pNext = &export_alloc_info;
+        }
         if (vkAllocateMemory(_logical_device, &alloc_info, nullptr, &_texture_memory) != VK_SUCCESS)
         {
             throw std::runtime_error("Cannot allocate memory for image");
@@ -101,14 +118,18 @@ namespace RenderEngine
         destroy();
     }
 
-    TransferEngine::InFlightData Texture::upload(const Image& image, const SynchronizationPrimitives& synchronization_primitive, TransferEngine& transfer_engine, uint32_t dst_queue_family_index)
+    TransferEngine::InFlightData Texture::upload(const Image& image, const SyncOperations& sync_operations, TransferEngine& transfer_engine, uint32_t dst_queue_family_index)
     {
         if (isImageCompatible(image) == false)
         {
             throw std::runtime_error("Input image is incompatible with the texture");
         }
-        const std::vector<uint8_t>& image_data = image.getData();
-        _staging_buffer.uploadMapped(std::span<const uint8_t>(image_data.begin(), image_data.end()));
+        std::span<const uint8_t> data_view =
+            std::visit(overloaded{
+                       [&](const std::vector<uint8_t>& image_data) { return std::span(image_data); },
+                       [&](const std::vector<float>& image_data) { return std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(&image_data[0]), image_data.size() / sizeof(float)); } },
+                       image.getData());
+        _staging_buffer.uploadMapped(data_view);
 
         if (_texture_state.queue_family_index == std::nullopt)
         {
@@ -169,18 +190,18 @@ namespace RenderEngine
                                                 .setQueueFamilyIndex(dst_queue_family_index));
                 state_machine.commitChanges(command_buffer);
             };
-        auto result = transfer_engine.transfer(synchronization_primitive, upload_command);
+        auto result = transfer_engine.transfer(sync_operations, upload_command);
         return result;
     }
 
-    std::vector<uint8_t> Texture::download(const SynchronizationPrimitives& synchronization_primitive,
+    std::vector<uint8_t> Texture::download(const SyncOperations& sync_operations,
                                            TransferEngine& transfer_engine)
     {
         if (_texture_state.queue_family_index == std::nullopt)
         {
             _texture_state.queue_family_index = transfer_engine.getQueueFamilyIndex();
         }
-        assert(synchronization_primitive.on_finished_fence != VK_NULL_HANDLE);
+        assert(sync_operations.hasAnyFence());
 
         auto download_command = [&](VkCommandBuffer command_buffer)
             {
@@ -220,10 +241,11 @@ namespace RenderEngine
                 state_machine.recordStateChange(this, old_state);
                 state_machine.commitChanges(command_buffer);
             };
-        auto result = transfer_engine.transfer(synchronization_primitive,
+        auto result = transfer_engine.transfer(sync_operations,
                                                download_command);
 
-        vkWaitForFences(_logical_device, 1, &synchronization_primitive.on_finished_fence, true, UINT64_MAX);
+        vkWaitForFences(_logical_device, 1, sync_operations.getFence(), true, UINT64_MAX);
+        vkResetFences(_logical_device, 1, sync_operations.getFence());
 
         std::vector<uint8_t> data(_staging_buffer.getDeviceSize());
         const uint8_t* staging_memory = static_cast<const uint8_t*>(_staging_buffer.getMemory());
@@ -276,7 +298,7 @@ namespace RenderEngine
         {
             VkPhysicalDeviceProperties properties{};
             vkGetPhysicalDeviceProperties(_physical_device, &properties);
-            create_info.anisotropyEnable = data.anisotroy_filter_enabled;
+            create_info.anisotropyEnable = data.anisotropy_filter_enabled;
             create_info.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
         }
         create_info.borderColor = data.border_color;
@@ -308,27 +330,70 @@ namespace RenderEngine
         vkDestroyImage(_logical_device, _texture, nullptr);
     }
 
-    std::unique_ptr<TextureViewReference> TextureView::createReference()
+    HANDLE Texture::getMemoryHandle() const
+    {
+        HANDLE result = nullptr;
+
+        VkMemoryGetWin32HandleInfoKHR memory_handle_info{};
+        memory_handle_info.sType = VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR;
+        memory_handle_info.memory = _texture_memory;
+        memory_handle_info.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
+
+        assert(vkGetMemoryWin32HandleKHR != nullptr);
+        vkGetMemoryWin32HandleKHR(_logical_device, &memory_handle_info, &result);
+        return result;
+    }
+
+    std::unique_ptr<TextureViewReference> TextureView::createReference() const
     {
         return std::unique_ptr<TextureViewReference>(new TextureViewReference{ TextureView(*this) });
+    }
+
+    std::unique_ptr<ITextureView> TextureView::clone() const
+    {
+        return createReference();
     }
 
     [[nodiscar]]
     std::tuple<std::unique_ptr<Texture>, TransferEngine::InFlightData> TextureFactory::create(Image image,
                                                                                               VkImageAspectFlags aspect,
                                                                                               VkShaderStageFlags shader_usage,
-                                                                                              const SynchronizationPrimitives& synchronization_primitive,
+                                                                                              const SyncOperations& sync_operations,
                                                                                               uint32_t dst_queue_family_index,
                                                                                               VkImageUsageFlagBits image_usage)
     {
+        constexpr bool support_external_usage = false;
         std::unique_ptr<Texture> result{ new Texture(image,
             _physical_device, _logical_device,
             aspect,
             shader_usage,
             _compatible_queue_family_indexes,
-            image_usage) };
+            image_usage,
+            support_external_usage) };
         auto inflight_data = result->upload(image,
-                                            synchronization_primitive,
+                                            sync_operations,
+                                            _transfer_engine,
+                                            dst_queue_family_index);
+        return { std::move(result), std::move(inflight_data) };
+    }
+    [[nodiscar]]
+    std::tuple<std::unique_ptr<Texture>, TransferEngine::InFlightData> TextureFactory::createExternal(Image image,
+                                                                                                      VkImageAspectFlags aspect,
+                                                                                                      VkShaderStageFlags shader_usage,
+                                                                                                      const SyncOperations& sync_operations,
+                                                                                                      uint32_t dst_queue_family_index,
+                                                                                                      VkImageUsageFlagBits image_usage)
+    {
+        constexpr bool support_external_usage = true;
+        std::unique_ptr<Texture> result{ new Texture(image,
+            _physical_device, _logical_device,
+            aspect,
+            shader_usage,
+            _compatible_queue_family_indexes,
+            image_usage,
+            support_external_usage) };
+        auto inflight_data = result->upload(image,
+                                            sync_operations,
                                             _transfer_engine,
                                             dst_queue_family_index);
         return { std::move(result), std::move(inflight_data) };
@@ -339,12 +404,32 @@ namespace RenderEngine
                                                             VkShaderStageFlags shader_usage,
                                                             VkImageUsageFlags image_usage)
     {
+        constexpr bool support_external_usage = false;
+
         std::unique_ptr<Texture> result{ new Texture(image,
             _physical_device, _logical_device,
             aspect,
             shader_usage,
             _compatible_queue_family_indexes,
-            image_usage) };
+            image_usage,
+            support_external_usage) };
+        return result;
+    }
+
+    std::unique_ptr<Texture> TextureFactory::createExternalNoUpload(Image image,
+                                                                    VkImageAspectFlags aspect,
+                                                                    VkShaderStageFlags shader_usage,
+                                                                    VkImageUsageFlags image_usage)
+    {
+        constexpr bool support_external_usage = true;
+
+        std::unique_ptr<Texture> result{ new Texture(image,
+            _physical_device, _logical_device,
+            aspect,
+            shader_usage,
+            _compatible_queue_family_indexes,
+            image_usage,
+            support_external_usage) };
         return result;
     }
 }

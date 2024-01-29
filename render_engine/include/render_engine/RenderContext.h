@@ -5,6 +5,7 @@
 
 #include <volk.h>
 
+#include <render_engine/DeviceLookup.h>
 #include <render_engine/RendererFactory.h>
 
 
@@ -14,12 +15,28 @@ namespace RenderEngine
 
     class RenderContext
     {
-
     public:
+        struct InitializationInfo
+        {
+            struct QueueFamilyIndexes
+            {
+                uint32_t graphics{};
+                uint32_t present{};
+                uint32_t transfer{};
+            };
+            std::function<VkPhysicalDevice(const DeviceLookup&)> device_selector;
+            std::function<QueueFamilyIndexes(const DeviceLookup::DeviceInfo&)> queue_family_selector;
+            std::vector<std::string> enabled_layers;
+            std::unique_ptr<RendererFeactory> renderer_factory;
+            std::vector<std::string> instance_extensions;
+            std::vector<std::string> device_extensions;
+            VkApplicationInfo app_info{};
+            bool enable_validation_layers{ true };
+        };
         // TODO replace ids to generated UUID
         static constexpr uint32_t kEngineReservedIdStart = UINT_MAX - 1'000'000;
         static RenderContext& context();
-        static void initialize(const std::vector<const char*>& validation_layers, std::unique_ptr<RendererFeactory> renderer_factory);
+        static void initialize(InitializationInfo&& info);
 
         Device& getDevice(size_t index) const
         {
@@ -39,9 +56,9 @@ namespace RenderEngine
         {
             reset();
         }
-        void init(const std::vector<const char*>& validation_layers, std::unique_ptr<RendererFeactory> renderer_factory);
-        void initVulkan(const std::vector<const char*>& validation_layers);
-        void createDevices(const std::vector<const char*>& validation_layers);
+        void init(InitializationInfo&& info);
+        void initVulkan(const InitializationInfo& info);
+        void createDevices(const InitializationInfo& info);
         bool isVulkanInitialized() const { return _instance != nullptr; }
         VkInstance _instance;
         std::vector<std::unique_ptr<Device>> _devices;

@@ -18,10 +18,14 @@
 #include <vector>
 
 #include <vulkan/vulkan_win32.h>
+
+#include <render_engine/cuda_compute/CudaDevice.h>
+
 namespace
 {
     // TODO support multiple queue count
     constexpr size_t k_supported_queue_count = 1;
+    constexpr size_t k_num_of_cuda_streams = 8;
 
     VkDevice createLogicalDevice(size_t queue_count,
                                  VkPhysicalDevice physical_device,
@@ -46,9 +50,14 @@ namespace
         }
 
         {
+
+
+            VkPhysicalDeviceTimelineSemaphoreFeatures timeline_semaphore_feature{};
+            timeline_semaphore_feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES;
+
             VkPhysicalDeviceSynchronization2Features synchronization_2_feature{};
             synchronization_2_feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
-            //synchronization_2_feature.synchronization2 = true;
+            synchronization_2_feature.pNext = &timeline_semaphore_feature;
 
             VkPhysicalDeviceFeatures2KHR features =
             {
@@ -61,11 +70,19 @@ namespace
             {
                 throw std::runtime_error("synchronization2 feature is not supported");
             }
+            if (timeline_semaphore_feature.timelineSemaphore == false)
+            {
+                throw std::runtime_error("timeline semaphores feature is not supported");
+            }
         }
+        VkPhysicalDeviceTimelineSemaphoreFeatures timeline_semaphore_feature{};
+        timeline_semaphore_feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES;
+        timeline_semaphore_feature.timelineSemaphore = true;
 
         VkPhysicalDeviceSynchronization2Features synchronization_2_feature{};
         synchronization_2_feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
         synchronization_2_feature.synchronization2 = true;
+        synchronization_2_feature.pNext = &timeline_semaphore_feature;
 
         VkPhysicalDeviceFeatures2 device_features{};
         device_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
@@ -102,10 +119,40 @@ namespace
         return device;
 
     }
+
+    VkPhysicalDeviceIDProperties getDeviceUUID(VkPhysicalDevice physical_device)
+    {
+        VkPhysicalDeviceIDProperties device_id_property = {};
+        device_id_property.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES;
+        device_id_property.pNext = nullptr;
+        VkPhysicalDeviceProperties2 device_property = {};
+        device_property.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+        device_property.pNext = &device_id_property;
+        vkGetPhysicalDeviceProperties2(physical_device, &device_property);
+        return device_id_property;
+    }
 }
 
 namespace RenderEngine
 {
+    PerformanceMarkerFactory::Marker::~Marker()
+    {
+        assert(_command_buffer == VK_NULL_HANDLE && "Performance marker is not finished");
+    }
+    void PerformanceMarkerFactory::Marker::start(const std::string_view& name)
+    {
+        VkDebugUtilsLabelEXT label{};
+        label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
+        label.pLabelName = name.data();
+        label.color[1] = 1.0f;
+        vkCmdBeginDebugUtilsLabelEXT(_command_buffer, &label);
+    }
+    void PerformanceMarkerFactory::Marker::finish()
+    {
+        vkCmdEndDebugUtilsLabelEXT(_command_buffer);
+        _command_buffer = VK_NULL_HANDLE;
+    }
+
     Device::Device(VkInstance instance,
                    VkPhysicalDevice physical_device,
                    uint32_t queue_family_index_graphics,
@@ -119,6 +166,7 @@ namespace RenderEngine
         , _queue_family_present(queue_family_index_presentation)
         , _queue_family_graphics(queue_family_index_graphics)
         , _queue_family_transfer(queue_family_index_transfer)
+        , _cuda_device(CudaCompute::CudaDevice::createDeviceForUUID(std::span{ &getDeviceUUID(physical_device).deviceUUID[0], VK_UUID_SIZE }, k_num_of_cuda_streams))
     {}
 
     Device::~Device()

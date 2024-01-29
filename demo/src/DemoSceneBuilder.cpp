@@ -17,8 +17,12 @@
 #include <scene/SceneNodeLookup.h>
 #include <scene/VolumeObject.h>
 
+#include <array>
+#include <string>
 namespace
 {
+
+
 #pragma region QuadSceneBuilder
     class QuadSceneBuilder
     {
@@ -186,26 +190,19 @@ namespace
                 auto& device = RenderEngine::RenderContext::context().getDevice(0);
                 auto logical_device = device.getLogicalDevice();
                 auto physical_device = device.getPhysicalDevice();
-                RenderEngine::SynchronizationPrimitives synchronization_primitives =
-                    RenderEngine::SynchronizationPrimitives::CreateWithFence(logical_device);
+                RenderEngine::SynchronizationObject sync_object =
+                    RenderEngine::SynchronizationObject::CreateWithFence(logical_device, 0);
                 RenderEngine::Image image(std::filesystem::path{ IMAGE_BASE } / "test_img.jpg");
                 auto [texture, transfer_data] = _texture_factory.create(image, VK_IMAGE_ASPECT_COLOR_BIT,
                                                                         VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                                        synchronization_primitives,
+                                                                        sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInner),
                                                                         _render_engine.getQueueFamilyIndex(),
                                                                         VK_IMAGE_USAGE_SAMPLED_BIT);
-                vkWaitForFences(logical_device, 1, &synchronization_primitives.on_finished_fence, VK_TRUE, UINT64_MAX);
-                vkDestroyFence(logical_device, synchronization_primitives.on_finished_fence, nullptr);
+                vkWaitForFences(logical_device, 1, sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInner).getFence(), VK_TRUE, UINT64_MAX);
 
                 auto billboard_material = _assets.getBaseMaterial<Assets::BillboardMaterial>();
                 _statue_texture = std::move(texture);
                 RenderEngine::Texture::SamplerData sampler_data{};
-                sampler_data.anisotroy_filter_enabled = false;
-                sampler_data.border_color = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
-                sampler_data.mag_filter = VK_FILTER_LINEAR;
-                sampler_data.min_filter = VK_FILTER_LINEAR;
-                sampler_data.sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-                sampler_data.unnormalize_coordinate = false;
 
                 auto view = std::make_unique<RenderEngine::TextureView>(*_statue_texture, RenderEngine::Texture::ImageViewData{}, sampler_data, physical_device, logical_device);
                 _assets.addMaterialInstance("Billboard - statue", billboard_material->createInstance(std::move(view), &_scene, ApplicationContext::instance().generateId()));
@@ -254,17 +251,25 @@ namespace
 
 #pragma region VolumetricSceneBuilder
 
+    struct ImageData
+    {
+        std::filesystem::path folder_name;
+        uint32_t image_count;
+    };
+
     class VolumetricSceneBuilder
     {
     public:
         VolumetricSceneBuilder(Assets::AssetDatabase& assets,
                                Scene::Scene& scene,
                                RenderEngine::TextureFactory& texture_factory,
-                               RenderEngine::RenderEngine& render_engine)
+                               RenderEngine::RenderEngine& render_engine,
+                               bool use_ao)
             : _assets(assets)
             , _scene(scene)
             , _texture_factory(texture_factory)
             , _render_engine(render_engine)
+            , _use_ao(use_ao)
         {
             createAssets();
             instantiateMaterials();
@@ -295,6 +300,7 @@ namespace
         RenderEngine::TextureFactory& _texture_factory;
         std::unique_ptr<RenderEngine::Texture> _ct_texture;
         RenderEngine::RenderEngine& _render_engine;
+        bool _use_ao{ false };
     };
 
     void VolumetricSceneBuilder::createBaseMesh()
@@ -309,8 +315,8 @@ namespace
 
     void VolumetricSceneBuilder::createBaseMaterials()
     {
-        const glm::vec4 bone{ 0.89f, 0.85f, 0.78f, 0.5f };
-        auto ct_material = std::make_unique<Assets::CtVolumeMaterial>(ApplicationContext::instance().generateId());
+        const glm::vec4 bone{ 0.89f, 0.85f, 0.78f, 1.f };
+        auto ct_material = std::make_unique<Assets::CtVolumeMaterial>(_use_ao, ApplicationContext::instance().generateId());
         ct_material->addSegmentation({ .threshold = 200, .color = bone });
         _assets.addBaseMaterial(std::move(ct_material));
     }
@@ -333,7 +339,8 @@ namespace
         {
             Scene::SceneNode::Builder mesh_builder;
             auto mesh_object = std::make_unique<Scene::VolumeObject>("CtFingerMesh", static_cast<RenderEngine::VolumetricObjectInstance*>(_assets.getMeshInstance("ct_finger")));
-            mesh_object->getTransformation().setPosition(glm::vec3{ 0.0f, 0.0f, 0.0f });
+            mesh_object->getTransformation().setPosition(glm::vec3{ 0.0f, 0.0f, 3.0f });
+            mesh_object->getTransformation().setEulerAngles(glm::radians(glm::vec3{ -90.0f, -30.0, 0.0f }));
             mesh_builder.add(std::move(mesh_object));
             _scene.addNode(mesh_builder.build("CtFinger"));
         }
@@ -347,46 +354,68 @@ namespace
 
     void VolumetricSceneBuilder::instantiateMaterials()
     {
+
+
+        std::array<ImageData, 2> ct_image_container =
+        {
+            ImageData{.folder_name = "ct_finger_small", .image_count = 86},
+            ImageData{.folder_name = "iliac_acetabulum_small", .image_count = 131}
+        };
+
+        const auto& image_data = ct_image_container[1];
+
         auto& device = RenderEngine::RenderContext::context().getDevice(0);
         auto logical_device = device.getLogicalDevice();
         auto physical_device = device.getPhysicalDevice();
         auto ct_material = _assets.getBaseMaterial<Assets::CtVolumeMaterial>();
 
-        constexpr auto ct_image_count = 86;
         std::filesystem::path ct_base_path{ IMAGE_BASE };
-        ct_base_path /= "ct_finger";
+        ct_base_path /= image_data.folder_name;
 
         std::vector<std::filesystem::path> ct_image_path_container;
-        for (uint32_t i = 0; i < ct_image_count; ++i)
+        for (uint32_t i = 0; i < image_data.image_count; ++i)
         {
             ct_image_path_container.push_back(ct_base_path / std::format("IMG-0003-{:0>5d}.jpg", i + 1));
         }
 
-        RenderEngine::SynchronizationPrimitives synchronization_primitives =
-            RenderEngine::SynchronizationPrimitives::CreateWithFence(logical_device);
+        RenderEngine::SynchronizationObject sync_object =
+            RenderEngine::SynchronizationObject::CreateWithFence(logical_device, 0);
         RenderEngine::Image image_3d(ct_image_path_container);
 
-        ct_material->processImage(&image_3d);
+        if (_use_ao)
+        {
+            auto [texture, transfer_data] = _texture_factory.createExternal(image_3d, VK_IMAGE_ASPECT_COLOR_BIT,
+                                                                            VK_SHADER_STAGE_FRAGMENT_BIT,
+                                                                            sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInner),
+                                                                            _render_engine.getQueueFamilyIndex(),
+                                                                            VK_IMAGE_USAGE_SAMPLED_BIT);
+            vkWaitForFences(logical_device, 1, sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInner).getFence(), VK_TRUE, UINT64_MAX);
+            _ct_texture = std::move(texture);
 
-        auto [texture, transfer_data] = _texture_factory.create(image_3d, VK_IMAGE_ASPECT_COLOR_BIT,
-                                                                VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                                synchronization_primitives,
-                                                                _render_engine.getQueueFamilyIndex(),
-                                                                VK_IMAGE_USAGE_SAMPLED_BIT);
-        vkWaitForFences(logical_device, 1, &synchronization_primitives.on_finished_fence, VK_TRUE, UINT64_MAX);
-        vkDestroyFence(logical_device, synchronization_primitives.on_finished_fence, nullptr);
+        }
+        else
+        {
+            ct_material->processImage(&image_3d);
 
-        _ct_texture = std::move(texture);
+            auto [texture, transfer_data] = _texture_factory.create(image_3d, VK_IMAGE_ASPECT_COLOR_BIT,
+                                                                    VK_SHADER_STAGE_FRAGMENT_BIT,
+                                                                    sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInner),
+                                                                    _render_engine.getQueueFamilyIndex(),
+                                                                    VK_IMAGE_USAGE_SAMPLED_BIT);
+            vkWaitForFences(logical_device, 1, sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInner).getFence(), VK_TRUE, UINT64_MAX);
+            _ct_texture = std::move(texture);
+
+
+        }
+
+
+
         RenderEngine::Texture::SamplerData sampler_data{};
-        sampler_data.anisotroy_filter_enabled = false;
-        sampler_data.border_color = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
-        sampler_data.mag_filter = VK_FILTER_LINEAR;
-        sampler_data.min_filter = VK_FILTER_LINEAR;
         sampler_data.sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-        sampler_data.unnormalize_coordinate = false;
 
         auto view = std::make_unique<RenderEngine::TextureView>(*_ct_texture, RenderEngine::Texture::ImageViewData{}, sampler_data, physical_device, logical_device);
-        _assets.addMaterialInstance("CtVolume - ct_finger", ct_material->createInstance(std::move(view), &_scene, ApplicationContext::instance().generateId()));
+        _assets.addMaterialInstance("CtVolume - ct_finger",
+                                    ct_material->createInstance(std::move(view), &_scene, ApplicationContext::instance().generateId()));
     }
 
     void VolumetricSceneBuilder::instantiateMeshes()
@@ -415,9 +444,13 @@ DemoSceneBuilder::CreationResult DemoSceneBuilder::buildSceneOfQuads(Assets::Ass
     return scene_builder.release();
 }
 
-DemoSceneBuilder::CreationResult DemoSceneBuilder::buildVolumetricScene(Assets::AssetDatabase& assets, Scene::Scene& scene, RenderEngine::TextureFactory& texture_factory, RenderEngine::RenderEngine& render_engine)
+DemoSceneBuilder::CreationResult DemoSceneBuilder::buildVolumetricScene(Assets::AssetDatabase& assets,
+                                                                        Scene::Scene& scene,
+                                                                        RenderEngine::TextureFactory& texture_factory,
+                                                                        RenderEngine::RenderEngine& render_engine,
+                                                                        bool use_ao)
 {
-    VolumetricSceneBuilder scene_builder(assets, scene, texture_factory, render_engine);
+    VolumetricSceneBuilder scene_builder(assets, scene, texture_factory, render_engine, use_ao);
 
     return scene_builder.release();
 }

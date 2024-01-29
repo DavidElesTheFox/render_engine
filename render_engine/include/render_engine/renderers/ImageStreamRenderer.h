@@ -24,16 +24,16 @@ namespace RenderEngine
 
         void onFrameBegin(uint32_t frame_number) override final;
         void draw(uint32_t swap_chain_image_index) override final;
-        std::vector<VkSemaphoreSubmitInfo> getWaitSemaphores(uint32_t frame_number) override final;
+        SyncOperations getSyncOperations(uint32_t image_index) final;
     private:
         struct UploadData
         {
             std::optional<TransferEngine::InFlightData> inflight_data;
-            SynchronizationPrimitives synchronization_primitives;
+            SynchronizationObject synchronization_object;
             UploadData(TransferEngine::InFlightData inflight_data,
-                       SynchronizationPrimitives synchronization_primitives)
+                       SynchronizationObject synchronization_object)
                 : inflight_data(std::move(inflight_data))
-                , synchronization_primitives(synchronization_primitives)
+                , synchronization_object(std::move(synchronization_object))
             {}
         };
         void destroy() noexcept;

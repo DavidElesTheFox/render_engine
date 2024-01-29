@@ -14,39 +14,63 @@
 
 namespace Assets
 {
-    CtVolumeMaterial::CtVolumeMaterial(uint32_t id)
+    CtVolumeMaterial::CtVolumeMaterial(bool use_ao, uint32_t id)
+        : _use_ao(use_ao)
     {
         using namespace RenderEngine;
 
         VolumeShader::MetaDataExtension vertex_meta_data = VolumeShader::MetaDataExtension::createForVertexShader();
         {
-            VolumeShader::MetaData::PushConstants push_constants{ .size = sizeof(VertexPushConstants),.offset = 0 };
+            VolumeShader::MetaData::PushConstants push_constants{ .size = sizeof(VertexPushConstants),.offset = 0, .update_frequency = Shader::MetaData::UpdateFrequency::PerDrawCall };
             vertex_meta_data.setPushConstants(std::move(push_constants));
         }
 
-        VolumeShader::MetaDataExtension frament_meta_data = VolumeShader::MetaDataExtension::createForFragmentShader();
+        VolumeShader::MetaDataExtension frament_meta_data = VolumeShader::MetaDataExtension::createForFragmentShader(use_ao);
         {
-            VolumeShader::MetaData::PushConstants push_constants{ .size = sizeof(FragmentPushConstants),.offset = sizeof(VertexPushConstants), .update_frequency = Shader::MetaData::UpdateFrequency::PerDrawCall };
+            VolumeShader::MetaData::PushConstants push_constants{ .size = sizeof(FragmentPushConstants),.offset = sizeof(VertexPushConstants), .update_frequency = Shader::MetaData::UpdateFrequency::PerFrame };
             frament_meta_data.setPushConstants(std::move(push_constants));
         }
-        frament_meta_data.addSampler(2, Shader::MetaData::Sampler{ .binding = 2, .update_frequency = Shader::MetaData::UpdateFrequency::Constant });
+        frament_meta_data.addSampler(2, Shader::MetaData::Sampler{ .binding = 2, .update_frequency = Shader::MetaData::UpdateFrequency::PerFrame });
+        if (use_ao)
+        {
+            frament_meta_data.addSampler(3, Shader::MetaData::Sampler{ .binding = 3, .update_frequency = Shader::MetaData::UpdateFrequency::PerFrame });
 
 
-        std::filesystem::path base_path = SHADER_BASE;
-        auto vertex_shader = std::make_unique<VolumeShader>(base_path / "ct_volume.vert.spv", vertex_meta_data);
-        auto fretment_shader = std::make_unique<VolumeShader>(base_path / "ct_volume.frag.spv", frament_meta_data);
+            constexpr bool require_distance_filed = true;
+            std::filesystem::path base_path = SHADER_BASE;
+            auto vertex_shader = std::make_unique<VolumeShader>(base_path / "ct_volume_ao.vert.spv", vertex_meta_data);
+            auto fretment_shader = std::make_unique<VolumeShader>(base_path / "ct_volume_ao.frag.spv", frament_meta_data);
 
-        _material = std::make_unique<VolumeMaterial>(std::move(vertex_shader),
-                                                     std::move(fretment_shader),
-                                                     id);
-        _material->setColorBlending(_material->getColorBlending().clone()
-                                    .setEnabled(true));
-        _material->setAlphaBlending(_material->getAlpheBlending().clone()
-                                    .setEnabled(true));
+            _material = std::make_unique<VolumeMaterial>(std::move(vertex_shader),
+                                                         std::move(fretment_shader),
+                                                         require_distance_filed,
+                                                         id);
+            _material->setColorBlending(_material->getColorBlending().clone()
+                                        .setEnabled(true));
+            _material->setAlphaBlending(_material->getAlpheBlending().clone()
+                                        .setEnabled(true));
+        }
+        else
+        {
+            constexpr bool require_distance_filed = false;
+            std::filesystem::path base_path = SHADER_BASE;
+            auto vertex_shader = std::make_unique<VolumeShader>(base_path / "ct_volume.vert.spv", vertex_meta_data);
+            auto fretment_shader = std::make_unique<VolumeShader>(base_path / "ct_volume.frag.spv", frament_meta_data);
+
+            _material = std::make_unique<VolumeMaterial>(std::move(vertex_shader),
+                                                         std::move(fretment_shader),
+                                                         require_distance_filed,
+                                                         id);
+            _material->setColorBlending(_material->getColorBlending().clone()
+                                        .setEnabled(true));
+            _material->setAlphaBlending(_material->getAlpheBlending().clone()
+                                        .setEnabled(true));
+        }
     }
     std::unique_ptr<CtVolumeMaterial::Instance> CtVolumeMaterial::createInstance(std::unique_ptr<RenderEngine::ITextureView> texture_view, Scene::Scene* scene, uint32_t id)
     {
         using namespace RenderEngine;
+        auto& texture = texture_view->getTexture();
         std::unique_ptr<Instance> result = std::make_unique<Instance>();
         std::unordered_map<int32_t, std::unique_ptr<ITextureView>> texture_map;
         texture_map[2] = std::move(texture_view);
@@ -78,7 +102,11 @@ namespace Assets
                     update_context.getPushConstantUpdater().update(VK_SHADER_STAGE_VERTEX_BIT, offsetof(VertexPushConstants, model_view), data_view);
                 }
             };
+
+        assert((_use_ao == false || _segmentations.size() == 1) && "Only one segmentation is supported with AO calculation");
         result->_material_instance = std::make_unique<VolumeMaterialInstance>(*_material,
+                                                                              texture,
+                                                                              _segmentations.front().threshold,
                                                                               TextureBindingMap(std::move(texture_map)),
                                                                               VolumeMaterialInstance::CallbackContainer{
                                                                                   .on_frame_begin = std::move(on_begin_frame),

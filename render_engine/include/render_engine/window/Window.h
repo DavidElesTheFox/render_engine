@@ -5,7 +5,7 @@
 #include <render_engine/Device.h>
 #include <render_engine/RenderEngine.h>
 #include <render_engine/renderers/AbstractRenderer.h>
-#include <render_engine/SynchronizationPrimitives.h>
+#include <render_engine/synchronization/SyncObject.h>
 #include <render_engine/TransferEngine.h>
 #include <render_engine/window/IWindow.h>
 #include <render_engine/window/SwapChain.h>
@@ -63,7 +63,7 @@ namespace RenderEngine
     private:
         struct FrameData
         {
-            SynchronizationObject synch_render;
+            SyncObject synch_render;
         };
         void initSynchronizationObjects();
         void handleEvents();

@@ -10,6 +10,7 @@
 
 #include <render_engine/assets/VolumetricObject.h>
 #include <render_engine/RenderContext.h>
+#include <render_engine/synchronization/SyncObject.h>
 #include <render_engine/window/IWindow.h>
 
 #include <scene/Camera.h>
@@ -190,15 +191,15 @@ namespace
                 auto& device = RenderEngine::RenderContext::context().getDevice(0);
                 auto logical_device = device.getLogicalDevice();
                 auto physical_device = device.getPhysicalDevice();
-                RenderEngine::SynchronizationObject sync_object =
-                    RenderEngine::SynchronizationObject::CreateWithFence(logical_device, 0);
-                RenderEngine::Image image(std::filesystem::path{ IMAGE_BASE } / "test_img.jpg");
+                RenderEngine::SyncObject sync_object =
+                    RenderEngine::SyncObject::CreateWithFence(logical_device, 0);
+                RenderEngine::Image image(std::filesystem::path{ IMAGE_BASE } / "statue.jpg");
                 auto [texture, transfer_data] = _texture_factory.create(image, VK_IMAGE_ASPECT_COLOR_BIT,
                                                                         VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                                        sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInner),
+                                                                        sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal),
                                                                         _render_engine.getQueueFamilyIndex(),
                                                                         VK_IMAGE_USAGE_SAMPLED_BIT);
-                vkWaitForFences(logical_device, 1, sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInner).getFence(), VK_TRUE, UINT64_MAX);
+                vkWaitForFences(logical_device, 1, sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal).getFence(), VK_TRUE, UINT64_MAX);
 
                 auto billboard_material = _assets.getBaseMaterial<Assets::BillboardMaterial>();
                 _statue_texture = std::move(texture);
@@ -339,8 +340,8 @@ namespace
         {
             Scene::SceneNode::Builder mesh_builder;
             auto mesh_object = std::make_unique<Scene::VolumeObject>("CtFingerMesh", static_cast<RenderEngine::VolumetricObjectInstance*>(_assets.getMeshInstance("ct_finger")));
-            mesh_object->getTransformation().setPosition(glm::vec3{ 0.0f, 0.0f, 3.0f });
-            mesh_object->getTransformation().setEulerAngles(glm::radians(glm::vec3{ -90.0f, -30.0, 0.0f }));
+            mesh_object->getTransformation().setPosition(glm::vec3{ 0.0f, 0.0f, 2.0f });
+            mesh_object->getTransformation().setEulerAngles(glm::radians(glm::vec3{ -60.0f, 10.0, 2.5f }));
             mesh_builder.add(std::move(mesh_object));
             _scene.addNode(mesh_builder.build("CtFinger"));
         }
@@ -364,6 +365,7 @@ namespace
 
         const auto& image_data = ct_image_container[1];
 
+        // TODO remove all direct getDevice reference
         auto& device = RenderEngine::RenderContext::context().getDevice(0);
         auto logical_device = device.getLogicalDevice();
         auto physical_device = device.getPhysicalDevice();
@@ -378,18 +380,18 @@ namespace
             ct_image_path_container.push_back(ct_base_path / std::format("IMG-0003-{:0>5d}.jpg", i + 1));
         }
 
-        RenderEngine::SynchronizationObject sync_object =
-            RenderEngine::SynchronizationObject::CreateWithFence(logical_device, 0);
+        RenderEngine::SyncObject sync_object =
+            RenderEngine::SyncObject::CreateWithFence(logical_device, 0);
         RenderEngine::Image image_3d(ct_image_path_container);
 
         if (_use_ao)
         {
             auto [texture, transfer_data] = _texture_factory.createExternal(image_3d, VK_IMAGE_ASPECT_COLOR_BIT,
                                                                             VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                                            sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInner),
+                                                                            sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal),
                                                                             _render_engine.getQueueFamilyIndex(),
                                                                             VK_IMAGE_USAGE_SAMPLED_BIT);
-            vkWaitForFences(logical_device, 1, sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInner).getFence(), VK_TRUE, UINT64_MAX);
+            vkWaitForFences(logical_device, 1, sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal).getFence(), VK_TRUE, UINT64_MAX);
             _ct_texture = std::move(texture);
 
         }
@@ -399,10 +401,10 @@ namespace
 
             auto [texture, transfer_data] = _texture_factory.create(image_3d, VK_IMAGE_ASPECT_COLOR_BIT,
                                                                     VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                                    sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInner),
+                                                                    sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal),
                                                                     _render_engine.getQueueFamilyIndex(),
                                                                     VK_IMAGE_USAGE_SAMPLED_BIT);
-            vkWaitForFences(logical_device, 1, sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInner).getFence(), VK_TRUE, UINT64_MAX);
+            vkWaitForFences(logical_device, 1, sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal).getFence(), VK_TRUE, UINT64_MAX);
             _ct_texture = std::move(texture);
 
 

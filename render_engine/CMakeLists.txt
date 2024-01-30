@@ -46,7 +46,6 @@ set(RENDER_ENGINE_RESOURCES_SRC
 	src/resources/UniformBinding.cpp
 	src/resources/PushConstantsUpdater.cpp
 	src/resources/Texture.cpp
-	src/resources/ResourceStateMachine.cpp
     src/resources/RenderTarget.cpp
     src/resources/GpuResourceSet.cpp
     )
@@ -57,12 +56,33 @@ set(RENDER_ENGINE_RESOURCES_HEADERS
 	${RENDER_ENGINE_HEADER_LOCATION}/resources/UniformBinding.h
 	${RENDER_ENGINE_HEADER_LOCATION}/resources/PushConstantsUpdater.h
 	${RENDER_ENGINE_HEADER_LOCATION}/resources/Texture.h
-	${RENDER_ENGINE_HEADER_LOCATION}/resources/ResourceStateMachine.h
     ${RENDER_ENGINE_HEADER_LOCATION}/resources/RenderTarget.h
     ${RENDER_ENGINE_HEADER_LOCATION}/resources/GpuResourceSet.h
 	)
 source_group("src\\resources" FILES ${RENDER_ENGINE_RESOURCES_SRC})
 source_group("include\\resources" FILES ${RENDER_ENGINE_RESOURCES_HEADERS})
+
+###################
+# synchronization #
+###################
+
+set(RENDER_ENGINE_SYNCHRONIZATION_SRC
+	src/synchronization/SyncObject.cpp
+    src/synchronization/SyncPrimitives.cpp
+	src/synchronization/SyncOperations.cpp
+	src/synchronization/ResourceStateMachine.cpp
+
+    )
+set(RENDER_ENGINE_SYNCHRONIZATION_HEADERS 
+	${RENDER_ENGINE_HEADER_LOCATION}/synchronization/SyncObject.h
+	${RENDER_ENGINE_HEADER_LOCATION}/synchronization/SyncPrimitives.h
+	${RENDER_ENGINE_HEADER_LOCATION}/synchronization/SyncOperations.h
+	${RENDER_ENGINE_HEADER_LOCATION}/synchronization/ResourceStateMachine.h
+
+	)
+source_group("src\\synchronization" FILES ${RENDER_ENGINE_SYNCHRONIZATION_SRC})
+source_group("include\\synchronization" FILES ${RENDER_ENGINE_SYNCHRONIZATION_HEADERS})
+
 
 ##########
 # Assets #
@@ -155,7 +175,6 @@ set(RENDER_ENGINE_ROOT_HEADERS
 	${RENDER_ENGINE_HEADER_LOCATION}/GpuResourceManager.h
 	${RENDER_ENGINE_HEADER_LOCATION}/TransferEngine.h
 	${RENDER_ENGINE_HEADER_LOCATION}/CommandPoolFactory.h
-	${RENDER_ENGINE_HEADER_LOCATION}/SynchronizationPrimitives.h
     ${RENDER_ENGINE_HEADER_LOCATION}/DeviceLookup.h
 )
 source_group("src" FILES ${RENDER_ENGINE_ROOT_SRC})
@@ -169,7 +188,8 @@ set(RENDER_ENGINE_SRC
     ${RENDER_ENGINE_ASSETS_SRC}
 	${RENDER_ENGINE_WINDOW_SRC}
 	${RENDER_ENGINE_MEMORY_SRC}
-	${RENDER_ENGINE_ROOT_SRC} )
+    ${RENDER_ENGINE_SYNCHRONIZATION_SRC}
+	${RENDER_ENGINE_ROOT_SRC})
 
 set(RENDER_ENGINE_HEADERS 
     ${RENDER_ENGINE_RENDERERS_HEADERS}
@@ -178,8 +198,8 @@ set(RENDER_ENGINE_HEADERS
     ${RENDER_ENGINE_CONTAINERS_HEADERS}
 	${RENDER_ENGINE_WINDOW_HEADERS}
 	${RENDER_ENGINE_MEMORY_HEADERS}
-	${RENDER_ENGINE_ROOT_HEADERS}
-)
+    ${RENDER_ENGINE_SYNCHRONIZATION_HEADERS}
+	${RENDER_ENGINE_ROOT_HEADERS})
 
 add_library(RenderEngine STATIC ${RENDER_ENGINE_SRC} ${RENDER_ENGINE_HEADERS})
 set_property(TARGET RenderEngine PROPERTY CXX_STANDARD 20)

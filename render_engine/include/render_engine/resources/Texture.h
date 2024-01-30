@@ -4,8 +4,8 @@
 
 #include <render_engine/assets/Image.h>
 #include <render_engine/resources/Buffer.h>
-#include <render_engine/resources/ResourceStateMachine.h>
-#include <render_engine/SynchronizationPrimitives.h>
+#include <render_engine/synchronization/ResourceStateMachine.h>
+#include <render_engine/synchronization/SyncOperations.h>
 #include <render_engine/TransferEngine.h>
 
 #include <set>

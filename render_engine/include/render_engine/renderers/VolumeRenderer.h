@@ -49,7 +49,7 @@ namespace RenderEngine
             std::vector<std::unique_ptr<CudaCompute::ExternalSurface>> intensity_surface;
             std::vector<std::unique_ptr<Texture>> distance_field_textures;
             std::vector<std::unique_ptr<TextureView>> distance_field_texture_views;
-            std::vector<SynchronizationObject> synchronization_objects;
+            std::vector<SyncObject> synchronization_objects;
             uint32_t segmentation_threshold{};
         };
         struct MeshGroup

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <render_engine/SynchronizationPrimitives.h>
+#include <render_engine/synchronization/SyncOperations.h>
 
 #include <cstdint>
 #include <vector>

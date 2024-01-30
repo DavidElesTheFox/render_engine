@@ -1,4 +1,4 @@
-#include <render_engine/resources/ResourceStateMachine.h>
+#include <render_engine/synchronization/ResourceStateMachine.h>
 
 #include <render_engine/resources/Buffer.h>
 #include <render_engine/resources/Texture.h>
@@ -57,33 +57,43 @@ namespace RenderEngine
         std::vector<VkImageMemoryBarrier2> image_barriers;
         for (auto& [texture, next_state] : _images)
         {
-            const auto& current_state = texture->getResourceState();
+            auto state_description = texture->getResourceState();
+
+            /* When the current state can't make any changes on the memory doesn't make any sense to
+            make the memory available at that stage. Thus, keep the current state but change the barriare definition
+            accordingly.
+             */
+            if (stateCanMakeChangesOnMemory(state_description.access_flag) == false)
+            {
+                state_description.access_flag = VK_ACCESS_2_NONE_KHR;
+                state_description.pipeline_stage = VK_PIPELINE_STAGE_2_NONE;
+            }
 
             if (next_state == std::nullopt
-                || next_state == current_state)
+                || next_state == state_description)
             {
                 continue;
             }
             VkImageMemoryBarrier2 barrier{};
             barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
             barrier.image = texture->getVkImage();
-            barrier.srcStageMask = current_state.pipeline_stage;
-            barrier.srcAccessMask = current_state.access_flag;
+            barrier.srcStageMask = state_description.pipeline_stage;
+            barrier.srcAccessMask = state_description.access_flag;
             barrier.dstStageMask = next_state->pipeline_stage;
             barrier.dstAccessMask = next_state->access_flag;
 
-            if (current_state.queue_family_index || next_state->queue_family_index)
+            if (state_description.queue_family_index || next_state->queue_family_index)
             {
-                assert(current_state.queue_family_index && next_state->queue_family_index
+                assert(state_description.queue_family_index && next_state->queue_family_index
                        && "If one of the state has a queue family index then both needs to have");
-                if (current_state.queue_family_index != next_state->queue_family_index)
+                if (state_description.queue_family_index != next_state->queue_family_index)
                 {
-                    barrier.srcQueueFamilyIndex = *current_state.queue_family_index;
+                    barrier.srcQueueFamilyIndex = *state_description.queue_family_index;
                     barrier.dstQueueFamilyIndex = *next_state->queue_family_index;
                 }
             }
 
-            barrier.oldLayout = current_state.layout;
+            barrier.oldLayout = state_description.layout;
             barrier.newLayout = next_state->layout;
             barrier.subresourceRange = texture->createSubresourceRange();
             image_barriers.emplace_back(std::move(barrier));
@@ -98,10 +108,18 @@ namespace RenderEngine
         std::vector<VkBufferMemoryBarrier2> buffer_barriers;
         for (auto& [buffer, next_state] : _buffers)
         {
-            const auto& current_state = buffer->getResourceState();
-
+            auto state_description = buffer->getResourceState();
+            /* When the current state can't make any changes on the memory doesn't make any sense to
+            make the memory available at that stage. Thus, keep the current state but change the barriare definition
+            accordingly.
+             */
+            if (stateCanMakeChangesOnMemory(state_description.access_flag) == false)
+            {
+                state_description.access_flag = VK_ACCESS_2_NONE_KHR;
+                state_description.pipeline_stage = VK_PIPELINE_STAGE_2_NONE;
+            }
             if (next_state == std::nullopt
-                || next_state == current_state)
+                || next_state == state_description)
             {
                 continue;
             }
@@ -109,19 +127,19 @@ namespace RenderEngine
             barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
             barrier.buffer = buffer->getBuffer();
 
-            barrier.srcStageMask = current_state.pipeline_stage;
-            barrier.srcAccessMask = current_state.access_flag;
+            barrier.srcStageMask = state_description.pipeline_stage;
+            barrier.srcAccessMask = state_description.access_flag;
 
             barrier.dstStageMask = next_state->pipeline_stage;
             barrier.dstAccessMask = next_state->access_flag;
 
-            if (current_state.queue_family_index || next_state->queue_family_index)
+            if (state_description.queue_family_index || next_state->queue_family_index)
             {
-                assert(current_state.queue_family_index && next_state->queue_family_index
+                assert(state_description.queue_family_index && next_state->queue_family_index
                        && "If one of the state has a queue family index then both needs to have");
-                if (current_state.queue_family_index != next_state->queue_family_index)
+                if (state_description.queue_family_index != next_state->queue_family_index)
                 {
-                    barrier.srcQueueFamilyIndex = *current_state.queue_family_index;
+                    barrier.srcQueueFamilyIndex = *state_description.queue_family_index;
                     barrier.dstQueueFamilyIndex = *next_state->queue_family_index;
                 }
             }
@@ -132,6 +150,29 @@ namespace RenderEngine
         }
         _buffers.clear();
         return buffer_barriers;
+    }
+
+    bool ResourceStateMachine::stateCanMakeChangesOnMemory(VkAccessFlags2 access)
+    {
+        switch (access)
+        {
+            case VK_ACCESS_2_SHADER_WRITE_BIT:
+            case VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT:
+            case VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT:
+            case VK_ACCESS_2_TRANSFER_WRITE_BIT:
+            case VK_ACCESS_2_HOST_WRITE_BIT:
+            case VK_ACCESS_2_MEMORY_WRITE_BIT:
+            case VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT:
+            case VK_ACCESS_2_TRANSFORM_FEEDBACK_WRITE_BIT_EXT:
+            case VK_ACCESS_2_TRANSFORM_FEEDBACK_COUNTER_WRITE_BIT_EXT:
+            case VK_ACCESS_2_ACCELERATION_STRUCTURE_WRITE_BIT_KHR:
+            case VK_ACCESS_2_MICROMAP_WRITE_BIT_EXT:
+            case VK_ACCESS_2_OPTICAL_FLOW_WRITE_BIT_NV:
+                return true;
+            default:
+                return false;
+                break;
+        }
     }
 
 

@@ -5,7 +5,7 @@
 #include <render_engine/CommandPoolFactory.h>
 #include <render_engine/Device.h>
 #include <render_engine/GpuResourceManager.h>
-#include <render_engine/SynchronizationPrimitives.h>
+#include <render_engine/synchronization/SyncOperations.h>
 
 #include <unordered_map>
 

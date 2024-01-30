@@ -2,7 +2,7 @@
 #include <volk.h>
 
 #include <render_engine/Device.h>
-#include <render_engine/resources/ResourceStateMachine.h>
+#include <render_engine/synchronization/ResourceStateMachine.h>
 #include <render_engine/TransferEngine.h>
 
 #include <cstdint>

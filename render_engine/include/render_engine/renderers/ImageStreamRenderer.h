@@ -29,9 +29,9 @@ namespace RenderEngine
         struct UploadData
         {
             std::optional<TransferEngine::InFlightData> inflight_data;
-            SynchronizationObject synchronization_object;
+            SyncObject synchronization_object;
             UploadData(TransferEngine::InFlightData inflight_data,
-                       SynchronizationObject synchronization_object)
+                       SyncObject synchronization_object)
                 : inflight_data(std::move(inflight_data))
                 , synchronization_object(std::move(synchronization_object))
             {}

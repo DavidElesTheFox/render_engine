@@ -16,7 +16,7 @@ namespace RenderEngine
             static constexpr auto kSemaphoreName = "distance_field_ready";
             static constexpr auto kReadyValue = 2;
             static constexpr auto kProcessValue = 1;
-            explicit DistanceFieldFinishedCallback(SynchronizationObject& sync_object)
+            explicit DistanceFieldFinishedCallback(SyncObject& sync_object)
                 : _sync_object(sync_object)
             {}
 
@@ -30,7 +30,7 @@ namespace RenderEngine
                 return _is_called;
             }
         private:
-            SynchronizationObject& _sync_object;
+            SyncObject& _sync_object;
             std::atomic_bool _is_called{ false };
         };
         /*
@@ -322,7 +322,7 @@ namespace RenderEngine
         SyncOperations result;
         for (auto& mesh_group : _meshes_with_distance_field)
         {
-            result.unionWith(mesh_group.technique_data.synchronization_objects[image_index].getOperationsGroup(SyncGroups::kOuter));
+            result.unionWith(mesh_group.technique_data.synchronization_objects[image_index].getOperationsGroup(SyncGroups::kExternal));
         }
         return result;
     }
@@ -580,12 +580,12 @@ namespace RenderEngine
             for (uint32_t i = 0; i < back_buffer_size; ++i)
             {
 
-                result.synchronization_objects.emplace_back(SynchronizationObject::CreateEmpty(getLogicalDevice()));
+                result.synchronization_objects.emplace_back(SyncObject::CreateEmpty(getLogicalDevice()));
                 result.synchronization_objects.back().createTimelineSemaphore(DistanceFieldFinishedCallback::kSemaphoreName,
                                                                               DistanceFieldFinishedCallback::kReadyValue,
                                                                               DistanceFieldFinishedCallback::kReadyValue - DistanceFieldFinishedCallback::kProcessValue + 1);
 
-                result.synchronization_objects.back().addWaitOperationToGroup(SyncGroups::kOuter,
+                result.synchronization_objects.back().addWaitOperationToGroup(SyncGroups::kExternal,
                                                                               DistanceFieldFinishedCallback::kSemaphoreName,
                                                                               VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
                                                                               DistanceFieldFinishedCallback::kReadyValue);

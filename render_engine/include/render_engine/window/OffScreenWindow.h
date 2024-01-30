@@ -3,7 +3,7 @@
 #include <render_engine/containers/ImageStream.h>
 #include <render_engine/renderers/AbstractRenderer.h>
 #include <render_engine/resources/Texture.h>
-#include <render_engine/SynchronizationPrimitives.h>
+#include <render_engine/synchronization/SyncObject.h>
 #include <render_engine/window/IWindow.h>
 
 #include <vector>
@@ -45,7 +45,7 @@ namespace RenderEngine
     private:
         struct FrameData
         {
-            SynchronizationObject synch_render;
+            SyncObject synch_render;
             bool contains_image{ false };
         };
         void initSynchronizationObjects();

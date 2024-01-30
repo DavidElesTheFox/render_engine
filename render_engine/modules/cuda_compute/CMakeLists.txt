@@ -45,7 +45,9 @@ target_compile_definitions(CudaCompute
     PUBLIC
     NOMINMAX)
 
-target_compile_options(CudaCompute PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-g -G>)
+# https://stackoverflow.com/questions/15128310/un-coalesced-global-memory-access-caused-by-indirect-access-in-cuda
+# using fallthrough memory invalidation between L1 and L2 cache to increase memory access
+target_compile_options(CudaCompute PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-g -G -Xptxas -dlcm=cg>)
 
 
 add_subdirectory(tests)

@@ -391,29 +391,6 @@ namespace
                         search_data.phase = Phase::None;
                         break;
                 }
-                /*
-                if (search_data.phase == Phase::None)
-                {
-                    search_data.phase = Phase::CheckLowerRange_1;
-                }
-                else if (cmpShuffle(out_result.aabb.max, d_coordinates[range_center]) > 0)
-                {
-                    if (search_data.phase == Phase::CheckLowerRange_1)
-                    {
-                        search_data.phase = Phase::CheckUpperRange_1;
-                    }
-                    else
-                    {
-                        assert(search_data.phase == Phase::CheckUpperRange_1 && "We should come to here from only the upper range calculation.");
-                        search_data.phase = Phase::None;
-                    }
-                }
-                else
-                {
-                    assert(search_data.phase == Phase::CheckLowerRange_1 && "We should come to here from only the lower range calculation.");
-                    search_data.phase = Phase::None;
-                }
-                */
             }
             else
             {
@@ -439,28 +416,6 @@ namespace
                         search_data.phase = Phase::None;
                         break;
                 }
-                /*if (search_data.phase == Phase::None)
-                {
-                    search_data.phase = Phase::CheckUpperRange_2;
-                }
-                else if (cmpShuffle(out_result.aabb.min, d_coordinates[range_center]) < 0)
-                {
-                    if (search_data.phase == Phase::CheckUpperRange_2)
-                    {
-                        search_data.phase = Phase::CheckLowerRange_2;
-                    }
-                    else
-                    {
-                        assert(search_data.phase == Phase::CheckLowerRange_2 && "We should come to here from only the lower range calculation.");
-
-                        search_data.phase = Phase::None;
-                    }
-                }
-                else
-                {
-                    assert(search_data.phase == Phase::CheckUpperRange_2 && "We should come to here from only the upper range calculation.");
-                    search_data.phase = Phase::None;
-                }*/
             }
 
             switch (search_data.phase)
@@ -495,7 +450,6 @@ namespace
     }
 
     __global__ void
-        __launch_bounds__(512, 4) // Based on occupancy calculator it should ensure 40 registers for the kernel.
         distanceFieldKernel(uint3* d_coordinates,
                             uint32_t point_count,
                             float epsilon_distance,

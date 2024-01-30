@@ -46,7 +46,6 @@ set(RENDER_ENGINE_RESOURCES_SRC
 	src/resources/UniformBinding.cpp
 	src/resources/PushConstantsUpdater.cpp
 	src/resources/Texture.cpp
-	src/resources/ResourceStateMachine.cpp
     src/resources/RenderTarget.cpp
     src/resources/GpuResourceSet.cpp
     )
@@ -57,7 +56,6 @@ set(RENDER_ENGINE_RESOURCES_HEADERS
 	${RENDER_ENGINE_HEADER_LOCATION}/resources/UniformBinding.h
 	${RENDER_ENGINE_HEADER_LOCATION}/resources/PushConstantsUpdater.h
 	${RENDER_ENGINE_HEADER_LOCATION}/resources/Texture.h
-	${RENDER_ENGINE_HEADER_LOCATION}/resources/ResourceStateMachine.h
     ${RENDER_ENGINE_HEADER_LOCATION}/resources/RenderTarget.h
     ${RENDER_ENGINE_HEADER_LOCATION}/resources/GpuResourceSet.h
 	)
@@ -72,11 +70,15 @@ set(RENDER_ENGINE_SYNCHRONIZATION_SRC
 	src/synchronization/SyncObject.cpp
     src/synchronization/SyncPrimitives.cpp
 	src/synchronization/SyncOperations.cpp
+	src/synchronization/ResourceStateMachine.cpp
+
     )
 set(RENDER_ENGINE_SYNCHRONIZATION_HEADERS 
 	${RENDER_ENGINE_HEADER_LOCATION}/synchronization/SyncObject.h
 	${RENDER_ENGINE_HEADER_LOCATION}/synchronization/SyncPrimitives.h
 	${RENDER_ENGINE_HEADER_LOCATION}/synchronization/SyncOperations.h
+	${RENDER_ENGINE_HEADER_LOCATION}/synchronization/ResourceStateMachine.h
+
 	)
 source_group("src\\synchronization" FILES ${RENDER_ENGINE_SYNCHRONIZATION_SRC})
 source_group("include\\synchronization" FILES ${RENDER_ENGINE_SYNCHRONIZATION_HEADERS})

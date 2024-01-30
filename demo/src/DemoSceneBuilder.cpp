@@ -193,7 +193,7 @@ namespace
                 auto physical_device = device.getPhysicalDevice();
                 RenderEngine::SyncObject sync_object =
                     RenderEngine::SyncObject::CreateWithFence(logical_device, 0);
-                RenderEngine::Image image(std::filesystem::path{ IMAGE_BASE } / "test_img.jpg");
+                RenderEngine::Image image(std::filesystem::path{ IMAGE_BASE } / "statue.jpg");
                 auto [texture, transfer_data] = _texture_factory.create(image, VK_IMAGE_ASPECT_COLOR_BIT,
                                                                         VK_SHADER_STAGE_FRAGMENT_BIT,
                                                                         sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal),
@@ -340,8 +340,8 @@ namespace
         {
             Scene::SceneNode::Builder mesh_builder;
             auto mesh_object = std::make_unique<Scene::VolumeObject>("CtFingerMesh", static_cast<RenderEngine::VolumetricObjectInstance*>(_assets.getMeshInstance("ct_finger")));
-            mesh_object->getTransformation().setPosition(glm::vec3{ 0.0f, 0.0f, 3.0f });
-            mesh_object->getTransformation().setEulerAngles(glm::radians(glm::vec3{ -90.0f, -30.0, 0.0f }));
+            mesh_object->getTransformation().setPosition(glm::vec3{ 0.0f, 0.0f, 2.0f });
+            mesh_object->getTransformation().setEulerAngles(glm::radians(glm::vec3{ -60.0f, 10.0, 2.5f }));
             mesh_builder.add(std::move(mesh_object));
             _scene.addNode(mesh_builder.build("CtFinger"));
         }
@@ -365,6 +365,7 @@ namespace
 
         const auto& image_data = ct_image_container[1];
 
+        // TODO remove all direct getDevice reference
         auto& device = RenderEngine::RenderContext::context().getDevice(0);
         auto logical_device = device.getLogicalDevice();
         auto physical_device = device.getPhysicalDevice();

@@ -19,7 +19,7 @@ layout(push_constant, std430) uniform constants
 float calculateAO(vec3 p, vec3 dir)
 {
     const float neighbor_distance = 0.01;
-    const float threshold = 0.001;
+    const float threshold = 0.01;
     const vec3 up = vec3(0.0, 1.0, 0.0);
     const vec3 axis_x = cross(dir, up);
     const vec3 axis_y = cross(axis_x, dir);
@@ -45,7 +45,7 @@ float calculateAO(vec3 p, vec3 dir)
         float closest_point_distance = texture(texDistanceField, sample_points[i]).r;
         if(closest_point_distance <= threshold)
         {
-            ao += mix(0.4, 0.0, closest_point_distance / threshold);
+            ao += mix(0.125, 0.0, closest_point_distance / threshold);
         }
     }
     return ao;

@@ -112,6 +112,7 @@ namespace RenderEngine
     private:
         std::vector<VkImageMemoryBarrier2> createImageBarriers();
         std::vector<VkBufferMemoryBarrier2> createBufferBarriers();
+        bool stateCanMakeChangesOnMemory(VkAccessFlags2 access);
 
         std::unordered_map<Texture*, std::optional<TextureState>> _images{};
         std::unordered_map<Buffer*, std::optional<BufferState>> _buffers{};

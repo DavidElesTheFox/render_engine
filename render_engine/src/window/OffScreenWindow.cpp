@@ -69,6 +69,7 @@ namespace RenderEngine
 
     void OffScreenWindow::update()
     {
+        RenderContext::context().clearGarbage();
         present();
     }
 

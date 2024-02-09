@@ -25,15 +25,12 @@ namespace RenderEngine
         _render_area.offset = { 0, 0 };
         _render_area.extent = render_target.getExtent();
         createFrameBuffers(render_target, render_pass_attachments);
-        _command_pool = _window.getRenderEngine().getCommandPoolFactory().getCommandPool(VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
         createCommandBuffer();
 
     }
     void SingleColorOutputRenderer::destroyRenderOutput()
     {
         auto logical_device = _window.getDevice().getLogicalDevice();
-
-        vkDestroyCommandPool(logical_device, _command_pool.command_pool, nullptr);
 
         resetFrameBuffers();
 
@@ -83,20 +80,10 @@ namespace RenderEngine
     }
     void SingleColorOutputRenderer::createCommandBuffer()
     {
-        auto logical_device = _window.getDevice().getLogicalDevice();
-
-        for (FrameData& frame_data : _back_buffer)
+        std::vector<VkCommandBuffer> command_buffers = _window.getRenderEngine().getCommandContext().createCommandBuffers(_back_buffer.size(), CommandContext::Usage::MultipleSubmit);
+        for (uint32_t i = 0; i < _back_buffer.size(); ++i)
         {
-            VkCommandBufferAllocateInfo allocInfo{};
-            allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-            allocInfo.commandPool = _command_pool.command_pool;
-            allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-            allocInfo.commandBufferCount = 1;
-
-            if (vkAllocateCommandBuffers(logical_device, &allocInfo, &frame_data.command_buffer) != VK_SUCCESS)
-            {
-                throw std::runtime_error("failed to allocate command buffers!");
-            }
+            _back_buffer[i].command_buffer = command_buffers[i];
         }
     }
     void SingleColorOutputRenderer::resetFrameBuffers()

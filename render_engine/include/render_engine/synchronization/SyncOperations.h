@@ -10,6 +10,13 @@ namespace RenderEngine
     class SyncOperations
     {
     public:
+        enum ExtractBits : int32_t
+        {
+            ExtractWaitOperations = 1,
+            ExtractSignalOperations = 1 << 1,
+            ExtractFence = 1 << 2
+        };
+
         explicit SyncOperations(VkFence fence)
             : _fence(fence)
         {}
@@ -28,7 +35,7 @@ namespace RenderEngine
 
         void addSignalOperation(SyncPrimitives& sync_object, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask, uint64_t value);
 
-        void fillInfo(VkSubmitInfo2& submit_info) const;
+        const SyncOperations& fillInfo(VkSubmitInfo2& submit_info) const;
         bool hasAnyFence() const { return _fence != VK_NULL_HANDLE; }
         const VkFence* getFence() const { return &_fence; }
 
@@ -41,6 +48,28 @@ namespace RenderEngine
         }
 
         void shiftTimelineSemaphoreValues(uint64_t offset);
+
+        void clear();
+
+        SyncOperations extractOperations(int32_t extract_bits) const
+        {
+            SyncOperations result;
+            if (extract_bits & ExtractWaitOperations)
+            {
+                result._wait_semaphore_dependency = _wait_semaphore_dependency;
+            }
+            if (extract_bits & ExtractSignalOperations)
+            {
+                result._signal_semaphore_dependency = _signal_semaphore_dependency;
+            }
+            if (extract_bits & ExtractFence)
+            {
+                result._fence = _fence;
+            }
+            return result;
+        }
+
+
 
     private:
 

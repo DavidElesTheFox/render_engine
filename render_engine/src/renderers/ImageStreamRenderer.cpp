@@ -209,7 +209,7 @@ namespace RenderEngine
 
         auto& transfare_engine = window.getTransferEngine();
         TextureFactory texture_factory(transfare_engine,
-                                       { transfare_engine.getQueueFamilyIndex(), window.getRenderEngine().getQueueFamilyIndex() },
+                                       { transfare_engine.getTransferContext().getQueueFamilyIndex(), window.getRenderEngine().getCommandContext().getQueueFamilyIndex() },
                                        window.getDevice().getPhysicalDevice(),
                                        window.getDevice().getLogicalDevice());
 
@@ -329,23 +329,30 @@ namespace RenderEngine
                                                     "copy-finished",
                                                     VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT); // TODO add as pipeline dependency
 
-                auto inflight_data = upload_texture->upload(_image_cache,
-                                                            sync_objcet.getOperationsGroup(SyncGroups::kInternal),
-                                                            getWindow().getTransferEngine(),
-                                                            getWindow().getRenderEngine().getQueueFamilyIndex());
+                auto sync_object_for_upload = upload_texture->upload(_image_cache,
+                                                                     sync_objcet.getOperationsGroup(SyncGroups::kInternal),
+                                                                     getWindow().getTransferEngine(),
+                                                                     &getWindow().getRenderEngine().getCommandContext());
                 _upload_data.insert(std::make_pair(upload_texture.get(),
-                                                   UploadData(std::move(inflight_data),
-                                                              std::move(sync_objcet))));
+                                                   UploadData(std::move(sync_objcet))));
+                for (auto&& sync_object : sync_object_for_upload)
+                {
+                    RenderContext::context().addGarbage(std::move(sync_object));
+                }
             }
             else
             {
                 vkWaitForFences(logical_device, 1, it->second.synchronization_object.getOperationsGroup(SyncGroups::kInternal).getFence(), VK_TRUE, UINT64_MAX);
                 vkResetFences(logical_device, 1, it->second.synchronization_object.getOperationsGroup(SyncGroups::kInternal).getFence());
 
-                it->second.inflight_data = upload_texture->upload(_image_cache,
-                                                                  it->second.synchronization_object.getOperationsGroup(SyncGroups::kInternal),
-                                                                  getWindow().getTransferEngine(),
-                                                                  getWindow().getRenderEngine().getQueueFamilyIndex());
+                auto sync_object_for_upload = upload_texture->upload(_image_cache,
+                                                                     it->second.synchronization_object.getOperationsGroup(SyncGroups::kInternal),
+                                                                     getWindow().getTransferEngine(),
+                                                                     &getWindow().getRenderEngine().getCommandContext());
+                for (auto&& sync_object : sync_object_for_upload)
+                {
+                    RenderContext::context().addGarbage(std::move(sync_object));
+                }
             }
         }
         _draw_call_recorded = false;

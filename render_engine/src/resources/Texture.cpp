@@ -1,6 +1,7 @@
 #include <render_engine/resources/Texture.h>
 
 #include <render_engine/containers/VariantOverloaded.h>
+#include <render_engine/RenderContext.h>
 
 #include <cassert>
 #include <span>
@@ -71,9 +72,7 @@ namespace RenderEngine
         image_info.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT // for download
             | VK_BUFFER_USAGE_TRANSFER_DST_BIT // for upload
             | image_usage;
-        image_info.sharingMode = queue_family_indices.size() > 1
-            ? VK_SHARING_MODE_CONCURRENT
-            : VK_SHARING_MODE_EXCLUSIVE; // due to upload queue
+        image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         image_info.samples = VK_SAMPLE_COUNT_1_BIT;
         image_info.queueFamilyIndexCount = queue_family_indices.size();
         image_info.pQueueFamilyIndices = queue_family_indices.data();
@@ -118,8 +117,10 @@ namespace RenderEngine
         destroy();
     }
 
-    TransferEngine::InFlightData Texture::upload(const Image& image, const SyncOperations& sync_operations, TransferEngine& transfer_engine, uint32_t dst_queue_family_index)
+    std::vector<SyncObject> Texture::upload(const Image& image, SyncOperations sync_operations, TransferEngine& transfer_engine, CommandContext* dst_context)
     {
+        std::vector<SyncObject> result;
+
         if (isImageCompatible(image) == false)
         {
             throw std::runtime_error("Input image is incompatible with the texture");
@@ -130,77 +131,168 @@ namespace RenderEngine
                        [&](const std::vector<float>& image_data) { return std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(&image_data[0]), image_data.size() / sizeof(float)); } },
                        image.getData());
         _staging_buffer.uploadMapped(data_view);
+        const bool is_initial_transfer = _texture_state.command_context.expired();
 
-        if (_texture_state.queue_family_index == std::nullopt)
+        if (is_initial_transfer)
         {
-            _texture_state.queue_family_index = transfer_engine.getQueueFamilyIndex();
+            _texture_state.command_context = transfer_engine.getTransferContext().getWeakReference();
         }
-        auto upload_command = [&](VkCommandBuffer command_buffer)
-            {
-                ResourceStateMachine state_machine;
-                state_machine.recordStateChange(this,
-                                                getResourceState().clone()
-                                                .setPipelineStage(VK_PIPELINE_STAGE_2_TRANSFER_BIT)
-                                                .setAccessFlag(VK_ACCESS_2_TRANSFER_WRITE_BIT)
-                                                .setImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
-                                                .setQueueFamilyIndex(transfer_engine.getQueueFamilyIndex()));
-                state_machine.commitChanges(command_buffer);
+
+        auto* src_unit = _texture_state.command_context.lock().get();
+
+        if (src_unit->getQueue() != dst_context->getQueue())
+        {
+            auto upload_command = [&](VkCommandBuffer command_buffer)
                 {
-                    VkBufferImageCopy copy_region{};
-                    copy_region.bufferOffset = 0;
-                    copy_region.bufferRowLength = 0;
-                    copy_region.bufferImageHeight = 0;
-
-                    copy_region.imageSubresource.aspectMask = _aspect;
-                    copy_region.imageSubresource.mipLevel = 0;
-                    copy_region.imageSubresource.baseArrayLayer = 0;
-                    copy_region.imageSubresource.layerCount = 1;
-
-                    copy_region.imageOffset = { 0, 0, 0 };
-                    copy_region.imageExtent = {
-                        .width = _image.getWidth(),
-                        .height = _image.getHeight(),
-                        .depth = _image.getDepth()
-                    };
-                    vkCmdCopyBufferToImage(command_buffer,
-                                           _staging_buffer.getBuffer(),
-                                           _texture,
-                                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                           1, &copy_region);
-                }
-
-                auto getFinalStageMask = [&]
+                    ResourceStateMachine state_machine;
+                    state_machine.recordStateChange(this,
+                                                    getResourceState().clone()
+                                                    .setPipelineStage(VK_PIPELINE_STAGE_2_TRANSFER_BIT)
+                                                    .setAccessFlag(VK_ACCESS_2_TRANSFER_WRITE_BIT)
+                                                    .setImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+                    );
+                    state_machine.commitChanges(command_buffer);
                     {
-                        VkPipelineStageFlagBits2 result{ 0 };
-                        if (_shader_usage & VK_SHADER_STAGE_VERTEX_BIT)
+                        VkBufferImageCopy copy_region{};
+                        copy_region.bufferOffset = 0;
+                        copy_region.bufferRowLength = 0;
+                        copy_region.bufferImageHeight = 0;
+
+                        copy_region.imageSubresource.aspectMask = _aspect;
+                        copy_region.imageSubresource.mipLevel = 0;
+                        copy_region.imageSubresource.baseArrayLayer = 0;
+                        copy_region.imageSubresource.layerCount = 1;
+
+                        copy_region.imageOffset = { 0, 0, 0 };
+                        copy_region.imageExtent = {
+                            .width = _image.getWidth(),
+                            .height = _image.getHeight(),
+                            .depth = _image.getDepth()
+                        };
+                        vkCmdCopyBufferToImage(command_buffer,
+                                               _staging_buffer.getBuffer(),
+                                               _texture,
+                                               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                               1, &copy_region);
+                    }
+
+
+                };
+            if (is_initial_transfer == false)
+            {
+                SyncObject sync_object_src_to_transfer = ResourceStateMachine::transferOwnership(this,
+                                                                                                 getResourceState().clone()
+                                                                                                 .setPipelineStage(VK_PIPELINE_STAGE_2_TRANSFER_BIT)
+                                                                                                 .setAccessFlag(0)
+                                                                                                 .setImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL),
+                                                                                                 _texture_state.command_context.lock().get(),
+                                                                                                 &transfer_engine.getTransferContext(),
+                                                                                                 sync_operations.extractOperations(SyncOperations::ExtractWaitOperations));
+                transfer_engine.transfer(sync_object_src_to_transfer.getOperationsGroup(SyncGroups::kExternal), upload_command);
+                result.push_back(std::move(sync_object_src_to_transfer));
+
+            }
+            else
+            {
+                SyncObject sync_object_src_to_transfer = SyncObject::CreateWithFence(src_unit->getLogicalDevice(), 0);
+                transfer_engine.transfer(sync_object_src_to_transfer.getOperationsGroup(SyncGroups::kExternal), upload_command);
+                result.push_back(std::move(sync_object_src_to_transfer));
+            }
+            assert(getResourceState().getQueueFamilyIndex() == transfer_engine.getTransferContext().getQueueFamilyIndex());
+            auto getFinalStageMask = [&]
+                {
+                    VkPipelineStageFlagBits2 result{ 0 };
+                    if (_shader_usage & VK_SHADER_STAGE_VERTEX_BIT)
+                    {
+                        result |= VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
+                    }
+                    if (_shader_usage & VK_SHADER_STAGE_FRAGMENT_BIT)
+                    {
+                        result |= VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+                    }
+                    return result;
+                };
+            SyncObject sync_object_transfer_to_dst = ResourceStateMachine::transferOwnership(this,
+                                                                                             getResourceState().clone()
+                                                                                             .setPipelineStage(getFinalStageMask())
+                                                                                             .setAccessFlag(VK_ACCESS_2_SHADER_READ_BIT)
+                                                                                             .setImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+                                                                                             _texture_state.command_context.lock().get(),
+                                                                                             dst_context,
+                                                                                             sync_operations.extractOperations(SyncOperations::ExtractSignalOperations/* | SyncOperations::ExtractFence*/));
+            assert(getResourceState().getQueueFamilyIndex() == dst_context->getQueueFamilyIndex());
+            result.push_back(std::move(sync_object_transfer_to_dst));
+            return result;
+        }
+        else
+        {
+            auto upload_command = [&](VkCommandBuffer command_buffer)
+                {
+                    ResourceStateMachine state_machine;
+                    state_machine.recordStateChange(this,
+                                                    getResourceState().clone()
+                                                    .setPipelineStage(VK_PIPELINE_STAGE_2_TRANSFER_BIT)
+                                                    .setAccessFlag(VK_ACCESS_2_TRANSFER_WRITE_BIT)
+                                                    .setImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+                    );
+                    state_machine.commitChanges(command_buffer);
+
+                    {
+                        VkBufferImageCopy copy_region{};
+                        copy_region.bufferOffset = 0;
+                        copy_region.bufferRowLength = 0;
+                        copy_region.bufferImageHeight = 0;
+
+                        copy_region.imageSubresource.aspectMask = _aspect;
+                        copy_region.imageSubresource.mipLevel = 0;
+                        copy_region.imageSubresource.baseArrayLayer = 0;
+                        copy_region.imageSubresource.layerCount = 1;
+
+                        copy_region.imageOffset = { 0, 0, 0 };
+                        copy_region.imageExtent = {
+                            .width = _image.getWidth(),
+                            .height = _image.getHeight(),
+                            .depth = _image.getDepth()
+                        };
+                        vkCmdCopyBufferToImage(command_buffer,
+                                               _staging_buffer.getBuffer(),
+                                               _texture,
+                                               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                               1, &copy_region);
+                    }
+
+                    auto getFinalStageMask = [&]
                         {
-                            result |= VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
-                        }
-                        if (_shader_usage & VK_SHADER_STAGE_FRAGMENT_BIT)
-                        {
-                            result |= VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
-                        }
-                        return result;
-                    };
-                state_machine.recordStateChange(this,
-                                                getResourceState().clone()
-                                                .setPipelineStage(getFinalStageMask())
-                                                .setAccessFlag(VK_ACCESS_2_SHADER_READ_BIT)
-                                                .setImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-                                                .setQueueFamilyIndex(dst_queue_family_index));
-                state_machine.commitChanges(command_buffer);
-            };
-        auto result = transfer_engine.transfer(sync_operations, upload_command);
-        return result;
+                            VkPipelineStageFlagBits2 result{ 0 };
+                            if (_shader_usage & VK_SHADER_STAGE_VERTEX_BIT)
+                            {
+                                result |= VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
+                            }
+                            if (_shader_usage & VK_SHADER_STAGE_FRAGMENT_BIT)
+                            {
+                                result |= VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+                            }
+                            return result;
+                        };
+                    state_machine.recordStateChange(this,
+                                                    getResourceState().clone()
+                                                    .setPipelineStage(getFinalStageMask())
+                                                    .setAccessFlag(VK_ACCESS_2_SHADER_READ_BIT)
+                                                    .setImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL));
+                    state_machine.commitChanges(command_buffer);
+                };
+            transfer_engine.transfer(sync_operations, upload_command);
+            return result;
+        }
     }
 
     std::vector<uint8_t> Texture::download(const SyncOperations& sync_operations,
                                            TransferEngine& transfer_engine)
     {
-        if (_texture_state.queue_family_index == std::nullopt)
+        /*if (_texture_state.queue_family_index == std::nullopt)
         {
-            _texture_state.queue_family_index = transfer_engine.getQueueFamilyIndex();
-        }
+            _texture_state.queue_family_index = transfer_engine.getTransferContext().getQueueFamilyIndex();
+        }*/
         assert(sync_operations.hasAnyFence());
 
         auto download_command = [&](VkCommandBuffer command_buffer)
@@ -212,7 +304,8 @@ namespace RenderEngine
                                                 .setPipelineStage(VK_PIPELINE_STAGE_2_TRANSFER_BIT)
                                                 .setAccessFlag(VK_ACCESS_2_TRANSFER_READ_BIT)
                                                 .setImageLayout(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
-                                                .setQueueFamilyIndex(transfer_engine.getQueueFamilyIndex()));
+                                                //                                .setQueueFamilyIndex(transfer_engine.getTransferContext().getQueueFamilyIndex())
+                );
                 state_machine.commitChanges(command_buffer);
                 {
                     VkBufferImageCopy copy_region{};
@@ -241,8 +334,8 @@ namespace RenderEngine
                 state_machine.recordStateChange(this, old_state);
                 state_machine.commitChanges(command_buffer);
             };
-        auto result = transfer_engine.transfer(sync_operations,
-                                               download_command);
+        transfer_engine.transfer(sync_operations,
+                                 download_command);
 
         vkWaitForFences(_logical_device, 1, sync_operations.getFence(), true, UINT64_MAX);
         vkResetFences(_logical_device, 1, sync_operations.getFence());
@@ -355,12 +448,12 @@ namespace RenderEngine
     }
 
     [[nodiscar]]
-    std::tuple<std::unique_ptr<Texture>, TransferEngine::InFlightData> TextureFactory::create(Image image,
-                                                                                              VkImageAspectFlags aspect,
-                                                                                              VkShaderStageFlags shader_usage,
-                                                                                              const SyncOperations& sync_operations,
-                                                                                              uint32_t dst_queue_family_index,
-                                                                                              VkImageUsageFlagBits image_usage)
+    std::unique_ptr<Texture> TextureFactory::create(Image image,
+                                                    VkImageAspectFlags aspect,
+                                                    VkShaderStageFlags shader_usage,
+                                                    const SyncOperations& sync_operations,
+                                                    CommandContext* dst_context,
+                                                    VkImageUsageFlagBits image_usage)
     {
         constexpr bool support_external_usage = false;
         std::unique_ptr<Texture> result{ new Texture(image,
@@ -370,19 +463,24 @@ namespace RenderEngine
             _compatible_queue_family_indexes,
             image_usage,
             support_external_usage) };
-        auto inflight_data = result->upload(image,
-                                            sync_operations,
-                                            _transfer_engine,
-                                            dst_queue_family_index);
-        return { std::move(result), std::move(inflight_data) };
+        auto sync_objects = result->upload(image,
+                                           sync_operations,
+                                           _transfer_engine,
+                                           dst_context);
+        // TODO create texture uploader who manages the upload queue.
+        for (auto&& sync_object : sync_objects)
+        {
+            RenderContext::context().addGarbage(std::move(sync_object));
+        }
+        return result;
     }
     [[nodiscar]]
-    std::tuple<std::unique_ptr<Texture>, TransferEngine::InFlightData> TextureFactory::createExternal(Image image,
-                                                                                                      VkImageAspectFlags aspect,
-                                                                                                      VkShaderStageFlags shader_usage,
-                                                                                                      const SyncOperations& sync_operations,
-                                                                                                      uint32_t dst_queue_family_index,
-                                                                                                      VkImageUsageFlagBits image_usage)
+    std::unique_ptr<Texture> TextureFactory::createExternal(Image image,
+                                                            VkImageAspectFlags aspect,
+                                                            VkShaderStageFlags shader_usage,
+                                                            const SyncOperations& sync_operations,
+                                                            CommandContext* dst_context,
+                                                            VkImageUsageFlagBits image_usage)
     {
         constexpr bool support_external_usage = true;
         std::unique_ptr<Texture> result{ new Texture(image,
@@ -392,11 +490,16 @@ namespace RenderEngine
             _compatible_queue_family_indexes,
             image_usage,
             support_external_usage) };
-        auto inflight_data = result->upload(image,
-                                            sync_operations,
-                                            _transfer_engine,
-                                            dst_queue_family_index);
-        return { std::move(result), std::move(inflight_data) };
+        auto sync_objects = result->upload(image,
+                                           sync_operations,
+                                           _transfer_engine,
+                                           dst_context);
+        // TODO create texture uploader who manages the upload queue.
+        for (auto&& sync_object : sync_objects)
+        {
+            RenderContext::context().addGarbage(std::move(sync_object));
+        }
+        return result;
     }
 
     std::unique_ptr<Texture> TextureFactory::createNoUpload(Image image,

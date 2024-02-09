@@ -2,6 +2,7 @@
 
 #include <volk.h>
 
+#include <render_engine/CommandContext.h>
 #include <render_engine/Device.h>
 #include <render_engine/RenderEngine.h>
 #include <render_engine/renderers/AbstractRenderer.h>
@@ -31,8 +32,7 @@ namespace RenderEngine
                std::unique_ptr<TransferEngine>&& transfer_engine,
                GLFWwindow* window,
                std::unique_ptr<SwapChain> swap_chain,
-               VkQueue present_queue,
-               size_t back_buffer_size);
+               std::shared_ptr<CommandContext>&& present_context);
         ~Window();
 
         void update() override final;
@@ -71,26 +71,25 @@ namespace RenderEngine
         void present(FrameData& current_frame_data);
         void reinitSwapChain();
         void destroy();
-        bool _closed = false;
-        VkQueue _present_queue;
-
-        GLFWwindow* _window{ nullptr };
-        std::unique_ptr<SwapChain> _swap_chain;
 
         Device& _device;
         std::unique_ptr<RenderEngine> _render_engine;
         std::unique_ptr<TransferEngine> _transfer_engine;
+        GLFWwindow* _window{ nullptr };
+        std::unique_ptr<SwapChain> _swap_chain;
+        std::shared_ptr<CommandContext> _present_context;
+
         std::vector<FrameData> _back_buffer;
-        uint32_t _render_queue_family{ 0 };
 
         std::vector<std::unique_ptr<AbstractRenderer>> _renderers;
         std::unordered_map<uint32_t, AbstractRenderer*> _renderer_map;
+
         uint32_t _frame_counter{ 0 };
         uint32_t _presented_frame_counter{ 0 };
-        size_t _back_buffer_size{ 2 };
         void* _renderdoc_api{ nullptr };
         std::optional<uint32_t> _swap_chain_image_index;
         bool _new_swap_chain_image_is_required{ true };
         WindowTunnel* _tunnel{ nullptr };
+        bool _closed = false;
     };
 }

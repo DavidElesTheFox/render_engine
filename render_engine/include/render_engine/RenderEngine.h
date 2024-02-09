@@ -2,10 +2,11 @@
 
 #include <volk.h>
 
-#include <render_engine/CommandPoolFactory.h>
+#include <render_engine/CommandContext.h>
 #include <render_engine/Device.h>
 #include <render_engine/GpuResourceManager.h>
 #include <render_engine/synchronization/SyncOperations.h>
+#include <render_engine/TransferEngine.h>
 
 #include <unordered_map>
 
@@ -20,10 +21,7 @@ namespace RenderEngine
     {
     public:
 
-        RenderEngine(Device& device, VkQueue _render_queue, uint32_t _render_queue_family, size_t back_buffer_count);
-
-        VkQueue& getRenderQueue() { return _render_queue; }
-        uint32_t getQueueFamilyIndex() const { return _render_queue_family; }
+        RenderEngine(Device& device, std::shared_ptr<CommandContext>&& command_context, size_t back_buffer_count);
 
         void onFrameBegin(const std::ranges::input_range auto& renderers, uint32_t image_index)
         {
@@ -48,7 +46,9 @@ namespace RenderEngine
         }
 
         GpuResourceManager& getGpuResourceManager() { return _gpu_resource_manager; }
-        CommandPoolFactory& getCommandPoolFactory() { return _command_pool_factory; }
+        uint32_t getBackBufferSize() const { return _gpu_resource_manager.getBackBufferSize(); }
+        TransferEngine& getTransferEngine() { return _transfer_engine; }
+        CommandContext& getCommandContext() { return *_command_context; }
     private:
         std::vector<VkCommandBufferSubmitInfo> executeDrawCalls(const std::ranges::input_range auto& renderers,
                                                                 uint32_t image_index)
@@ -90,9 +90,9 @@ namespace RenderEngine
 
 
         Device& _device;
-        VkQueue _render_queue;
-        uint32_t _render_queue_family{ 0 };
         GpuResourceManager _gpu_resource_manager;
-        CommandPoolFactory _command_pool_factory;
+        // TODO make borrow_ptr
+        std::shared_ptr<CommandContext> _command_context;
+        TransferEngine _transfer_engine;
     };
 }

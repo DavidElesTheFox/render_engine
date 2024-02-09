@@ -9,12 +9,11 @@ namespace RenderEngine
     {
         constexpr uint32_t kMaxNumOfResources = 10;
     }
-    RenderEngine::RenderEngine(Device& device, VkQueue render_queue, uint32_t render_queue_family, size_t back_buffer_count)
+    RenderEngine::RenderEngine(Device& device, std::shared_ptr<CommandContext>&& command_context, size_t back_buffer_count)
         : _device(device)
-        , _render_queue(render_queue)
-        , _render_queue_family(render_queue_family)
         , _gpu_resource_manager(device.getPhysicalDevice(), device.getLogicalDevice(), back_buffer_count, kMaxNumOfResources)
-        , _command_pool_factory(device.getLogicalDevice(), render_queue_family)
+        , _command_context(command_context->clone())
+        , _transfer_engine(std::move(command_context))
     {
 
     }
@@ -28,7 +27,7 @@ namespace RenderEngine
         submit_info.pCommandBufferInfos = command_buffers.data();
 
         sync_operations.fillInfo(submit_info);
-        if (vkQueueSubmit2(_render_queue, 1, &submit_info, *sync_operations.getFence()) != VK_SUCCESS)
+        if (vkQueueSubmit2(_command_context->getQueue(), 1, &submit_info, *sync_operations.getFence()) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to submit draw command buffer!");
         }

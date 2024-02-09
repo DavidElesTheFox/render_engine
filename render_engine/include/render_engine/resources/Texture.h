@@ -48,10 +48,10 @@ namespace RenderEngine
          *       So, it makes sense to add there queued command to change textures and keeps the synchronization with the corresponding renders.
          */
         [[nodiscard]]
-        TransferEngine::InFlightData upload(const Image& image,
-                                            const SyncOperations& sync_operations,
-                                            TransferEngine& transfer_engine,
-                                            uint32_t dst_queue_family_index);
+        std::vector<SyncObject> upload(const Image& image,
+                                       SyncOperations sync_operations,
+                                       TransferEngine& transfer_engine,
+                                       CommandContext* dst_context);
 
         [[nodiscard]]
         std::vector<uint8_t> download(const SyncOperations& sync_operations,
@@ -220,19 +220,19 @@ namespace RenderEngine
         {}
 
         [[nodiscar]]
-        std::tuple<std::unique_ptr<Texture>, TransferEngine::InFlightData> create(Image image,
-                                                                                  VkImageAspectFlags aspect,
-                                                                                  VkShaderStageFlags shader_usage,
-                                                                                  const SyncOperations& synchronization_primitive,
-                                                                                  uint32_t dst_queue_family_index,
-                                                                                  VkImageUsageFlagBits image_usage);
+        std::unique_ptr<Texture> create(Image image,
+                                        VkImageAspectFlags aspect,
+                                        VkShaderStageFlags shader_usage,
+                                        const SyncOperations& synchronization_primitive,
+                                        CommandContext* dst_context,
+                                        VkImageUsageFlagBits image_usage);
         [[nodiscar]]
-        std::tuple<std::unique_ptr<Texture>, TransferEngine::InFlightData> createExternal(Image image,
-                                                                                          VkImageAspectFlags aspect,
-                                                                                          VkShaderStageFlags shader_usage,
-                                                                                          const SyncOperations& synchronization_primitive,
-                                                                                          uint32_t dst_queue_family_index,
-                                                                                          VkImageUsageFlagBits image_usage);
+        std::unique_ptr<Texture> createExternal(Image image,
+                                                VkImageAspectFlags aspect,
+                                                VkShaderStageFlags shader_usage,
+                                                const SyncOperations& synchronization_primitive,
+                                                CommandContext* dst_context,
+                                                VkImageUsageFlagBits image_usage);
         [[nodiscar]]
         std::unique_ptr<Texture> createNoUpload(Image image,
                                                 VkImageAspectFlags aspect,

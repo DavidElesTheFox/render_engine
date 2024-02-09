@@ -61,7 +61,6 @@ namespace RenderEngine
 
         IWindow& _window;
         std::vector<VkFramebuffer> _frame_buffers;
-        CommandPoolFactory::CommandPool _command_pool;
         std::vector<FrameData> _back_buffer;
         VkRenderPass _render_pass{ VK_NULL_HANDLE };
         VkRect2D _render_area{};

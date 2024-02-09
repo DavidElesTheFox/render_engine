@@ -35,6 +35,7 @@ namespace RenderEngine
         const SyncOperations& getOperationsGroup(const std::string& name) const { return _operation_groups.at(name); }
 
         void addSignalOperationToGroup(const std::string& group_name, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask);
+        void addSignalOperationToGroup(const std::string& group_name, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask, uint64_t value);
 
         void addWaitOperationToGroup(const std::string& group_name, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask);
 

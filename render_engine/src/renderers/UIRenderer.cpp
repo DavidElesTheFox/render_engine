@@ -131,7 +131,7 @@ namespace RenderEngine
             init_info.Instance = window.getDevice().getVulkanInstance();
             init_info.PhysicalDevice = window.getDevice().getPhysicalDevice();
             init_info.Device = logical_device;
-            init_info.Queue = window.getRenderEngine().getRenderQueue();
+            init_info.Queue = window.getRenderEngine().getCommandContext().getQueue();
             init_info.DescriptorPool = _descriptor_pool;
             init_info.MinImageCount = back_buffer_size;
             init_info.ImageCount = back_buffer_size;
@@ -141,13 +141,12 @@ namespace RenderEngine
             {
                 SyncObject sync_object = SyncObject::CreateWithFence(logical_device, 0);
 
-                // Use the render queue to upload the data, while queue ownership transfer cannot be defined for ImGui.
-                auto inflight_data = window.getTransferEngine().transfer(sync_object.getOperationsGroup(SyncGroups::kInternal),
-                                                                         [transfer_queue_index = window.getTransferEngine().getQueueFamilyIndex(), render_queue_index = window.getRenderEngine().getQueueFamilyIndex()](VkCommandBuffer command_buffer)
-                                                                         {
-                                                                             ImGui_ImplVulkan_CreateFontsTexture(command_buffer);
-                                                                         },
-                                                                         window.getRenderEngine().getRenderQueue());
+                // Using the render engine's transfer capability
+                window.getRenderEngine().getTransferEngine().transfer(sync_object.getOperationsGroup(SyncGroups::kInternal),
+                                                                      [](VkCommandBuffer command_buffer)
+                                                                      {
+                                                                          ImGui_ImplVulkan_CreateFontsTexture(command_buffer);
+                                                                      });
 
                 vkWaitForFences(logical_device, 1, sync_object.getOperationsGroup(SyncGroups::kInternal).getFence(), VK_TRUE, UINT64_MAX);
 

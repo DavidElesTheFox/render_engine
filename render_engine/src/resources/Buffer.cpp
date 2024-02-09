@@ -118,28 +118,28 @@ namespace RenderEngine
         memcpy(data, data_view.data(), (size_t)_buffer_info.size);
         vkUnmapMemory(_logical_device, staging_memory);
 
-        if (_buffer_state.queue_family_index == std::nullopt)
+        /*if (_buffer_state.queue_family_index == std::nullopt)
         {
-            _buffer_state.queue_family_index = transfer_engine.getQueueFamilyIndex();
-        }
+            _buffer_state.queue_family_index = transfer_engine.getTransferContext().getQueueFamilyIndex();
+        }*/
         SyncObject sync_object = SyncObject::CreateWithFence(_logical_device, 0);
-        auto inflight_data = transfer_engine.transfer(sync_object.getOperationsGroup(SyncGroups::kInternal),
-                                                      [&](VkCommandBuffer command_buffer)
-                                                      {
-                                                          ResourceStateMachine state_machine;
+        transfer_engine.transfer(sync_object.getOperationsGroup(SyncGroups::kInternal),
+                                 [&](VkCommandBuffer command_buffer)
+                                 {
+                                     ResourceStateMachine state_machine;
 
-                                                          state_machine.recordStateChange(this,
-                                                                                          getResourceState().clone().setQueueFamilyIndex(transfer_engine.getQueueFamilyIndex()));
-                                                          state_machine.commitChanges(command_buffer);
+                                     /*state_machine.recordStateChange(this,
+                                                                     getResourceState().clone().setQueueFamilyIndex(transfer_engine.getTransferContext().getQueueFamilyIndex()));*/
+                                     state_machine.commitChanges(command_buffer);
 
-                                                          VkBufferCopy copy_region{};
-                                                          copy_region.size = _buffer_info.size;
-                                                          vkCmdCopyBuffer(command_buffer, staging_buffer, _buffer, 1, &copy_region);
+                                     VkBufferCopy copy_region{};
+                                     copy_region.size = _buffer_info.size;
+                                     vkCmdCopyBuffer(command_buffer, staging_buffer, _buffer, 1, &copy_region);
 
-                                                          state_machine.recordStateChange(this,
-                                                                                          getResourceState().clone().setQueueFamilyIndex(dst_queue_index));
-                                                          state_machine.commitChanges(command_buffer);
-                                                      });
+                                     /*state_machine.recordStateChange(this,
+                                                                     getResourceState().clone().setQueueFamilyIndex(dst_queue_index));*/
+                                     state_machine.commitChanges(command_buffer);
+                                 });
 
         vkWaitForFences(_logical_device, 1, sync_object.getOperationsGroup(SyncGroups::kInternal).getFence(), VK_TRUE, UINT64_MAX);
 

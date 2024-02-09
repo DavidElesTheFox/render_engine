@@ -79,7 +79,7 @@ namespace RenderEngine
         MeshBuffers mesh_buffers;
         auto& transfer_engine = getWindow().getTransferEngine();
         auto& gpu_resource_manager = getWindow().getRenderEngine().getGpuResourceManager();
-        uint32_t render_queue_family_index = getWindow().getRenderEngine().getQueueFamilyIndex();
+        uint32_t render_queue_family_index = getWindow().getRenderEngine().getCommandContext().getQueueFamilyIndex();
         if (geometry.positions.empty() == false)
         {
             std::vector vertex_buffer = mesh->createVertexBuffer();

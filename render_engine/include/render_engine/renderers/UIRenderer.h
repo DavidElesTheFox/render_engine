@@ -1,7 +1,5 @@
 #pragma once
 
-#include <render_engine/CommandPoolFactory.h>
-
 #include <render_engine/renderers/SingleColorOutputRenderer.h>
 #include <render_engine/resources/Buffer.h>
 #include <render_engine/window/SwapChain.h>

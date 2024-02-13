@@ -64,13 +64,17 @@ namespace RenderEngine
         VkImage getVkImage() const { return _texture; }
         const Image& getImage() const { return _image; }
 
-        const ResourceStateMachine::TextureState& getResourceState() const
+        const TextureState& getResourceState() const
         {
             return _texture_state;
         }
 
         HANDLE getMemoryHandle() const;
         const VkMemoryRequirements& getMemoryRequirements() const { return _memory_requirements; }
+        void overrideResourceState(TextureState value, ResourceAccessToken)
+        {
+            _texture_state = std::move(value);
+        }
     private:
         Texture(Image image,
                 VkPhysicalDevice physical_device,
@@ -82,10 +86,7 @@ namespace RenderEngine
                 bool support_external_usage);
         void destroy() noexcept;
 
-        void overrideResourceState(ResourceStateMachine::TextureState value)
-        {
-            _texture_state = std::move(value);
-        }
+
         VkPhysicalDevice _physical_device{ VK_NULL_HANDLE };
         VkDevice _logical_device{ VK_NULL_HANDLE };
         VkImage _texture{ VK_NULL_HANDLE };
@@ -95,9 +96,11 @@ namespace RenderEngine
         VkImageAspectFlags _aspect{ VK_IMAGE_ASPECT_NONE };
         VkShaderStageFlags _shader_usage{ VK_SHADER_STAGE_ALL };
         std::set<uint32_t> _compatible_queue_family_indexes;
-        ResourceStateMachine::TextureState _texture_state;
+        TextureState _texture_state;
         VkMemoryRequirements _memory_requirements{};
     };
+
+    static_assert(IsResourceStateHolder_V<Texture>, "Texture needs to be a resource state holder");
 
     class ITextureView
     {
@@ -251,4 +254,5 @@ namespace RenderEngine
         VkPhysicalDevice _physical_device{ VK_NULL_HANDLE };
         VkDevice _logical_device{ VK_NULL_HANDLE };
     };
+
 }

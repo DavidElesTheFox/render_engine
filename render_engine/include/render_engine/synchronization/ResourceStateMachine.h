@@ -1,13 +1,12 @@
 #pragma once
 
-#include <volk.h>
 
 #include <render_engine/CommandContext.h>
+#include <render_engine/synchronization/ResourceStates.h>
 #include <render_engine/synchronization/SyncObject.h>
 
 #include <cassert>
 #include <functional>
-#include <memory>
 #include <optional>
 #include <unordered_map>
 
@@ -15,136 +14,23 @@ namespace RenderEngine
 {
     class Buffer;
     class Texture;
+
+
     class ResourceStateMachine
     {
     public:
-        struct TextureState
-        {
-            VkPipelineStageFlagBits2 pipeline_stage{ VK_PIPELINE_STAGE_2_NONE };
-            VkAccessFlags2 access_flag{ VK_ACCESS_2_NONE };
-            VkImageLayout layout{ VK_IMAGE_LAYOUT_UNDEFINED };
-            /* TODO: Implement borrow_ptr.
-            * Textures lifetime is managed by the application. Thus, storing a raw pointer to a command context is not
-            * a good solution. No one can guarantee that a texture doesn't have more lifetime then a transfer engine for example.
-            *
-            * For this solution a shared_ptr/weak_ptr is a solution but the ownership question is not clear. It is because the
-            * object is not shared, it has only one owner and many references.
-            *
-            * The solution for this a borrowed_ptr concept what Rust also has.
-            */
-            std::weak_ptr<CommandContext> command_context{ };
-
-            TextureState&& setPipelineStage(VkPipelineStageFlagBits2 pipeline_stage)&&
-            {
-                this->pipeline_stage = pipeline_stage;
-                return std::move(*this);
-            }
-            TextureState&& setAccessFlag(VkAccessFlags2 access_flag)&&
-            {
-                this->access_flag = access_flag;
-                return std::move(*this);
-            }
-            TextureState&& setImageLayout(VkImageLayout layout)&&
-            {
-                this->layout = layout;
-                return std::move(*this);
-            }
-            TextureState&& setCommandContext(std::weak_ptr<CommandContext> command_context)&&
-            {
-                this->command_context = command_context;
-                return std::move(*this);
-            }
-
-            TextureState clone() const
-            {
-                return *this;
-            }
-
-            bool operator==(const TextureState& o) const
-            {
-                return pipeline_stage == o.pipeline_stage
-                    && access_flag == o.access_flag
-                    && layout == o.layout
-                    && hasSameCommandContext(o);
-            }
-
-            bool hasSameCommandContext(const TextureState& o) const
-            {
-                return (command_context.expired() && o.command_context.expired())
-                    || (command_context.expired() == false
-                        && o.command_context.expired() == false
-                        && command_context.lock().get() == o.command_context.lock().get());
-            }
-            bool operator!=(const TextureState& o) const
-            {
-                return ((*this) == o) == false;
-            }
-            std::optional<uint32_t> getQueueFamilyIndex() const
-            {
-                return command_context.expired() ? std::nullopt : std::optional{ command_context.lock()->getQueueFamilyIndex() };
-            }
-        };
-
-        struct BufferState
-        {
-            VkPipelineStageFlagBits2 pipeline_stage{ VK_PIPELINE_STAGE_2_NONE };
-            VkAccessFlags2 access_flag{ VK_ACCESS_2_NONE };
-            // TODO: Implement borrow_ptr.
-            std::weak_ptr<CommandContext> command_context{ };
-
-            BufferState&& setPipelineStage(VkPipelineStageFlagBits2 pipeline_stage)&&
-            {
-                this->pipeline_stage = pipeline_stage;
-                return std::move(*this);
-            }
-
-            BufferState&& setAccessFlag(VkAccessFlags2 access_flag)&&
-            {
-                this->access_flag = access_flag;
-                return std::move(*this);
-            }
-
-
-            BufferState&& setCommandContext(std::weak_ptr<CommandContext> command_context)&&
-            {
-                this->command_context = command_context;
-                return std::move(*this);
-            }
-
-            BufferState clone() const
-            {
-                return *this;
-            }
-            bool operator==(const BufferState& o) const
-            {
-                return pipeline_stage == o.pipeline_stage
-                    && access_flag == o.access_flag
-                    && hasSameCommandContext(o);
-            }
-
-            bool hasSameCommandContext(const BufferState& o) const
-            {
-                return (command_context.expired() && o.command_context.expired())
-                    || (command_context.expired() == false
-                        && o.command_context.expired() == false
-                        && command_context.lock().get() == o.command_context.lock().get());
-            }
-
-            bool operator!=(const BufferState& o) const
-            {
-                return ((*this) == o) == false;
-            }
-            std::optional<uint32_t> getQueueFamilyIndex() const
-            {
-                return command_context.expired() ? std::nullopt : std::optional{ command_context.lock()->getQueueFamilyIndex() };
-            }
-        };
-
         static void resetStages(Texture& texture);
         static void resetStages(Buffer& texture);
         [[nodiscard]]
         static SyncObject transferOwnership(Texture* texture,
                                             TextureState new_state,
+                                            CommandContext* src,
+                                            CommandContext* dst,
+                                            const SyncOperations& sync_operations);
+
+        [[nodiscard]]
+        static SyncObject transferOwnership(Buffer* buffer,
+                                            BufferState new_state,
                                             CommandContext* src,
                                             CommandContext* dst,
                                             const SyncOperations& sync_operations);
@@ -158,17 +44,24 @@ namespace RenderEngine
             commitChanges(command_buffer, true);
         }
     private:
+        [[nodiscard]]
+        static SyncObject transferOwnershipImpl(ResourceStateHolder auto* texture,
+                                                ResourceState auto new_state,
+                                                CommandContext* src,
+                                                CommandContext* dst,
+                                                const SyncOperations& sync_operations);
+
         static void ownershipTransformRelease(VkCommandBuffer src_command_buffer,
                                               VkQueue src_queue,
-                                              Texture* texture,
-                                              const ResourceStateMachine::TextureState& transition_state,
+                                              ResourceStateHolder auto* texture,
+                                              const ResourceState auto& transition_state,
                                               const SyncObject& transformation_sync_object,
                                               const SyncOperations& external_operations);
 
         static void ownershipTransformAcquire(VkCommandBuffer dst_command_buffer,
                                               VkQueue dst_queue,
-                                              Texture* texture,
-                                              const ResourceStateMachine::TextureState& transition_state,
+                                              ResourceStateHolder auto* texture,
+                                              const ResourceState auto& transition_state,
                                               const SyncObject& transformation_sync_object,
                                               const SyncOperations& external_operations,
                                               const std::function<void(VkCommandBuffer, ResourceStateMachine&)>& additional_command);

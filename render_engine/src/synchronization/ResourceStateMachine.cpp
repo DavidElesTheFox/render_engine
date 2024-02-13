@@ -16,14 +16,14 @@ namespace RenderEngine
     {
         texture.overrideResourceState(texture.getResourceState().clone()
                                       .setPipelineStage(VK_PIPELINE_STAGE_2_NONE)
-                                      .setAccessFlag(VK_ACCESS_2_NONE));
+                                      .setAccessFlag(VK_ACCESS_2_NONE), {});
     }
 
     void ResourceStateMachine::resetStages(Buffer& texture)
     {
         texture.overrideResourceState(texture.getResourceState().clone()
                                       .setPipelineStage(VK_PIPELINE_STAGE_2_NONE)
-                                      .setAccessFlag(VK_ACCESS_2_NONE));
+                                      .setAccessFlag(VK_ACCESS_2_NONE), {});
     }
     void ResourceStateMachine::recordStateChange(Texture* image, TextureState next_state)
     {
@@ -40,11 +40,11 @@ namespace RenderEngine
         _buffers[buffer] = std::move(next_state);
     }
 
-    SyncObject ResourceStateMachine::transferOwnership(Texture* texture,
-                                                       TextureState new_state,
-                                                       CommandContext* src,
-                                                       CommandContext* dst,
-                                                       const SyncOperations& sync_operations)
+    SyncObject ResourceStateMachine::transferOwnershipImpl(ResourceStateHolder auto* texture,
+                                                           ResourceState auto new_state,
+                                                           CommandContext* src,
+                                                           CommandContext* dst,
+                                                           const SyncOperations& sync_operations)
     {
         const std::string kTransferFinishedSemaphore = "TransferFinished";
         auto src_command_buffer = src->createCommandBuffer(CommandContext::Usage::SingleSubmit);
@@ -91,7 +91,7 @@ namespace RenderEngine
             *  - First we are making the ownership transition with the original state
             *  - Then after the Acquire operation we do the other state transition.
             */
-            TextureState transition_state = texture->getResourceState().clone().
+            auto transition_state = texture->getResourceState().clone().
                 setCommandContext(dst->getWeakReference())
                 .setAccessFlag(0); // Access flag is ignored during queue family transition
 
@@ -123,8 +123,8 @@ namespace RenderEngine
 
     void ResourceStateMachine::ownershipTransformRelease(VkCommandBuffer src_command_buffer,
                                                          VkQueue src_queue,
-                                                         Texture* texture,
-                                                         const ResourceStateMachine::TextureState& transition_state,
+                                                         ResourceStateHolder auto* texture,
+                                                         const ResourceState auto& transition_state,
                                                          const SyncObject& transformation_sync_object,
                                                          const SyncOperations& external_operations)
     {
@@ -161,8 +161,8 @@ namespace RenderEngine
 
     void ResourceStateMachine::ownershipTransformAcquire(VkCommandBuffer dst_command_buffer,
                                                          VkQueue dst_queue,
-                                                         Texture* texture,
-                                                         const ResourceStateMachine::TextureState& transition_state,
+                                                         ResourceStateHolder auto* texture,
+                                                         const ResourceState auto& transition_state,
                                                          const SyncObject& transformation_sync_object,
                                                          const SyncOperations& external_operations,
                                                          const std::function<void(VkCommandBuffer, ResourceStateMachine&)>& additional_command)
@@ -201,6 +201,32 @@ namespace RenderEngine
         vkQueueSubmit2(dst_queue, 1, &dst_submit_info, *acquire_operations.getFence());
     }
 
+    [[nodiscard]]
+    SyncObject ResourceStateMachine::transferOwnership(Texture* texture,
+                                                       TextureState new_state,
+                                                       CommandContext* src,
+                                                       CommandContext* dst,
+                                                       const SyncOperations& sync_operations)
+    {
+        return transferOwnershipImpl(texture,
+                                     new_state,
+                                     src,
+                                     dst,
+                                     sync_operations);
+    }
+    [[nodiscard]]
+    SyncObject ResourceStateMachine::transferOwnership(Buffer* buffer,
+                                                       BufferState new_state,
+                                                       CommandContext* src,
+                                                       CommandContext* dst,
+                                                       const SyncOperations& sync_operations)
+    {
+        return transferOwnershipImpl(buffer,
+                                     new_state,
+                                     src,
+                                     dst,
+                                     sync_operations);
+    }
     void ResourceStateMachine::commitChanges(VkCommandBuffer command_buffer, bool apply_state_change_on_objects)
     {
         auto image_barriers = createImageBarriers(apply_state_change_on_objects);
@@ -243,7 +269,6 @@ namespace RenderEngine
 
             std::optional<uint32_t> current_queue_family_index = state_description.getQueueFamilyIndex();
             std::optional<uint32_t> next_queue_family_index = next_state->getQueueFamilyIndex();
-            bool queue_synchronization_required = false;
             assert(current_queue_family_index.has_value() == next_queue_family_index.has_value()
                    && "During family queue ownership transfer both states need a family queue index");
 
@@ -259,7 +284,7 @@ namespace RenderEngine
             image_barriers.emplace_back(barrier);
             if (apply_state_change_on_texture)
             {
-                texture->overrideResourceState(*next_state);
+                texture->overrideResourceState(*next_state, {});
             }
         }
         _images.clear();
@@ -291,14 +316,19 @@ namespace RenderEngine
             std::optional<uint32_t> current_queue_family_index = state_description.getQueueFamilyIndex();
             std::optional<uint32_t> next_queue_family_index = next_state->getQueueFamilyIndex();
 
-            assert(current_queue_family_index == next_queue_family_index
-                   && "Queue family ownership transition should be done by the function transferOwnership");
+            assert(current_queue_family_index.has_value() == next_queue_family_index.has_value()
+                   && "During family queue ownership transfer both states need a family queue index");
+            if (current_queue_family_index != std::nullopt && next_queue_family_index != std::nullopt)
+            {
+                barrier.srcQueueFamilyIndex = *current_queue_family_index;
+                barrier.dstQueueFamilyIndex = *next_queue_family_index;
+            }
             barrier.offset = 0;
             barrier.size = buffer->getDeviceSize();
             buffer_barriers.emplace_back(barrier);
             if (apply_state_change_on_buffer)
             {
-                buffer->overrideResourceState(*next_state);
+                buffer->overrideResourceState(*next_state, {});
             }
         }
         _buffers.clear();

@@ -263,14 +263,15 @@ namespace RenderEngine
         MeshBuffers mesh_buffers;
         auto& transfer_engine = getWindow().getTransferEngine();
         auto& gpu_resource_manager = getWindow().getRenderEngine().getGpuResourceManager();
-        uint32_t render_queue_family_index = getWindow().getRenderEngine().getCommandContext().getQueueFamilyIndex();
         if (geometry.positions.empty() == false)
         {
             std::vector vertex_buffer = mesh->createVertexBuffer();
             mesh_buffers.vertex_buffer = gpu_resource_manager.createAttributeBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                                                                                     vertex_buffer.size());
             mesh_buffers.vertex_buffer->uploadUnmapped(std::span{ vertex_buffer.data(), vertex_buffer.size() },
-                                                       transfer_engine, render_queue_family_index);
+                                                       transfer_engine,
+                                                       &getWindow().getRenderEngine().getCommandContext(),
+                                                       SyncOperations{});
 
         }
         if (geometry.indexes.empty() == false)
@@ -278,7 +279,9 @@ namespace RenderEngine
             mesh_buffers.index_buffer = gpu_resource_manager.createAttributeBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
                                                                                    geometry.indexes.size() * sizeof(int16_t));
             mesh_buffers.index_buffer->uploadUnmapped(std::span{ geometry.indexes.data(), geometry.indexes.size() },
-                                                      transfer_engine, render_queue_family_index);
+                                                      transfer_engine,
+                                                      &getWindow().getRenderEngine().getCommandContext(),
+                                                      SyncOperations{});
         }
         _mesh_buffers[mesh_instance->getMesh()] = std::move(mesh_buffers);
         if (mesh_instance->getVolumeMaterialInstance()->getVolumeMaterial().isRequireDistanceField())

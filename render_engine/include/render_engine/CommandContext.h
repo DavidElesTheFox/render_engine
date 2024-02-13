@@ -47,7 +47,7 @@ namespace RenderEngine
 
         VkDevice getLogicalDevice() { return _logical_device; }
 
-        bool isPipelineStageSupported(VkPipelineStageFlags2 pipeline_stage);
+        bool isPipelineStageSupported(VkPipelineStageFlags2 pipeline_stage) const;
 
         std::weak_ptr<CommandContext> getWeakReference() { return shared_from_this(); }
     private:

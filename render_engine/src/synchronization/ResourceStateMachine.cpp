@@ -7,9 +7,10 @@
 #include <stdexcept>
 namespace RenderEngine
 {
-    namespace
+    namespace SyncGroups
     {
-
+        constexpr auto* kRelease = "Release";
+        constexpr auto* kAcquire = "Acquire";
     }
     void ResourceStateMachine::resetStages(Texture& texture)
     {
@@ -45,171 +46,165 @@ namespace RenderEngine
                                                        CommandContext* dst,
                                                        const SyncOperations& sync_operations)
     {
+        const std::string kTransferFinishedSemaphore = "TransferFinished";
         auto src_command_buffer = src->createCommandBuffer(CommandContext::Usage::SingleSubmit);
         auto dst_command_buffer = dst->createCommandBuffer(CommandContext::Usage::SingleSubmit);
 
         assert(src->getLogicalDevice() == dst->getLogicalDevice());
         assert(dst->isPipelineStageSupported(new_state.pipeline_stage));
-        SyncObject sync_object = SyncObject::CreateWithFence(src->getLogicalDevice(), 0);
-        sync_object.createTimelineSemaphore("TransferFinished", 0, 2);
-        // sync_object.addSignalOperationToGroup(SyncGroups::kInternal, "TransferFinished", VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, 1);
-         //sync_object.addWaitOperationToGroup(SyncGroups::kExternal, "TransferFinished", VK_PIPELINE_STAGE_2_NONE, 1);
+        SyncObject sync_object = SyncObject::CreateEmpty(src->getLogicalDevice());
 
-        ResourceStateMachine src_state_machine;
-        ResourceStateMachine dst_state_machine;
-        src_state_machine._apply_barrier_even_without_state_change = true;
-        dst_state_machine._apply_barrier_even_without_state_change = true;
+        sync_object.createTimelineSemaphore(kTransferFinishedSemaphore, 0, 2);
+        sync_object.addSignalOperationToGroup(SyncGroups::kInternal, kTransferFinishedSemaphore, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, 1);
+        sync_object.addWaitOperationToGroup(SyncGroups::kExternal, kTransferFinishedSemaphore, VK_PIPELINE_STAGE_2_NONE, 1);
 
         const std::string texture_semaphore_name = std::format("{:#x}", reinterpret_cast<intptr_t>(texture));
         sync_object.createTimelineSemaphore(texture_semaphore_name, 0, 2);
 
+        // make ownership transform
         new_state = new_state.clone()
             .setCommandContext(dst->getWeakReference())
-            .setAccessFlag(0);
+            .setAccessFlag(0); // Access flag is ignored during queue family transition
 
         if (src->isPipelineStageSupported(new_state.pipeline_stage))
         {
-            sync_object.addSignalOperationToGroup("Release", texture_semaphore_name, new_state.pipeline_stage, 1);
-            // External is used as an Acquire synchronization as well
-            sync_object.addWaitOperationToGroup(SyncGroups::kExternal, texture_semaphore_name, new_state.pipeline_stage, 1);
-            {
-                VkCommandBufferBeginInfo src_begin_info{};
-                src_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-                src_begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-                vkBeginCommandBuffer(src_command_buffer, &src_begin_info);
-
-                // Release And State Transition
-                src_state_machine.recordStateChange(texture, new_state);
-                src_state_machine.commitChanges(src_command_buffer);
-
-                vkEndCommandBuffer(src_command_buffer);
-
-                VkCommandBufferSubmitInfo src_command_buffer_info{};
-                src_command_buffer_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
-                src_command_buffer_info.commandBuffer = src_command_buffer;
-
-                VkSubmitInfo2 src_submit_info{};
-                src_submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
-                src_submit_info.commandBufferInfoCount = 1;
-
-                src_submit_info.pCommandBufferInfos = &src_command_buffer_info;
-                auto release_operations = sync_operations.extractOperations(SyncOperations::ExtractWaitOperations)
-                    .unionWith(sync_object.getOperationsGroup("Release"));
-                release_operations.fillInfo(src_submit_info);
-                vkQueueSubmit2(src->getQueue(), 1, &src_submit_info, VK_NULL_HANDLE);
-            }
-            ResourceStateMachine::resetStages(*texture);
-            {
-                VkCommandBufferBeginInfo dst_begin_info{};
-                dst_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-                dst_begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-                vkBeginCommandBuffer(dst_command_buffer, &dst_begin_info);
-
-                // Acquire
-                dst_state_machine.recordStateChange(texture, new_state);
-                dst_state_machine.commitChanges(dst_command_buffer);
-
-                vkEndCommandBuffer(dst_command_buffer);
-
-                VkCommandBufferSubmitInfo dst_command_buffer_info{};
-                dst_command_buffer_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
-                dst_command_buffer_info.commandBuffer = dst_command_buffer;
-
-                VkSubmitInfo2 dst_submit_info{};
-                dst_submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
-                dst_submit_info.commandBufferInfoCount = 1;
-
-                dst_submit_info.pCommandBufferInfos = &dst_command_buffer_info;
-                auto external_operations = sync_object.getOperationsGroup(SyncGroups::kExternal).
-                    createUnionWith(sync_operations.extractOperations(SyncOperations::ExtractSignalOperations | SyncOperations::ExtractFence));
-                external_operations.fillInfo(dst_submit_info);
-
-                vkQueueSubmit2(dst->getQueue(), 1, &dst_submit_info, VK_NULL_HANDLE);
-            }
+            sync_object.addSignalOperationToGroup(SyncGroups::kRelease, texture_semaphore_name, new_state.pipeline_stage, 1);
+            sync_object.addWaitOperationToGroup(SyncGroups::kAcquire, texture_semaphore_name, new_state.pipeline_stage, 1);
+            ownershipTransformRelease(src_command_buffer,
+                                      src->getQueue(),
+                                      texture,
+                                      new_state,
+                                      sync_object,
+                                      sync_operations.restrict(*src));
+            ownershipTransformAcquire(dst_command_buffer,
+                                      dst->getQueue(),
+                                      texture,
+                                      new_state,
+                                      sync_object,
+                                      sync_operations.restrict(*dst),
+                                      nullptr);
         }
         else
         {
-            TextureState original_state = texture->getResourceState().clone()
-                .setAccessFlag(0);
-            TextureState old_state = texture->getResourceState().clone().
+            /*
+            * Because the source stage doesn't support the required state in the destination:
+            *  - First we are making the ownership transition with the original state
+            *  - Then after the Acquire operation we do the other state transition.
+            */
+            TextureState transition_state = texture->getResourceState().clone().
                 setCommandContext(dst->getWeakReference())
-                .setAccessFlag(0);
-            sync_object.addSignalOperationToGroup("Release", texture_semaphore_name, old_state.pipeline_stage, 1);
-            // External is used as an Acquire synchronization as well
-            sync_object.addWaitOperationToGroup(SyncGroups::kExternal, texture_semaphore_name, old_state.pipeline_stage, 1);
-            {
-                VkCommandBufferBeginInfo src_begin_info{};
-                src_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-                src_begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+                .setAccessFlag(0); // Access flag is ignored during queue family transition
 
-                vkBeginCommandBuffer(src_command_buffer, &src_begin_info);
+            sync_object.addSignalOperationToGroup(SyncGroups::kRelease, texture_semaphore_name, transition_state.pipeline_stage, 1);
+            sync_object.addWaitOperationToGroup(SyncGroups::kAcquire, texture_semaphore_name, transition_state.pipeline_stage, 1);
 
-                // Release
-                src_state_machine.recordStateChange(texture, old_state);
-                src_state_machine.commitChanges(src_command_buffer);
+            auto extra_state_transition = [&](VkCommandBuffer command_buffer, ResourceStateMachine& state_machine)
+                {
+                    state_machine.recordStateChange(texture, new_state);
+                    state_machine.commitChanges(command_buffer);
+                };
 
-                vkEndCommandBuffer(src_command_buffer);
-
-                VkCommandBufferSubmitInfo src_command_buffer_info{};
-                src_command_buffer_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
-                src_command_buffer_info.commandBuffer = src_command_buffer;
-
-                VkSubmitInfo2 src_submit_info{};
-                src_submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
-                src_submit_info.commandBufferInfoCount = 1;
-
-                src_submit_info.pCommandBufferInfos = &src_command_buffer_info;
-                auto release_operations = sync_operations.extractOperations(SyncOperations::ExtractWaitOperations)
-                    .unionWith(sync_object.getOperationsGroup("Release"));
-                release_operations.fillInfo(src_submit_info);
-                vkQueueSubmit2(src->getQueue(), 1, &src_submit_info, *sync_object.getOperationsGroup(SyncGroups::kExternal).getFence());
-                vkWaitForFences(src->getLogicalDevice(), 1, sync_object.getOperationsGroup(SyncGroups::kExternal).getFence(), VK_TRUE, UINT64_MAX);
-                vkResetFences(src->getLogicalDevice(), 1, sync_object.getOperationsGroup(SyncGroups::kExternal).getFence());
-                texture->overrideResourceState(original_state);
-            }
-
-            {
-                VkCommandBufferBeginInfo dst_begin_info{};
-                dst_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-                dst_begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-                vkBeginCommandBuffer(dst_command_buffer, &dst_begin_info);
-
-                // Acquire
-                dst_state_machine.recordStateChange(texture, old_state);
-                dst_state_machine.commitChanges(dst_command_buffer);
-                // State transition
-                dst_state_machine.recordStateChange(texture, new_state);
-                dst_state_machine.commitChanges(dst_command_buffer);
-
-                vkEndCommandBuffer(dst_command_buffer);
-
-                VkCommandBufferSubmitInfo dst_command_buffer_info{};
-                dst_command_buffer_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
-                dst_command_buffer_info.commandBuffer = dst_command_buffer;
-
-                VkSubmitInfo2 dst_submit_info{};
-                dst_submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
-                dst_submit_info.commandBufferInfoCount = 1;
-
-                dst_submit_info.pCommandBufferInfos = &dst_command_buffer_info;
-                auto external_operations = sync_object.getOperationsGroup(SyncGroups::kExternal).
-                    createUnionWith(sync_operations.extractOperations(SyncOperations::ExtractSignalOperations | SyncOperations::ExtractFence));
-                external_operations.fillInfo(dst_submit_info);
-                vkQueueSubmit2(dst->getQueue(), 1, &dst_submit_info, *sync_object.getOperationsGroup(SyncGroups::kExternal).getFence());
-                vkWaitForFences(src->getLogicalDevice(), 1, sync_object.getOperationsGroup(SyncGroups::kExternal).getFence(), VK_TRUE, UINT64_MAX);
-
-            }
+            ownershipTransformRelease(src_command_buffer,
+                                      src->getQueue(),
+                                      texture,
+                                      transition_state,
+                                      sync_object,
+                                      sync_operations.restrict(*src));
+            ownershipTransformAcquire(dst_command_buffer,
+                                      dst->getQueue(),
+                                      texture,
+                                      transition_state,
+                                      sync_object,
+                                      sync_operations.restrict(*dst),
+                                      extra_state_transition);
         }
         return sync_object;
     }
 
-    void ResourceStateMachine::commitChanges(VkCommandBuffer command_buffer)
+    void ResourceStateMachine::ownershipTransformRelease(VkCommandBuffer src_command_buffer,
+                                                         VkQueue src_queue,
+                                                         Texture* texture,
+                                                         const ResourceStateMachine::TextureState& transition_state,
+                                                         const SyncObject& transformation_sync_object,
+                                                         const SyncOperations& external_operations)
     {
-        auto image_barriers = createImageBarriers();
-        auto buffer_barriers = createBufferBarriers();
+        ResourceStateMachine src_state_machine;
+
+        VkCommandBufferBeginInfo src_begin_info{};
+        src_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        src_begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+        vkBeginCommandBuffer(src_command_buffer, &src_begin_info);
+
+        // Release - Now we are making a queue family ownership transformation. For this we don't need to change the state
+        src_state_machine.recordStateChange(texture, transition_state);
+        src_state_machine.commitChanges(src_command_buffer, false);
+
+        vkEndCommandBuffer(src_command_buffer);
+
+        VkCommandBufferSubmitInfo src_command_buffer_info{};
+        src_command_buffer_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
+        src_command_buffer_info.commandBuffer = src_command_buffer;
+
+        VkSubmitInfo2 src_submit_info{};
+        src_submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
+        src_submit_info.commandBufferInfoCount = 1;
+
+        src_submit_info.pCommandBufferInfos = &src_command_buffer_info;
+        auto release_operations =
+            transformation_sync_object.query()
+            .select(SyncGroups::kRelease)
+            .join(external_operations.extract(SyncOperations::ExtractWaitOperations)).get();
+        release_operations.fillInfo(src_submit_info);
+        vkQueueSubmit2(src_queue, 1, &src_submit_info, VK_NULL_HANDLE);
+    }
+
+    void ResourceStateMachine::ownershipTransformAcquire(VkCommandBuffer dst_command_buffer,
+                                                         VkQueue dst_queue,
+                                                         Texture* texture,
+                                                         const ResourceStateMachine::TextureState& transition_state,
+                                                         const SyncObject& transformation_sync_object,
+                                                         const SyncOperations& external_operations,
+                                                         const std::function<void(VkCommandBuffer, ResourceStateMachine&)>& additional_command)
+    {
+        ResourceStateMachine dst_state_machine;
+
+        VkCommandBufferBeginInfo dst_begin_info{};
+        dst_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        dst_begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+        vkBeginCommandBuffer(dst_command_buffer, &dst_begin_info);
+
+        // Acquire - Here the state machine can make the state change
+        dst_state_machine.recordStateChange(texture, transition_state);
+        dst_state_machine.commitChanges(dst_command_buffer);
+
+        if (additional_command != nullptr)
+        {
+            additional_command(dst_command_buffer, dst_state_machine);
+        }
+        vkEndCommandBuffer(dst_command_buffer);
+
+        VkCommandBufferSubmitInfo dst_command_buffer_info{};
+        dst_command_buffer_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
+        dst_command_buffer_info.commandBuffer = dst_command_buffer;
+
+        VkSubmitInfo2 dst_submit_info{};
+        dst_submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
+        dst_submit_info.commandBufferInfoCount = 1;
+
+        dst_submit_info.pCommandBufferInfos = &dst_command_buffer_info;
+        auto acquire_operations = transformation_sync_object.query()
+            .select({ SyncGroups::kInternal, SyncGroups::kAcquire })
+            .join(external_operations.extract(SyncOperations::ExtractSignalOperations | SyncOperations::ExtractFence)).get();
+        acquire_operations.fillInfo(dst_submit_info);
+        vkQueueSubmit2(dst_queue, 1, &dst_submit_info, *acquire_operations.getFence());
+    }
+
+    void ResourceStateMachine::commitChanges(VkCommandBuffer command_buffer, bool apply_state_change_on_objects)
+    {
+        auto image_barriers = createImageBarriers(apply_state_change_on_objects);
+        auto buffer_barriers = createBufferBarriers(apply_state_change_on_objects);
         if (image_barriers.empty() && buffer_barriers.empty())
         {
             return;
@@ -226,26 +221,15 @@ namespace RenderEngine
     }
 
 
-    std::vector<VkImageMemoryBarrier2> ResourceStateMachine::createImageBarriers()
+    std::vector<VkImageMemoryBarrier2> ResourceStateMachine::createImageBarriers(bool apply_state_change_on_texture)
     {
         std::vector<VkImageMemoryBarrier2> image_barriers;
         for (auto& [texture, next_state] : _images)
         {
             auto state_description = texture->getResourceState();
 
-            /* When the current state can't make any changes on the memory doesn't make any sense to
-            make the memory available at that stage. Thus, keep the current state but change the barriare definition
-            accordingly.
-             */
-            if (_apply_barrier_even_without_state_change == false
-                && stateCanMakeChangesOnMemory(state_description.access_flag) == false)
-            {
-                state_description.access_flag = VK_ACCESS_2_NONE_KHR;
-                state_description.pipeline_stage = VK_PIPELINE_STAGE_2_NONE;
-            }
-
             if (next_state == std::nullopt
-                || (_apply_barrier_even_without_state_change == false && next_state == state_description))
+                || next_state == state_description)
             {
                 continue;
             }
@@ -273,27 +257,22 @@ namespace RenderEngine
             barrier.newLayout = next_state->layout;
             barrier.subresourceRange = texture->createSubresourceRange();
             image_barriers.emplace_back(barrier);
-            texture->overrideResourceState(*next_state);
+            if (apply_state_change_on_texture)
+            {
+                texture->overrideResourceState(*next_state);
+            }
         }
         _images.clear();
         return image_barriers;
     }
 
-    std::vector<VkBufferMemoryBarrier2> ResourceStateMachine::createBufferBarriers()
+    std::vector<VkBufferMemoryBarrier2> ResourceStateMachine::createBufferBarriers(bool apply_state_change_on_buffer)
     {
         std::vector<VkBufferMemoryBarrier2> buffer_barriers;
         for (auto& [buffer, next_state] : _buffers)
         {
             auto state_description = buffer->getResourceState();
-            /* When the current state can't make any changes on the memory doesn't make any sense to
-            make the memory available at that stage. Thus, keep the current state but change the barriare definition
-            accordingly.
-             */
-            if (stateCanMakeChangesOnMemory(state_description.access_flag) == false)
-            {
-                state_description.access_flag = VK_ACCESS_2_NONE_KHR;
-                state_description.pipeline_stage = VK_PIPELINE_STAGE_2_NONE;
-            }
+
             if (next_state == std::nullopt
                 || next_state == state_description)
             {
@@ -317,7 +296,10 @@ namespace RenderEngine
             barrier.offset = 0;
             barrier.size = buffer->getDeviceSize();
             buffer_barriers.emplace_back(barrier);
-            buffer->overrideResourceState(*next_state);
+            if (apply_state_change_on_buffer)
+            {
+                buffer->overrideResourceState(*next_state);
+            }
         }
         _buffers.clear();
         return buffer_barriers;

@@ -187,7 +187,7 @@ namespace RenderEngine
                                                                                                  .setImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL),
                                                                                                  _texture_state.command_context.lock().get(),
                                                                                                  &transfer_engine.getTransferContext(),
-                                                                                                 sync_operations.extractOperations(SyncOperations::ExtractWaitOperations));
+                                                                                                 sync_operations.extract(SyncOperations::ExtractWaitOperations));
                 transfer_engine.transfer(sync_object_src_to_transfer.getOperationsGroup(SyncGroups::kExternal), upload_command);
                 result.push_back(std::move(sync_object_src_to_transfer));
 
@@ -219,7 +219,7 @@ namespace RenderEngine
                                                                                              .setImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
                                                                                              _texture_state.command_context.lock().get(),
                                                                                              dst_context,
-                                                                                             sync_operations.extractOperations(SyncOperations::ExtractSignalOperations/* | SyncOperations::ExtractFence*/));
+                                                                                             sync_operations.extract(SyncOperations::ExtractSignalOperations | SyncOperations::ExtractFence));
             assert(getResourceState().getQueueFamilyIndex() == dst_context->getQueueFamilyIndex());
             result.push_back(std::move(sync_object_transfer_to_dst));
             return result;

@@ -95,7 +95,7 @@ namespace RenderEngine
         return std::make_shared<CommandContext>(_logical_device, _queue_family_index, _queue_family_info, CommandContext::CreationToken{});
     }
 
-    bool CommandContext::isPipelineStageSupported(VkPipelineStageFlags2 pipeline_stage)
+    bool CommandContext::isPipelineStageSupported(VkPipelineStageFlags2 pipeline_stage) const
     {
         switch (pipeline_stage)
         {

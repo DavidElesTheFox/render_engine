@@ -1,5 +1,6 @@
 #pragma once
 
+#include <render_engine/CommandContext.h>
 #include <render_engine/synchronization/SyncPrimitives.h>
 
 #include <vector>
@@ -37,8 +38,10 @@ namespace RenderEngine
 
         const SyncOperations& fillInfo(VkSubmitInfo2& submit_info) const;
         bool hasAnyFence() const { return _fence != VK_NULL_HANDLE; }
+        // TODO return with not a pointer
         const VkFence* getFence() const { return &_fence; }
 
+        // TODO remove this and make a mutable object
         SyncOperations& unionWith(const SyncOperations& o);
 
         SyncOperations createUnionWith(const SyncOperations& o) const
@@ -51,7 +54,7 @@ namespace RenderEngine
 
         void clear();
 
-        SyncOperations extractOperations(int32_t extract_bits) const
+        SyncOperations extract(int32_t extract_bits) const
         {
             SyncOperations result;
             if (extract_bits & ExtractWaitOperations)
@@ -69,7 +72,7 @@ namespace RenderEngine
             return result;
         }
 
-
+        SyncOperations restrict(const CommandContext& context) const;
 
     private:
 

@@ -81,4 +81,18 @@ namespace RenderEngine
         _signal_semaphore_dependency.clear();
         _fence = VK_NULL_HANDLE;
     }
+    SyncOperations SyncOperations::restrict(const CommandContext& context) const
+    {
+        auto result = *this;
+        std::erase_if(result._wait_semaphore_dependency, [&](auto& submit_info)
+                      {
+                          return context.isPipelineStageSupported(submit_info.stageMask) == false;
+                      });
+        std::erase_if(result._signal_semaphore_dependency, [&](auto& submit_info)
+                      {
+                          return context.isPipelineStageSupported(submit_info.stageMask) == false;
+                      });
+        return result;
+    }
+
 }

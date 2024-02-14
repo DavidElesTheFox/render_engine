@@ -131,6 +131,11 @@ namespace RenderEngine
             // TODO remove lock
             SyncObject global_object = SyncObject::CreateWithFence(src_unit->getLogicalDevice(), 0);
 
+
+            SyncObject transfer_sync_object = SyncObject::CreateEmpty(src_unit->getLogicalDevice());
+            transfer_sync_object.createSemaphore("DataTransferFinished");
+            transfer_sync_object.addSignalOperationToGroup(SyncGroups::kInternal, "DataTransferFinished", VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+            transfer_sync_object.addWaitOperationToGroup(SyncGroups::kExternal, "DataTransferFinished", VK_PIPELINE_STAGE_2_TRANSFER_BIT);
             auto upload_command = [&](VkCommandBuffer command_buffer)
                 {
                     ResourceStateMachine state_machine;
@@ -151,14 +156,18 @@ namespace RenderEngine
                                                                                                  _buffer_state.command_context.lock().get(),
                                                                                                  &transfer_engine.getTransferContext(),
                                                                                                  sync_operations.extract(SyncOperations::ExtractWaitOperations));
-                transfer_engine.transfer(sync_object_src_to_transfer.getOperationsGroup(SyncGroups::kExternal), upload_command);
+                transfer_engine.transfer(sync_object_src_to_transfer.getOperationsGroup(SyncGroups::kExternal)
+                                         .createUnionWith(transfer_sync_object.getOperationsGroup(SyncGroups::kInternal)),
+                                         upload_command);
                 result.push_back(std::move(sync_object_src_to_transfer));
 
             }
             else
             {
                 SyncObject sync_object_src_to_transfer = SyncObject::CreateWithFence(src_unit->getLogicalDevice(), 0);
-                transfer_engine.transfer(sync_object_src_to_transfer.getOperationsGroup(SyncGroups::kExternal), upload_command);
+                transfer_engine.transfer(sync_object_src_to_transfer.getOperationsGroup(SyncGroups::kExternal)
+                                         .createUnionWith(transfer_sync_object.getOperationsGroup(SyncGroups::kInternal)),
+                                         upload_command);
                 result.push_back(std::move(sync_object_src_to_transfer));
             }
             assert(getResourceState().getQueueFamilyIndex() == transfer_engine.getTransferContext().getQueueFamilyIndex());
@@ -168,10 +177,11 @@ namespace RenderEngine
                                                                                              _buffer_state.command_context.lock().get(),
                                                                                              dst_context,
                                                                                              sync_operations.extract(SyncOperations::ExtractSignalOperations)
+                                                                                             .createUnionWith(transfer_sync_object.getOperationsGroup(SyncGroups::kExternal))
                                                                                              .createUnionWith(global_object.getOperationsGroup(SyncGroups::kInternal)));
             assert(getResourceState().getQueueFamilyIndex() == dst_context->getQueueFamilyIndex());
             result.push_back(std::move(sync_object_transfer_to_dst));
-
+            result.push_back(std::move(transfer_sync_object));
             vkWaitForFences(_logical_device, 1, global_object.getOperationsGroup(SyncGroups::kInternal).getFence(), VK_TRUE, UINT64_MAX);
 
             vkDestroyBuffer(_logical_device, staging_buffer, nullptr);

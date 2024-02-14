@@ -178,6 +178,10 @@ namespace RenderEngine
 
 
                 };
+            SyncObject transfer_sync_object = SyncObject::CreateEmpty(src_unit->getLogicalDevice());
+            transfer_sync_object.createSemaphore("DataTransferFinished");
+            transfer_sync_object.addSignalOperationToGroup(SyncGroups::kInternal, "DataTransferFinished", VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+            transfer_sync_object.addWaitOperationToGroup(SyncGroups::kExternal, "DataTransferFinished", VK_PIPELINE_STAGE_2_TRANSFER_BIT);
             if (is_initial_transfer == false)
             {
                 SyncObject sync_object_src_to_transfer = ResourceStateMachine::transferOwnership(this,
@@ -188,14 +192,19 @@ namespace RenderEngine
                                                                                                  _texture_state.command_context.lock().get(),
                                                                                                  &transfer_engine.getTransferContext(),
                                                                                                  sync_operations.extract(SyncOperations::ExtractWaitOperations));
-                transfer_engine.transfer(sync_object_src_to_transfer.getOperationsGroup(SyncGroups::kExternal), upload_command);
+
+                transfer_engine.transfer(sync_object_src_to_transfer.getOperationsGroup(SyncGroups::kExternal)
+                                         .createUnionWith(transfer_sync_object.getOperationsGroup(SyncGroups::kInternal)),
+                                         upload_command);
                 result.push_back(std::move(sync_object_src_to_transfer));
 
             }
             else
             {
                 SyncObject sync_object_src_to_transfer = SyncObject::CreateWithFence(src_unit->getLogicalDevice(), 0);
-                transfer_engine.transfer(sync_object_src_to_transfer.getOperationsGroup(SyncGroups::kExternal), upload_command);
+                transfer_engine.transfer(sync_object_src_to_transfer.getOperationsGroup(SyncGroups::kExternal)
+                                         .createUnionWith(transfer_sync_object.getOperationsGroup(SyncGroups::kInternal)),
+                                         upload_command);
                 result.push_back(std::move(sync_object_src_to_transfer));
             }
             assert(getResourceState().getQueueFamilyIndex() == transfer_engine.getTransferContext().getQueueFamilyIndex());
@@ -219,9 +228,11 @@ namespace RenderEngine
                                                                                              .setImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
                                                                                              _texture_state.command_context.lock().get(),
                                                                                              dst_context,
-                                                                                             sync_operations.extract(SyncOperations::ExtractSignalOperations | SyncOperations::ExtractFence));
+                                                                                             sync_operations.extract(SyncOperations::ExtractSignalOperations | SyncOperations::ExtractFence)
+                                                                                             .createUnionWith(transfer_sync_object.getOperationsGroup(SyncGroups::kExternal)));
             assert(getResourceState().getQueueFamilyIndex() == dst_context->getQueueFamilyIndex());
             result.push_back(std::move(sync_object_transfer_to_dst));
+            result.push_back(std::move(transfer_sync_object));
             return result;
         }
         else

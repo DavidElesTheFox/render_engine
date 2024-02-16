@@ -32,6 +32,5 @@ namespace RenderEngine
         submitInfo.pCommandBufferInfos = &command_buffer_info;
         sync_operations.fillInfo(submitInfo);
         vkQueueSubmit2(_transfer_context->getQueue(), 1, &submitInfo, *sync_operations.getFence());
-        vkWaitForFences(_transfer_context->getLogicalDevice(), 1, sync_operations.getFence(), VK_TRUE, UINT64_MAX);
     }
 }

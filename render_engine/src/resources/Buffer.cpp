@@ -124,15 +124,15 @@ namespace RenderEngine
         {
             _buffer_state.command_context = transfer_engine.getTransferContext().getWeakReference();
         }
-        auto* src_unit = _buffer_state.command_context.lock().get();
+        auto* src_context = _buffer_state.command_context.lock().get();
 
-        if (src_unit->getQueue() != dst_context->getQueue())
+        if (src_context->getQueue() != dst_context->getQueue())
         {
             // TODO remove lock
-            SyncObject global_object = SyncObject::CreateWithFence(src_unit->getLogicalDevice(), 0);
+            SyncObject global_object = SyncObject::CreateWithFence(src_context->getLogicalDevice(), 0);
 
 
-            SyncObject transfer_sync_object = SyncObject::CreateEmpty(src_unit->getLogicalDevice());
+            SyncObject transfer_sync_object = SyncObject::CreateEmpty(src_context->getLogicalDevice());
             transfer_sync_object.createSemaphore("DataTransferFinished");
             transfer_sync_object.addSignalOperationToGroup(SyncGroups::kInternal, "DataTransferFinished", VK_PIPELINE_STAGE_2_TRANSFER_BIT);
             transfer_sync_object.addWaitOperationToGroup(SyncGroups::kExternal, "DataTransferFinished", VK_PIPELINE_STAGE_2_TRANSFER_BIT);
@@ -164,7 +164,7 @@ namespace RenderEngine
             }
             else
             {
-                SyncObject sync_object_src_to_transfer = SyncObject::CreateWithFence(src_unit->getLogicalDevice(), 0);
+                SyncObject sync_object_src_to_transfer = SyncObject::CreateWithFence(src_context->getLogicalDevice(), 0);
                 transfer_engine.transfer(sync_object_src_to_transfer.getOperationsGroup(SyncGroups::kExternal)
                                          .createUnionWith(transfer_sync_object.getOperationsGroup(SyncGroups::kInternal)),
                                          upload_command);

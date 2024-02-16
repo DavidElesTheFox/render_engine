@@ -40,7 +40,7 @@ namespace RenderEngine
         _buffers[buffer] = std::move(next_state);
     }
 
-    SyncObject ResourceStateMachine::transferOwnershipImpl(ResourceStateHolder auto* texture,
+    SyncObject ResourceStateMachine::transferOwnershipImpl(ResourceStateHolder auto* resource,
                                                            ResourceState auto new_state,
                                                            CommandContext* src,
                                                            CommandContext* dst,
@@ -58,7 +58,7 @@ namespace RenderEngine
         sync_object.addSignalOperationToGroup(SyncGroups::kInternal, kTransferFinishedSemaphore, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, 1);
         sync_object.addWaitOperationToGroup(SyncGroups::kExternal, kTransferFinishedSemaphore, VK_PIPELINE_STAGE_2_NONE, 1);
 
-        const std::string texture_semaphore_name = std::format("{:#x}", reinterpret_cast<intptr_t>(texture));
+        const std::string texture_semaphore_name = std::format("{:#x}", reinterpret_cast<intptr_t>(resource));
         sync_object.createTimelineSemaphore(texture_semaphore_name, 0, 2);
 
         // make ownership transform
@@ -72,13 +72,13 @@ namespace RenderEngine
             sync_object.addWaitOperationToGroup(SyncGroups::kAcquire, texture_semaphore_name, new_state.pipeline_stage, 1);
             ownershipTransformRelease(src_command_buffer,
                                       src->getQueue(),
-                                      texture,
+                                      resource,
                                       new_state,
                                       sync_object,
                                       sync_operations.restrict(*src));
             ownershipTransformAcquire(dst_command_buffer,
                                       dst->getQueue(),
-                                      texture,
+                                      resource,
                                       new_state,
                                       sync_object,
                                       sync_operations.restrict(*dst),
@@ -91,7 +91,7 @@ namespace RenderEngine
             *  - First we are making the ownership transition with the original state
             *  - Then after the Acquire operation we do the other state transition.
             */
-            auto transition_state = texture->getResourceState().clone().
+            auto transition_state = resource->getResourceState().clone().
                 setCommandContext(dst->getWeakReference())
                 .setAccessFlag(0); // Access flag is ignored during queue family transition
 
@@ -100,19 +100,19 @@ namespace RenderEngine
 
             auto extra_state_transition = [&](VkCommandBuffer command_buffer, ResourceStateMachine& state_machine)
                 {
-                    state_machine.recordStateChange(texture, new_state);
+                    state_machine.recordStateChange(resource, new_state);
                     state_machine.commitChanges(command_buffer);
                 };
 
             ownershipTransformRelease(src_command_buffer,
                                       src->getQueue(),
-                                      texture,
+                                      resource,
                                       transition_state,
                                       sync_object,
                                       sync_operations.restrict(*src));
             ownershipTransformAcquire(dst_command_buffer,
                                       dst->getQueue(),
-                                      texture,
+                                      resource,
                                       transition_state,
                                       sync_object,
                                       sync_operations.restrict(*dst),
@@ -123,7 +123,7 @@ namespace RenderEngine
 
     void ResourceStateMachine::ownershipTransformRelease(VkCommandBuffer src_command_buffer,
                                                          VkQueue src_queue,
-                                                         ResourceStateHolder auto* texture,
+                                                         ResourceStateHolder auto* resource,
                                                          const ResourceState auto& transition_state,
                                                          const SyncObject& transformation_sync_object,
                                                          const SyncOperations& external_operations)
@@ -137,7 +137,7 @@ namespace RenderEngine
         vkBeginCommandBuffer(src_command_buffer, &src_begin_info);
 
         // Release - Now we are making a queue family ownership transformation. For this we don't need to change the state
-        src_state_machine.recordStateChange(texture, transition_state);
+        src_state_machine.recordStateChange(resource, transition_state);
         src_state_machine.commitChanges(src_command_buffer, false);
 
         vkEndCommandBuffer(src_command_buffer);
@@ -161,7 +161,7 @@ namespace RenderEngine
 
     void ResourceStateMachine::ownershipTransformAcquire(VkCommandBuffer dst_command_buffer,
                                                          VkQueue dst_queue,
-                                                         ResourceStateHolder auto* texture,
+                                                         ResourceStateHolder auto* resource,
                                                          const ResourceState auto& transition_state,
                                                          const SyncObject& transformation_sync_object,
                                                          const SyncOperations& external_operations,
@@ -176,7 +176,7 @@ namespace RenderEngine
         vkBeginCommandBuffer(dst_command_buffer, &dst_begin_info);
 
         // Acquire - Here the state machine can make the state change
-        dst_state_machine.recordStateChange(texture, transition_state);
+        dst_state_machine.recordStateChange(resource, transition_state);
         dst_state_machine.commitChanges(dst_command_buffer);
 
         if (additional_command != nullptr)

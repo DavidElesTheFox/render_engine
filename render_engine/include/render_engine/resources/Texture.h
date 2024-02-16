@@ -85,7 +85,15 @@ namespace RenderEngine
                 VkImageUsageFlags image_usage,
                 bool support_external_usage);
         void destroy() noexcept;
-
+        std::vector<SyncObject> notUnifiedQueueTransfer(const Image& image,
+                                                        SyncOperations sync_operations,
+                                                        TransferEngine& transfer_engine,
+                                                        CommandContext* src_context,
+                                                        CommandContext* dst_context);
+        std::vector<SyncObject> unifiedQueueTransfer(const Image& image,
+                                                     SyncOperations sync_operations,
+                                                     TransferEngine& transfer_engine,
+                                                     CommandContext* dst_context);
 
         VkPhysicalDevice _physical_device{ VK_NULL_HANDLE };
         VkDevice _logical_device{ VK_NULL_HANDLE };

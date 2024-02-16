@@ -119,7 +119,6 @@ namespace RenderEngine
 
     std::vector<SyncObject> Texture::upload(const Image& image, SyncOperations sync_operations, TransferEngine& transfer_engine, CommandContext* dst_context)
     {
-        std::vector<SyncObject> result;
 
         if (isImageCompatible(image) == false)
         {
@@ -138,163 +137,183 @@ namespace RenderEngine
             _texture_state.command_context = transfer_engine.getTransferContext().getWeakReference();
         }
 
-        auto* src_unit = _texture_state.command_context.lock().get();
+        auto* src_context = _texture_state.command_context.lock().get();
 
-        if (src_unit->getQueue() != dst_context->getQueue())
+        if (src_context->getQueueFamilyIndex() != dst_context->getQueueFamilyIndex())
         {
-            auto upload_command = [&](VkCommandBuffer command_buffer)
-                {
-                    ResourceStateMachine state_machine;
-                    state_machine.recordStateChange(this,
-                                                    getResourceState().clone()
-                                                    .setPipelineStage(VK_PIPELINE_STAGE_2_TRANSFER_BIT)
-                                                    .setAccessFlag(VK_ACCESS_2_TRANSFER_WRITE_BIT)
-                                                    .setImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
-                    );
-                    state_machine.commitChanges(command_buffer);
-                    {
-                        VkBufferImageCopy copy_region{};
-                        copy_region.bufferOffset = 0;
-                        copy_region.bufferRowLength = 0;
-                        copy_region.bufferImageHeight = 0;
-
-                        copy_region.imageSubresource.aspectMask = _aspect;
-                        copy_region.imageSubresource.mipLevel = 0;
-                        copy_region.imageSubresource.baseArrayLayer = 0;
-                        copy_region.imageSubresource.layerCount = 1;
-
-                        copy_region.imageOffset = { 0, 0, 0 };
-                        copy_region.imageExtent = {
-                            .width = _image.getWidth(),
-                            .height = _image.getHeight(),
-                            .depth = _image.getDepth()
-                        };
-                        vkCmdCopyBufferToImage(command_buffer,
-                                               _staging_buffer.getBuffer(),
-                                               _texture,
-                                               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                               1, &copy_region);
-                    }
-
-
-                };
-            SyncObject transfer_sync_object = SyncObject::CreateEmpty(src_unit->getLogicalDevice());
-            transfer_sync_object.createSemaphore("DataTransferFinished");
-            transfer_sync_object.addSignalOperationToGroup(SyncGroups::kInternal, "DataTransferFinished", VK_PIPELINE_STAGE_2_TRANSFER_BIT);
-            transfer_sync_object.addWaitOperationToGroup(SyncGroups::kExternal, "DataTransferFinished", VK_PIPELINE_STAGE_2_TRANSFER_BIT);
-            if (is_initial_transfer == false)
-            {
-                SyncObject sync_object_src_to_transfer = ResourceStateMachine::transferOwnership(this,
-                                                                                                 getResourceState().clone()
-                                                                                                 .setPipelineStage(VK_PIPELINE_STAGE_2_TRANSFER_BIT)
-                                                                                                 .setAccessFlag(0)
-                                                                                                 .setImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL),
-                                                                                                 _texture_state.command_context.lock().get(),
-                                                                                                 &transfer_engine.getTransferContext(),
-                                                                                                 sync_operations.extract(SyncOperations::ExtractWaitOperations));
-
-                transfer_engine.transfer(sync_object_src_to_transfer.getOperationsGroup(SyncGroups::kExternal)
-                                         .createUnionWith(transfer_sync_object.getOperationsGroup(SyncGroups::kInternal)),
-                                         upload_command);
-                result.push_back(std::move(sync_object_src_to_transfer));
-
-            }
-            else
-            {
-                SyncObject sync_object_src_to_transfer = SyncObject::CreateWithFence(src_unit->getLogicalDevice(), 0);
-                transfer_engine.transfer(sync_object_src_to_transfer.getOperationsGroup(SyncGroups::kExternal)
-                                         .createUnionWith(transfer_sync_object.getOperationsGroup(SyncGroups::kInternal)),
-                                         upload_command);
-                result.push_back(std::move(sync_object_src_to_transfer));
-            }
-            assert(getResourceState().getQueueFamilyIndex() == transfer_engine.getTransferContext().getQueueFamilyIndex());
-            auto getFinalStageMask = [&]
-                {
-                    VkPipelineStageFlagBits2 result{ 0 };
-                    if (_shader_usage & VK_SHADER_STAGE_VERTEX_BIT)
-                    {
-                        result |= VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
-                    }
-                    if (_shader_usage & VK_SHADER_STAGE_FRAGMENT_BIT)
-                    {
-                        result |= VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
-                    }
-                    return result;
-                };
-            SyncObject sync_object_transfer_to_dst = ResourceStateMachine::transferOwnership(this,
-                                                                                             getResourceState().clone()
-                                                                                             .setPipelineStage(getFinalStageMask())
-                                                                                             .setAccessFlag(VK_ACCESS_2_SHADER_READ_BIT)
-                                                                                             .setImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
-                                                                                             _texture_state.command_context.lock().get(),
-                                                                                             dst_context,
-                                                                                             sync_operations.extract(SyncOperations::ExtractSignalOperations | SyncOperations::ExtractFence)
-                                                                                             .createUnionWith(transfer_sync_object.getOperationsGroup(SyncGroups::kExternal)));
-            assert(getResourceState().getQueueFamilyIndex() == dst_context->getQueueFamilyIndex());
-            result.push_back(std::move(sync_object_transfer_to_dst));
-            result.push_back(std::move(transfer_sync_object));
-            return result;
+            return notUnifiedQueueTransfer(image, sync_operations, transfer_engine, src_context, dst_context);
         }
         else
         {
-            auto upload_command = [&](VkCommandBuffer command_buffer)
-                {
-                    ResourceStateMachine state_machine;
-                    state_machine.recordStateChange(this,
-                                                    getResourceState().clone()
-                                                    .setPipelineStage(VK_PIPELINE_STAGE_2_TRANSFER_BIT)
-                                                    .setAccessFlag(VK_ACCESS_2_TRANSFER_WRITE_BIT)
-                                                    .setImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
-                    );
-                    state_machine.commitChanges(command_buffer);
-
-                    {
-                        VkBufferImageCopy copy_region{};
-                        copy_region.bufferOffset = 0;
-                        copy_region.bufferRowLength = 0;
-                        copy_region.bufferImageHeight = 0;
-
-                        copy_region.imageSubresource.aspectMask = _aspect;
-                        copy_region.imageSubresource.mipLevel = 0;
-                        copy_region.imageSubresource.baseArrayLayer = 0;
-                        copy_region.imageSubresource.layerCount = 1;
-
-                        copy_region.imageOffset = { 0, 0, 0 };
-                        copy_region.imageExtent = {
-                            .width = _image.getWidth(),
-                            .height = _image.getHeight(),
-                            .depth = _image.getDepth()
-                        };
-                        vkCmdCopyBufferToImage(command_buffer,
-                                               _staging_buffer.getBuffer(),
-                                               _texture,
-                                               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                               1, &copy_region);
-                    }
-
-                    auto getFinalStageMask = [&]
-                        {
-                            VkPipelineStageFlagBits2 result{ 0 };
-                            if (_shader_usage & VK_SHADER_STAGE_VERTEX_BIT)
-                            {
-                                result |= VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
-                            }
-                            if (_shader_usage & VK_SHADER_STAGE_FRAGMENT_BIT)
-                            {
-                                result |= VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
-                            }
-                            return result;
-                        };
-                    state_machine.recordStateChange(this,
-                                                    getResourceState().clone()
-                                                    .setPipelineStage(getFinalStageMask())
-                                                    .setAccessFlag(VK_ACCESS_2_SHADER_READ_BIT)
-                                                    .setImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL));
-                    state_machine.commitChanges(command_buffer);
-                };
-            transfer_engine.transfer(sync_operations, upload_command);
-            return result;
+            return unifiedQueueTransfer(image, sync_operations, transfer_engine, dst_context);
         }
+    }
+
+    std::vector<SyncObject> Texture::unifiedQueueTransfer(const Image& image,
+                                                          SyncOperations sync_operations,
+                                                          TransferEngine& transfer_engine,
+                                                          CommandContext* dst_context)
+    {
+        auto upload_command = [&](VkCommandBuffer command_buffer)
+            {
+                ResourceStateMachine state_machine;
+                state_machine.recordStateChange(this,
+                                                getResourceState().clone()
+                                                .setPipelineStage(VK_PIPELINE_STAGE_2_TRANSFER_BIT)
+                                                .setAccessFlag(VK_ACCESS_2_TRANSFER_WRITE_BIT)
+                                                .setImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+                );
+                state_machine.commitChanges(command_buffer);
+
+                {
+                    VkBufferImageCopy copy_region{};
+                    copy_region.bufferOffset = 0;
+                    copy_region.bufferRowLength = 0;
+                    copy_region.bufferImageHeight = 0;
+
+                    copy_region.imageSubresource.aspectMask = _aspect;
+                    copy_region.imageSubresource.mipLevel = 0;
+                    copy_region.imageSubresource.baseArrayLayer = 0;
+                    copy_region.imageSubresource.layerCount = 1;
+
+                    copy_region.imageOffset = { 0, 0, 0 };
+                    copy_region.imageExtent = {
+                        .width = _image.getWidth(),
+                        .height = _image.getHeight(),
+                        .depth = _image.getDepth()
+                    };
+                    vkCmdCopyBufferToImage(command_buffer,
+                                           _staging_buffer.getBuffer(),
+                                           _texture,
+                                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                           1, &copy_region);
+                }
+
+                auto getFinalStageMask = [&]
+                    {
+                        VkPipelineStageFlagBits2 result{ 0 };
+                        if (_shader_usage & VK_SHADER_STAGE_VERTEX_BIT)
+                        {
+                            result |= VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
+                        }
+                        if (_shader_usage & VK_SHADER_STAGE_FRAGMENT_BIT)
+                        {
+                            result |= VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+                        }
+                        return result;
+                    };
+                state_machine.recordStateChange(this,
+                                                getResourceState().clone()
+                                                .setPipelineStage(getFinalStageMask())
+                                                .setAccessFlag(VK_ACCESS_2_SHADER_READ_BIT)
+                                                .setImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL));
+                state_machine.commitChanges(command_buffer);
+            };
+        transfer_engine.transfer(sync_operations, upload_command);
+        return {};
+    }
+
+    std::vector<SyncObject> Texture::notUnifiedQueueTransfer(const Image& image,
+                                                             SyncOperations sync_operations,
+                                                             TransferEngine& transfer_engine,
+                                                             CommandContext* src_context,
+                                                             CommandContext* dst_context)
+    {
+        std::vector<SyncObject> result;
+        const bool is_initial_transfer = _texture_state.command_context.expired();
+
+        auto upload_command = [&](VkCommandBuffer command_buffer)
+            {
+                ResourceStateMachine state_machine;
+                state_machine.recordStateChange(this,
+                                                getResourceState().clone()
+                                                .setPipelineStage(VK_PIPELINE_STAGE_2_TRANSFER_BIT)
+                                                .setAccessFlag(VK_ACCESS_2_TRANSFER_WRITE_BIT)
+                                                .setImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+                );
+                state_machine.commitChanges(command_buffer);
+                {
+                    VkBufferImageCopy copy_region{};
+                    copy_region.bufferOffset = 0;
+                    copy_region.bufferRowLength = 0;
+                    copy_region.bufferImageHeight = 0;
+
+                    copy_region.imageSubresource.aspectMask = _aspect;
+                    copy_region.imageSubresource.mipLevel = 0;
+                    copy_region.imageSubresource.baseArrayLayer = 0;
+                    copy_region.imageSubresource.layerCount = 1;
+
+                    copy_region.imageOffset = { 0, 0, 0 };
+                    copy_region.imageExtent = {
+                        .width = _image.getWidth(),
+                        .height = _image.getHeight(),
+                        .depth = _image.getDepth()
+                    };
+                    vkCmdCopyBufferToImage(command_buffer,
+                                           _staging_buffer.getBuffer(),
+                                           _texture,
+                                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                           1, &copy_region);
+                }
+
+
+            };
+        SyncObject transfer_sync_object = SyncObject::CreateEmpty(src_context->getLogicalDevice());
+        transfer_sync_object.createSemaphore("DataTransferFinished");
+        transfer_sync_object.addSignalOperationToGroup(SyncGroups::kInternal, "DataTransferFinished", VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+        transfer_sync_object.addWaitOperationToGroup(SyncGroups::kExternal, "DataTransferFinished", VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+        if (is_initial_transfer == false)
+        {
+            SyncObject sync_object_src_to_transfer = ResourceStateMachine::transferOwnership(this,
+                                                                                             getResourceState().clone()
+                                                                                             .setPipelineStage(VK_PIPELINE_STAGE_2_TRANSFER_BIT)
+                                                                                             .setAccessFlag(0)
+                                                                                             .setImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL),
+                                                                                             _texture_state.command_context.lock().get(),
+                                                                                             &transfer_engine.getTransferContext(),
+                                                                                             sync_operations.extract(SyncOperations::ExtractWaitOperations));
+
+            transfer_engine.transfer(sync_object_src_to_transfer.getOperationsGroup(SyncGroups::kExternal)
+                                     .createUnionWith(transfer_sync_object.getOperationsGroup(SyncGroups::kInternal)),
+                                     upload_command);
+            result.push_back(std::move(sync_object_src_to_transfer));
+
+        }
+        else
+        {
+            SyncObject sync_object_src_to_transfer = SyncObject::CreateWithFence(src_context->getLogicalDevice(), 0);
+            transfer_engine.transfer(sync_object_src_to_transfer.getOperationsGroup(SyncGroups::kExternal)
+                                     .createUnionWith(transfer_sync_object.getOperationsGroup(SyncGroups::kInternal)),
+                                     upload_command);
+            result.push_back(std::move(sync_object_src_to_transfer));
+        }
+        assert(getResourceState().getQueueFamilyIndex() == transfer_engine.getTransferContext().getQueueFamilyIndex());
+        auto getFinalStageMask = [&]
+            {
+                VkPipelineStageFlagBits2 result{ 0 };
+                if (_shader_usage & VK_SHADER_STAGE_VERTEX_BIT)
+                {
+                    result |= VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
+                }
+                if (_shader_usage & VK_SHADER_STAGE_FRAGMENT_BIT)
+                {
+                    result |= VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+                }
+                return result;
+            };
+        SyncObject sync_object_transfer_to_dst = ResourceStateMachine::transferOwnership(this,
+                                                                                         getResourceState().clone()
+                                                                                         .setPipelineStage(getFinalStageMask())
+                                                                                         .setAccessFlag(VK_ACCESS_2_SHADER_READ_BIT)
+                                                                                         .setImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+                                                                                         _texture_state.command_context.lock().get(),
+                                                                                         dst_context,
+                                                                                         sync_operations.extract(SyncOperations::ExtractSignalOperations | SyncOperations::ExtractFence)
+                                                                                         .createUnionWith(transfer_sync_object.getOperationsGroup(SyncGroups::kExternal)));
+        assert(getResourceState().getQueueFamilyIndex() == dst_context->getQueueFamilyIndex());
+        result.push_back(std::move(sync_object_transfer_to_dst));
+        result.push_back(std::move(transfer_sync_object));
+        return result;
     }
 
     std::vector<uint8_t> Texture::download(const SyncOperations& sync_operations,

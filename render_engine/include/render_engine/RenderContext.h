@@ -67,7 +67,7 @@ namespace RenderEngine
                 : object(std::move(garbage))
             {}
             Garbage object;
-            uint32_t life_count{ 1 };
+            uint32_t life_count{ 3 };
         };
         static RenderContext& context_impl();
         RenderContext() = default;

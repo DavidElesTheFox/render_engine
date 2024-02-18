@@ -55,7 +55,8 @@ namespace RenderEngine
 
         [[nodiscard]]
         std::vector<uint8_t> download(const SyncOperations& sync_operations,
-                                      TransferEngine& transfer_engine);
+                                      TransferEngine& transfer_engine,
+                                      CommandContext* src_context);
 
         VkImageView createImageView(const ImageViewData& data);
         VkSampler createSampler(const SamplerData& data);

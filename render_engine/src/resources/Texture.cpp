@@ -117,7 +117,10 @@ namespace RenderEngine
         destroy();
     }
 
-    std::vector<SyncObject> Texture::upload(const Image& image, SyncOperations sync_operations, TransferEngine& transfer_engine, CommandContext* dst_context)
+    std::vector<SyncObject> Texture::upload(const Image& image,
+                                            SyncOperations sync_operations,
+                                            TransferEngine& transfer_engine,
+                                            CommandContext* dst_context)
     {
 
         if (isImageCompatible(image) == false)
@@ -281,11 +284,13 @@ namespace RenderEngine
         }
         else
         {
-            SyncObject sync_object_src_to_transfer = SyncObject::CreateWithFence(src_context->getLogicalDevice(), 0);
-            transfer_engine.transfer(sync_object_src_to_transfer.getOperationsGroup(SyncGroups::kExternal)
-                                     .createUnionWith(transfer_sync_object.getOperationsGroup(SyncGroups::kInternal)),
+            SyncObject execution_barrier = ResourceStateMachine::barrier(this, src_context, sync_operations);
+
+            transfer_engine.transfer(transfer_sync_object.getOperationsGroup(SyncGroups::kInternal)
+                                     .createUnionWith(execution_barrier.getOperationsGroup(SyncGroups::kExternal)),
                                      upload_command);
-            result.push_back(std::move(sync_object_src_to_transfer));
+            result.push_back(std::move(execution_barrier));
+
         }
         assert(getResourceState().getQueueFamilyIndex() == transfer_engine.getTransferContext().getQueueFamilyIndex());
         auto getFinalStageMask = [&]
@@ -317,13 +322,19 @@ namespace RenderEngine
     }
 
     std::vector<uint8_t> Texture::download(const SyncOperations& sync_operations,
-                                           TransferEngine& transfer_engine)
+                                           TransferEngine& transfer_engine,
+                                           CommandContext* src_context)
     {
-        /*if (_texture_state.queue_family_index == std::nullopt)
-        {
-            _texture_state.queue_family_index = transfer_engine.getTransferContext().getQueueFamilyIndex();
-        }*/
+        // TODO remove blocking download
         assert(sync_operations.hasAnyFence());
+        std::vector<SyncObject> sync_objects_for_download;
+
+        const bool is_initial_transfer = _texture_state.command_context.expired();
+
+        if (is_initial_transfer)
+        {
+            _texture_state.command_context = transfer_engine.getTransferContext().getWeakReference();
+        }
 
         auto download_command = [&](VkCommandBuffer command_buffer)
             {
@@ -334,7 +345,6 @@ namespace RenderEngine
                                                 .setPipelineStage(VK_PIPELINE_STAGE_2_TRANSFER_BIT)
                                                 .setAccessFlag(VK_ACCESS_2_TRANSFER_READ_BIT)
                                                 .setImageLayout(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
-                                                //                                .setQueueFamilyIndex(transfer_engine.getTransferContext().getQueueFamilyIndex())
                 );
                 state_machine.commitChanges(command_buffer);
                 {
@@ -364,8 +374,62 @@ namespace RenderEngine
                 state_machine.recordStateChange(this, old_state);
                 state_machine.commitChanges(command_buffer);
             };
-        transfer_engine.transfer(sync_operations,
-                                 download_command);
+        SyncObject transfer_sync_object = SyncObject::CreateEmpty(src_context->getLogicalDevice());
+        transfer_sync_object.createSemaphore("DataTransferFinished");
+        transfer_sync_object.addSignalOperationToGroup(SyncGroups::kInternal, "DataTransferFinished", VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+        transfer_sync_object.addWaitOperationToGroup(SyncGroups::kExternal, "DataTransferFinished", VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+
+        TextureState original_state = getResourceState().clone();
+        if (src_context->getQueueFamilyIndex() != transfer_engine.getTransferContext().getQueueFamilyIndex())
+        {
+            if (is_initial_transfer == false)
+            {
+                SyncObject sync_object_src_to_transfer = ResourceStateMachine::transferOwnership(this,
+                                                                                                 getResourceState().clone()
+                                                                                                 .setPipelineStage(VK_PIPELINE_STAGE_2_TRANSFER_BIT)
+                                                                                                 .setAccessFlag(0)
+                                                                                                 .setImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL),
+                                                                                                 src_context,
+                                                                                                 &transfer_engine.getTransferContext(),
+                                                                                                 sync_operations.extract(SyncOperations::ExtractWaitOperations));
+
+                transfer_engine.transfer(transfer_sync_object.getOperationsGroup(SyncGroups::kInternal)
+                                         .createUnionWith(sync_object_src_to_transfer.getOperationsGroup(SyncGroups::kExternal)),
+                                         download_command);
+                sync_objects_for_download.push_back(std::move(sync_object_src_to_transfer));
+
+            }
+            else
+            {
+                SyncObject execution_barrier = ResourceStateMachine::barrier(this,
+                                                                             src_context,
+                                                                             sync_operations.extract(SyncOperations::ExtractWaitOperations));
+                transfer_engine.transfer(transfer_sync_object.getOperationsGroup(SyncGroups::kInternal)
+                                         .createUnionWith(execution_barrier.getOperationsGroup(SyncGroups::kExternal)),
+                                         download_command);
+                sync_objects_for_download.push_back(std::move(execution_barrier));
+            }
+
+            SyncObject sync_object_transfer_to_dst = ResourceStateMachine::transferOwnership(this,
+                                                                                             getResourceState().clone()
+                                                                                             .setPipelineStage(original_state.pipeline_stage)
+                                                                                             .setAccessFlag(original_state.access_flag)
+                                                                                             .setImageLayout(original_state.layout),
+                                                                                             &transfer_engine.getTransferContext(),
+                                                                                             src_context,
+                                                                                             sync_operations.extract(SyncOperations::ExtractSignalOperations | SyncOperations::ExtractFence)
+                                                                                             .createUnionWith(transfer_sync_object.getOperationsGroup(SyncGroups::kExternal)));
+            assert(getResourceState().getQueueFamilyIndex() == src_context->getQueueFamilyIndex());
+            sync_objects_for_download.push_back(std::move(sync_object_transfer_to_dst));
+            sync_objects_for_download.push_back(std::move(transfer_sync_object));
+        }
+        else
+        {
+            transfer_engine.transfer(transfer_sync_object.getOperationsGroup(SyncGroups::kInternal)
+                                     .createUnionWith(sync_operations),
+                                     download_command);
+
+        }
 
         vkWaitForFences(_logical_device, 1, sync_operations.getFence(), true, UINT64_MAX);
         vkResetFences(_logical_device, 1, sync_operations.getFence());

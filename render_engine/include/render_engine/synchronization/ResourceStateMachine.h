@@ -35,6 +35,14 @@ namespace RenderEngine
                                             CommandContext* dst,
                                             const SyncOperations& sync_operations);
 
+        [[nodiscard]]
+        static SyncObject barrier(Texture* texture,
+                                  CommandContext* src,
+                                  const SyncOperations& sync_operations);
+        [[nodiscard]]
+        static SyncObject barrier(Buffer* buffer,
+                                  CommandContext* src,
+                                  const SyncOperations& sync_operations);
         ResourceStateMachine() = default;
 
         void recordStateChange(Texture* texture, TextureState next_state);
@@ -65,6 +73,10 @@ namespace RenderEngine
                                               const SyncObject& transformation_sync_object,
                                               const SyncOperations& external_operations,
                                               const std::function<void(VkCommandBuffer, ResourceStateMachine&)>& additional_command);
+
+        static SyncObject barrierImpl(ResourceStateHolder auto* resource,
+                                      CommandContext* src,
+                                      const SyncOperations& sync_operations);
 
         void commitChanges(VkCommandBuffer command_buffer, bool apply_state_change_on_objects);
 

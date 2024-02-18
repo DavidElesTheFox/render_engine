@@ -290,7 +290,8 @@ namespace RenderEngine
             return {};
         }
 
-        return it->second.synchronization_object.getOperationsGroup(SyncGroups::kExternal);
+        return it->second.synchronization_object.getOperationsGroup(SyncGroups::kExternal)
+            .extract(~SyncOperations::ExtractFence);
     }
 
     void ImageStreamRenderer::destroy() noexcept

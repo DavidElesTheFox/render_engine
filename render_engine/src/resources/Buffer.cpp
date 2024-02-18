@@ -164,11 +164,11 @@ namespace RenderEngine
             }
             else
             {
-                SyncObject sync_object_src_to_transfer = SyncObject::CreateWithFence(src_context->getLogicalDevice(), 0);
-                transfer_engine.transfer(sync_object_src_to_transfer.getOperationsGroup(SyncGroups::kExternal)
+                SyncObject execution_barrier = ResourceStateMachine::barrier(this, src_context, sync_operations);
+                transfer_engine.transfer(execution_barrier.getOperationsGroup(SyncGroups::kExternal)
                                          .createUnionWith(transfer_sync_object.getOperationsGroup(SyncGroups::kInternal)),
                                          upload_command);
-                result.push_back(std::move(sync_object_src_to_transfer));
+                result.push_back(std::move(execution_barrier));
             }
             assert(getResourceState().getQueueFamilyIndex() == transfer_engine.getTransferContext().getQueueFamilyIndex());
 

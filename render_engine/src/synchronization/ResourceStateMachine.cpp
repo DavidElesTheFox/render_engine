@@ -227,6 +227,61 @@ namespace RenderEngine
                                      dst,
                                      sync_operations);
     }
+
+    SyncObject ResourceStateMachine::barrier(Texture* texture, CommandContext* src, const SyncOperations& sync_operations)
+    {
+        return barrierImpl(texture, src, sync_operations);
+    }
+    SyncObject ResourceStateMachine::barrier(Buffer* buffer, CommandContext* src, const SyncOperations& sync_operations)
+    {
+        return barrierImpl(buffer, src, sync_operations);
+    }
+    SyncObject ResourceStateMachine::barrierImpl(ResourceStateHolder auto* resource, CommandContext* src, const SyncOperations& sync_operations)
+    {
+        SyncObject result = SyncObject::CreateEmpty(src->getLogicalDevice());
+        result.createTimelineSemaphore("BarrierFinished", 0, 2);
+        result.addSignalOperationToGroup(SyncGroups::kInternal,
+                                         "BarrierFinished",
+                                         resource->getResourceState().pipeline_stage,
+                                         1);
+        result.addWaitOperationToGroup(SyncGroups::kExternal,
+                                       "BarrierFinished",
+                                       resource->getResourceState().pipeline_stage,
+                                       1);
+
+        auto command_buffer = src->createCommandBuffer(CommandContext::Usage::SingleSubmit);
+        VkCommandBufferBeginInfo begin_info{};
+        begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+        vkBeginCommandBuffer(command_buffer, &begin_info);
+
+        VkDependencyInfo dependency{};
+        dependency.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+        dependency.imageMemoryBarrierCount = 0;
+        dependency.bufferMemoryBarrierCount = 0;
+        vkCmdPipelineBarrier2(command_buffer, &dependency);
+
+        vkEndCommandBuffer(command_buffer);
+
+        VkCommandBufferSubmitInfo command_buffer_info{};
+        command_buffer_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
+        command_buffer_info.commandBuffer = command_buffer;
+
+        VkSubmitInfo2 submit_info{};
+        submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
+        submit_info.commandBufferInfoCount = 1;
+
+        submit_info.pCommandBufferInfos = &command_buffer_info;
+        auto operations =
+            result.query()
+            .select(SyncGroups::kInternal)
+            .join(sync_operations.extract(SyncOperations::ExtractWaitOperations)).get();
+        operations.fillInfo(submit_info);
+        vkQueueSubmit2(src->getQueue(), 1, &submit_info, VK_NULL_HANDLE);
+        return result;
+    }
+
     void ResourceStateMachine::commitChanges(VkCommandBuffer command_buffer, bool apply_state_change_on_objects)
     {
         auto image_barriers = createImageBarriers(apply_state_change_on_objects);

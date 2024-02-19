@@ -8,7 +8,6 @@
 #include <vector>
 namespace RenderEngine
 {
-    // TODO Rename to CommandUnit
     class CommandContext : public std::enable_shared_from_this<CommandContext>
     {
         struct CreationToken

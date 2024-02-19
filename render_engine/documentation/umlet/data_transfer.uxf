@@ -1,0 +1,326 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<diagram program="umlet" version="15.1">
+  <zoom_level>6</zoom_level>
+  <element>
+    <id>UMLSpecialState</id>
+    <coordinates>
+      <x>432</x>
+      <y>0</y>
+      <w>12</w>
+      <h>12</h>
+    </coordinates>
+    <panel_attributes>type=initial</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>432</x>
+      <y>0</y>
+      <w>18</w>
+      <h>78</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;-</panel_attributes>
+    <additional_attributes>10.0;110.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>UMLSpecialState</id>
+    <coordinates>
+      <x>426</x>
+      <y>66</y>
+      <w>24</w>
+      <h>24</h>
+    </coordinates>
+    <panel_attributes>type=decision</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>432</x>
+      <y>84</y>
+      <w>108</w>
+      <h>78</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;-
+[uniform_queue_transfer]</panel_attributes>
+    <additional_attributes>10.0;110.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>UMLState</id>
+    <coordinates>
+      <x>372</x>
+      <y>150</y>
+      <w>138</w>
+      <h>72</h>
+    </coordinates>
+    <panel_attributes>MemoryBarrier
+--
+srcPipelineStage=last_availability
+srcAccessFlag=last_availability
+dstPipelineStage=Transfer
+dstAccessFlag=Write
+</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLState</id>
+    <coordinates>
+      <x>372</x>
+      <y>264</y>
+      <w>138</w>
+      <h>30</h>
+    </coordinates>
+    <panel_attributes>DataTransfer
+</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLState</id>
+    <coordinates>
+      <x>372</x>
+      <y>336</y>
+      <w>138</w>
+      <h>84</h>
+    </coordinates>
+    <panel_attributes>MemoryBarrier
+--
+srcPipelineStage=Transfer
+srcAccessFlag=Write
+dstPipelineStage=[Fragment|Vertex]Shader
+dstAccessFlag=Read
+--
+waitSemaphores=INPUT
+signalSemaphores=INPUT
+</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>432</x>
+      <y>216</y>
+      <w>18</w>
+      <h>60</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;-</panel_attributes>
+    <additional_attributes>10.0;80.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>432</x>
+      <y>288</y>
+      <w>18</w>
+      <h>60</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;-</panel_attributes>
+    <additional_attributes>10.0;80.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>UMLSpecialState</id>
+    <coordinates>
+      <x>576</x>
+      <y>630</y>
+      <w>12</w>
+      <h>12</h>
+    </coordinates>
+    <panel_attributes>type=final</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>432</x>
+      <y>414</y>
+      <w>156</w>
+      <h>234</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;-</panel_attributes>
+    <additional_attributes>240.0;370.0;10.0;370.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>444</x>
+      <y>66</y>
+      <w>198</w>
+      <h>108</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;-
+[not_unified_queue_transfer]</panel_attributes>
+    <additional_attributes>310.0;160.0;310.0;20.0;10.0;20.0</additional_attributes>
+  </element>
+  <element>
+    <id>UMLSpecialState</id>
+    <coordinates>
+      <x>618</x>
+      <y>162</y>
+      <w>24</w>
+      <h>24</h>
+    </coordinates>
+    <panel_attributes>type=decision</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>624</x>
+      <y>180</y>
+      <w>84</w>
+      <h>48</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;-
+[is_initial_transfer]</panel_attributes>
+    <additional_attributes>10.0;60.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>UMLState</id>
+    <coordinates>
+      <x>570</x>
+      <y>216</y>
+      <w>138</w>
+      <h>66</h>
+    </coordinates>
+    <panel_attributes>ExecutionBarrier
+--
+queue:SRC
+waitSemaphores=INPUT
+signalSemaphores=BarrierFinished
+</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLState</id>
+    <coordinates>
+      <x>570</x>
+      <y>324</y>
+      <w>138</w>
+      <h>54</h>
+    </coordinates>
+    <panel_attributes>DataTransfer
+--
+queue:TRANSFER
+--
+waitSemaphore:BarrierFinished
+signalSemaphore:CopyFinished</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>630</x>
+      <y>276</y>
+      <w>18</w>
+      <h>60</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;-</panel_attributes>
+    <additional_attributes>10.0;80.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>UMLState</id>
+    <coordinates>
+      <x>684</x>
+      <y>456</y>
+      <w>138</w>
+      <h>66</h>
+    </coordinates>
+    <panel_attributes>TransferFamilyQueueOwnership
+--
+srcQueue:TRANSFER
+dstQueue:SRC
+waitSemaphores=CopyFinished
+signalSemaphores=INPUT
+</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>624</x>
+      <y>372</y>
+      <w>138</w>
+      <h>96</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;-</panel_attributes>
+    <additional_attributes>210.0;140.0;210.0;80.0;10.0;80.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>636</x>
+      <y>162</y>
+      <w>198</w>
+      <h>66</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;-
+[not_initial_transfer]</panel_attributes>
+    <additional_attributes>310.0;90.0;310.0;20.0;10.0;20.0</additional_attributes>
+  </element>
+  <element>
+    <id>UMLState</id>
+    <coordinates>
+      <x>762</x>
+      <y>216</y>
+      <w>150</w>
+      <h>66</h>
+    </coordinates>
+    <panel_attributes>TransferFamilyQueueOwnership
+--
+srcQueue:SRC
+dstQueue:TRANSFER
+waitSemaphores=INPUT
+signalSemaphores=TransferFinished
+</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLState</id>
+    <coordinates>
+      <x>768</x>
+      <y>324</y>
+      <w>138</w>
+      <h>54</h>
+    </coordinates>
+    <panel_attributes>DataTransfer
+--
+queue:TRANSFER
+--
+waitSemaphore:TransferFinished
+signalSemaphore:CopyFinished</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>822</x>
+      <y>276</y>
+      <w>18</w>
+      <h>60</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;-</panel_attributes>
+    <additional_attributes>10.0;80.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>744</x>
+      <y>372</y>
+      <w>96</w>
+      <h>96</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;-</panel_attributes>
+    <additional_attributes>10.0;140.0;10.0;80.0;140.0;80.0;140.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>582</x>
+      <y>516</y>
+      <w>174</w>
+      <h>132</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;-</panel_attributes>
+    <additional_attributes>10.0;200.0;270.0;200.0;270.0;10.0</additional_attributes>
+  </element>
+</diagram>

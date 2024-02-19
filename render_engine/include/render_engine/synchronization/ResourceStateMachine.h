@@ -43,7 +43,9 @@ namespace RenderEngine
         static SyncObject barrier(Buffer* buffer,
                                   CommandContext* src,
                                   const SyncOperations& sync_operations);
-        ResourceStateMachine() = default;
+        explicit ResourceStateMachine(LogicalDevice& logical_device)
+            : _logical_device(logical_device)
+        {}
 
         void recordStateChange(Texture* texture, TextureState next_state);
         void recordStateChange(Buffer* buffer, BufferState next_state);
@@ -61,6 +63,7 @@ namespace RenderEngine
 
         static void ownershipTransformRelease(VkCommandBuffer src_command_buffer,
                                               VkQueue src_queue,
+                                              LogicalDevice& logical_device,
                                               ResourceStateHolder auto* texture,
                                               const ResourceState auto& transition_state,
                                               const SyncObject& transformation_sync_object,
@@ -68,6 +71,7 @@ namespace RenderEngine
 
         static void ownershipTransformAcquire(VkCommandBuffer dst_command_buffer,
                                               VkQueue dst_queue,
+                                              LogicalDevice& logical_device,
                                               ResourceStateHolder auto* texture,
                                               const ResourceState auto& transition_state,
                                               const SyncObject& transformation_sync_object,
@@ -84,6 +88,7 @@ namespace RenderEngine
         std::vector<VkBufferMemoryBarrier2> createBufferBarriers(bool apply_state_change_on_buffer);
         bool stateCanMakeChangesOnMemory(VkAccessFlags2 access);
 
+        LogicalDevice& _logical_device;
         // TODO remove optional - so far it always has value
         std::unordered_map<Texture*, std::optional<TextureState>> _images{};
         std::unordered_map<Buffer*, std::optional<BufferState>> _buffers{};

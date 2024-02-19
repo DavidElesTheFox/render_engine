@@ -3,6 +3,7 @@
 #include <volk.h>
 
 #include <render_engine/DeviceLookup.h>
+#include <render_engine/LogicalDevice.h>
 
 #include <memory>
 #include <set>
@@ -92,18 +93,20 @@ namespace RenderEngine
         std::unique_ptr<TextureFactory> createTextureFactory(TransferEngine& transfer_engine,
                                                              std::set<uint32_t> compatible_queue_family_indexes);
 
-        VkDevice getLogicalDevice() { return _logical_device; }
+        LogicalDevice& getLogicalDevice() { return _logical_device; }
         VkPhysicalDevice getPhysicalDevice() { return _physical_device; }
         VkInstance& getVulkanInstance() { return _instance; }
 
         CudaCompute::CudaDevice& getCudaDevice() const { return *_cuda_device; }
         bool hasCudaDevice() const { return _cuda_device != nullptr; }
+
+        void waitIdle();
     private:
         void destroy() noexcept;
 
         VkInstance _instance;
         VkPhysicalDevice _physical_device;
-        VkDevice _logical_device;
+        LogicalDevice _logical_device;
         uint32_t _queue_family_present = 0;
         uint32_t _queue_family_graphics = 0;
         uint32_t _queue_family_transfer = 0;

@@ -50,7 +50,7 @@ namespace RenderEngine
         auto src_command_buffer = src->createCommandBuffer(CommandContext::Usage::SingleSubmit);
         auto dst_command_buffer = dst->createCommandBuffer(CommandContext::Usage::SingleSubmit);
 
-        assert(src->getLogicalDevice() == dst->getLogicalDevice());
+        assert(*src->getLogicalDevice() == *dst->getLogicalDevice());
         assert(dst->isPipelineStageSupported(new_state.pipeline_stage));
         SyncObject sync_object = SyncObject::CreateEmpty(src->getLogicalDevice());
 
@@ -72,12 +72,14 @@ namespace RenderEngine
             sync_object.addWaitOperationToGroup(SyncGroups::kAcquire, texture_semaphore_name, new_state.pipeline_stage, 1);
             ownershipTransformRelease(src_command_buffer,
                                       src->getQueue(),
+                                      src->getLogicalDevice(),
                                       resource,
                                       new_state,
                                       sync_object,
                                       sync_operations.restrict(*src));
             ownershipTransformAcquire(dst_command_buffer,
                                       dst->getQueue(),
+                                      dst->getLogicalDevice(),
                                       resource,
                                       new_state,
                                       sync_object,
@@ -106,12 +108,14 @@ namespace RenderEngine
 
             ownershipTransformRelease(src_command_buffer,
                                       src->getQueue(),
+                                      src->getLogicalDevice(),
                                       resource,
                                       transition_state,
                                       sync_object,
                                       sync_operations.restrict(*src));
             ownershipTransformAcquire(dst_command_buffer,
                                       dst->getQueue(),
+                                      dst->getLogicalDevice(),
                                       resource,
                                       transition_state,
                                       sync_object,
@@ -123,24 +127,25 @@ namespace RenderEngine
 
     void ResourceStateMachine::ownershipTransformRelease(VkCommandBuffer src_command_buffer,
                                                          VkQueue src_queue,
+                                                         LogicalDevice& logical_device,
                                                          ResourceStateHolder auto* resource,
                                                          const ResourceState auto& transition_state,
                                                          const SyncObject& transformation_sync_object,
                                                          const SyncOperations& external_operations)
     {
-        ResourceStateMachine src_state_machine;
+        ResourceStateMachine src_state_machine(logical_device);
 
         VkCommandBufferBeginInfo src_begin_info{};
         src_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         src_begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
-        vkBeginCommandBuffer(src_command_buffer, &src_begin_info);
+        logical_device->vkBeginCommandBuffer(src_command_buffer, &src_begin_info);
 
         // Release - Now we are making a queue family ownership transformation. For this we don't need to change the state
         src_state_machine.recordStateChange(resource, transition_state);
         src_state_machine.commitChanges(src_command_buffer, false);
 
-        vkEndCommandBuffer(src_command_buffer);
+        logical_device->vkEndCommandBuffer(src_command_buffer);
 
         VkCommandBufferSubmitInfo src_command_buffer_info{};
         src_command_buffer_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
@@ -156,24 +161,25 @@ namespace RenderEngine
             .select(SyncGroups::kRelease)
             .join(external_operations.extract(SyncOperations::ExtractWaitOperations)).get();
         release_operations.fillInfo(src_submit_info);
-        vkQueueSubmit2(src_queue, 1, &src_submit_info, VK_NULL_HANDLE);
+        logical_device->vkQueueSubmit2(src_queue, 1, &src_submit_info, VK_NULL_HANDLE);
     }
 
     void ResourceStateMachine::ownershipTransformAcquire(VkCommandBuffer dst_command_buffer,
                                                          VkQueue dst_queue,
+                                                         LogicalDevice& logical_device,
                                                          ResourceStateHolder auto* resource,
                                                          const ResourceState auto& transition_state,
                                                          const SyncObject& transformation_sync_object,
                                                          const SyncOperations& external_operations,
                                                          const std::function<void(VkCommandBuffer, ResourceStateMachine&)>& additional_command)
     {
-        ResourceStateMachine dst_state_machine;
+        ResourceStateMachine dst_state_machine(logical_device);
 
         VkCommandBufferBeginInfo dst_begin_info{};
         dst_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         dst_begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
-        vkBeginCommandBuffer(dst_command_buffer, &dst_begin_info);
+        logical_device->vkBeginCommandBuffer(dst_command_buffer, &dst_begin_info);
 
         // Acquire - Here the state machine can make the state change
         dst_state_machine.recordStateChange(resource, transition_state);
@@ -183,7 +189,7 @@ namespace RenderEngine
         {
             additional_command(dst_command_buffer, dst_state_machine);
         }
-        vkEndCommandBuffer(dst_command_buffer);
+        logical_device->vkEndCommandBuffer(dst_command_buffer);
 
         VkCommandBufferSubmitInfo dst_command_buffer_info{};
         dst_command_buffer_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
@@ -198,7 +204,7 @@ namespace RenderEngine
             .select({ SyncGroups::kInternal, SyncGroups::kAcquire })
             .join(external_operations.extract(SyncOperations::ExtractSignalOperations | SyncOperations::ExtractFence)).get();
         acquire_operations.fillInfo(dst_submit_info);
-        vkQueueSubmit2(dst_queue, 1, &dst_submit_info, *acquire_operations.getFence());
+        logical_device->vkQueueSubmit2(dst_queue, 1, &dst_submit_info, *acquire_operations.getFence());
     }
 
     [[nodiscard]]
@@ -236,7 +242,9 @@ namespace RenderEngine
     {
         return barrierImpl(buffer, src, sync_operations);
     }
-    SyncObject ResourceStateMachine::barrierImpl(ResourceStateHolder auto* resource, CommandContext* src, const SyncOperations& sync_operations)
+    SyncObject ResourceStateMachine::barrierImpl(ResourceStateHolder auto* resource,
+                                                 CommandContext* src,
+                                                 const SyncOperations& sync_operations)
     {
         SyncObject result = SyncObject::CreateEmpty(src->getLogicalDevice());
         result.createTimelineSemaphore("BarrierFinished", 0, 2);
@@ -254,15 +262,15 @@ namespace RenderEngine
         begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
-        vkBeginCommandBuffer(command_buffer, &begin_info);
+        src->getLogicalDevice()->vkBeginCommandBuffer(command_buffer, &begin_info);
 
         VkDependencyInfo dependency{};
         dependency.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
         dependency.imageMemoryBarrierCount = 0;
         dependency.bufferMemoryBarrierCount = 0;
-        vkCmdPipelineBarrier2(command_buffer, &dependency);
+        src->getLogicalDevice()->vkCmdPipelineBarrier2(command_buffer, &dependency);
 
-        vkEndCommandBuffer(command_buffer);
+        src->getLogicalDevice()->vkEndCommandBuffer(command_buffer);
 
         VkCommandBufferSubmitInfo command_buffer_info{};
         command_buffer_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
@@ -278,7 +286,7 @@ namespace RenderEngine
             .select(SyncGroups::kInternal)
             .join(sync_operations.extract(SyncOperations::ExtractWaitOperations)).get();
         operations.fillInfo(submit_info);
-        vkQueueSubmit2(src->getQueue(), 1, &submit_info, VK_NULL_HANDLE);
+        src->getLogicalDevice()->vkQueueSubmit2(src->getQueue(), 1, &submit_info, VK_NULL_HANDLE);
         return result;
     }
 
@@ -297,7 +305,7 @@ namespace RenderEngine
             dependency.pImageMemoryBarriers = image_barriers.data();
             dependency.bufferMemoryBarrierCount = buffer_barriers.size();
             dependency.pBufferMemoryBarriers = buffer_barriers.data();
-            vkCmdPipelineBarrier2(command_buffer, &dependency);
+            _logical_device->vkCmdPipelineBarrier2(command_buffer, &dependency);
         }
     }
 

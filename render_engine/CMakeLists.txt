@@ -78,6 +78,7 @@ set(RENDER_ENGINE_SYNCHRONIZATION_HEADERS
 	${RENDER_ENGINE_HEADER_LOCATION}/synchronization/SyncPrimitives.h
 	${RENDER_ENGINE_HEADER_LOCATION}/synchronization/SyncOperations.h
 	${RENDER_ENGINE_HEADER_LOCATION}/synchronization/ResourceStateMachine.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/synchronization/ResourceStates.h
 
 	)
 source_group("src\\synchronization" FILES ${RENDER_ENGINE_SYNCHRONIZATION_SRC})
@@ -167,6 +168,7 @@ set(RENDER_ENGINE_ROOT_SRC
 		src/CommandPoolFactory.cpp
         src/DeviceLookup.cpp
         src/CommandContext.cpp
+        src/LogicalDevice.cpp
 )
 set(RENDER_ENGINE_ROOT_HEADERS
 	${RENDER_ENGINE_HEADER_LOCATION}/RenderEngine.h
@@ -178,6 +180,7 @@ set(RENDER_ENGINE_ROOT_HEADERS
 	${RENDER_ENGINE_HEADER_LOCATION}/CommandPoolFactory.h
     ${RENDER_ENGINE_HEADER_LOCATION}/DeviceLookup.h
     ${RENDER_ENGINE_HEADER_LOCATION}/CommandContext.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/LogicalDevice.h
 )
 source_group("src" FILES ${RENDER_ENGINE_ROOT_SRC})
 source_group("include" FILES ${RENDER_ENGINE_ROOT_HEADERS})
@@ -201,7 +204,7 @@ set(RENDER_ENGINE_HEADERS
 	${RENDER_ENGINE_WINDOW_HEADERS}
 	${RENDER_ENGINE_MEMORY_HEADERS}
     ${RENDER_ENGINE_SYNCHRONIZATION_HEADERS}
-	${RENDER_ENGINE_ROOT_HEADERS} "include/render_engine/synchronization/ResourceStates.h")
+	${RENDER_ENGINE_ROOT_HEADERS})
 
 add_library(RenderEngine STATIC ${RENDER_ENGINE_SRC} ${RENDER_ENGINE_HEADERS})
 set_property(TARGET RenderEngine PROPERTY CXX_STANDARD 20)

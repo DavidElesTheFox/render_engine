@@ -6,6 +6,7 @@
 
 #include <render_engine/assets/Material.h>
 #include <render_engine/assets/Mesh.h>
+#include <render_engine/LogicalDevice.h>
 #include <render_engine/resources/GpuResourceSet.h>
 #include <render_engine/resources/PushConstantsUpdater.h>
 #include <render_engine/resources/UniformBinding.h>
@@ -16,7 +17,7 @@ namespace RenderEngine
     {
     public:
 
-        Technique(VkDevice logical_device,
+        Technique(LogicalDevice& logical_device,
                   const MaterialInstance* material,
                   TextureBindingMap&& subpass_textures,
                   GpuResourceSet&& constant_resources,
@@ -63,7 +64,7 @@ namespace RenderEngine
         VkShaderStageFlags getPushConstantsUsageFlag() const;
         PushConstantsUpdater createPushConstantsUpdater(VkCommandBuffer command_buffer)
         {
-            return PushConstantsUpdater{ command_buffer, _pipeline_layout };
+            return PushConstantsUpdater{ _logical_device, command_buffer, _pipeline_layout, };
         }
         const MaterialInstance* _material_instance{ nullptr };
 
@@ -71,7 +72,7 @@ namespace RenderEngine
         GpuResourceSet _constant_resources;
         GpuResourceSet _per_frame_resources;
         GpuResourceSet _per_draw_call_resources;
-        VkDevice _logical_device;
+        LogicalDevice& _logical_device;
         VkPipeline _pipeline{ VK_NULL_HANDLE };
         VkPipelineLayout _pipeline_layout{ VK_NULL_HANDLE };
         uint32_t _corresponding_subpass{ 0 };

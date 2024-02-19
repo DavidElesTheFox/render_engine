@@ -120,7 +120,7 @@ namespace RenderEngine
         else
         {
             throw std::runtime_error("Cannot open the file handle: " + std::string{ RENDERDOC_DLL });
-}
+        }
 #endif
         _renderer_factory = std::move(info.renderer_factory);
 
@@ -233,6 +233,7 @@ namespace RenderEngine
     {
         if (isVulkanInitialized())
         {
+            _garbage.clear();
             _devices.clear();
             vkDestroyInstance(_instance, nullptr);
             _instance = nullptr;

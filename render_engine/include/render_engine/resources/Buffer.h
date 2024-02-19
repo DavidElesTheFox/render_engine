@@ -2,6 +2,7 @@
 #include <volk.h>
 
 #include <render_engine/Device.h>
+#include <render_engine/LogicalDevice.h>
 #include <render_engine/synchronization/ResourceStateMachine.h>
 #include <render_engine/TransferEngine.h>
 
@@ -23,7 +24,7 @@ namespace RenderEngine
     public:
         friend class ResourceStateMachine;
 
-        Buffer(VkPhysicalDevice physical_device, VkDevice logical_device, BufferInfo&& buffer_info);
+        Buffer(VkPhysicalDevice physical_device, LogicalDevice& logical_device, BufferInfo&& buffer_info);
         ~Buffer();
 
         void uploadMapped(std::span<const uint8_t> data_view);
@@ -52,7 +53,7 @@ namespace RenderEngine
         bool isMapped() const { return _buffer_info.mapped; }
 
         VkPhysicalDevice _physical_device{ VK_NULL_HANDLE };
-        VkDevice _logical_device{ VK_NULL_HANDLE };
+        LogicalDevice& _logical_device;
         VkBuffer _buffer{ VK_NULL_HANDLE };;
         VkDeviceMemory _buffer_memory{ VK_NULL_HANDLE };;
         BufferInfo _buffer_info;

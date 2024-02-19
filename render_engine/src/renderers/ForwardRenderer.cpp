@@ -52,9 +52,9 @@ namespace RenderEngine
         renderPassInfo.pSubpasses = &subpass;
         renderPassInfo.dependencyCount = 0;
 
-        auto logical_device = window.getDevice().getLogicalDevice();
+        auto& logical_device = window.getDevice().getLogicalDevice();
         VkRenderPass render_pass{ VK_NULL_HANDLE };
-        if (vkCreateRenderPass(logical_device, &renderPassInfo, nullptr, &render_pass) != VK_SUCCESS)
+        if (logical_device->vkCreateRenderPass(*logical_device, &renderPassInfo, nullptr, &render_pass) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to create render pass!");
         }
@@ -126,7 +126,7 @@ namespace RenderEngine
         VkCommandBufferBeginInfo begin_info{};
         begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-        if (vkBeginCommandBuffer(frame_data.command_buffer, &begin_info) != VK_SUCCESS)
+        if (getLogicalDevice()->vkBeginCommandBuffer(frame_data.command_buffer, &begin_info) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to begin recording command buffer!");
         }
@@ -142,12 +142,12 @@ namespace RenderEngine
         render_pass_info.clearValueCount = 1;
         render_pass_info.pClearValues = &clearColor;
 
-        vkCmdBeginRenderPass(frame_data.command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
+        getLogicalDevice()->vkCmdBeginRenderPass(frame_data.command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
         for (auto& mesh_group : _meshes)
         {
             MaterialInstance::UpdateContext material_update_context = mesh_group.technique->onFrameBegin(swap_chain_image_index, frame_data.command_buffer);
 
-            vkCmdBindPipeline(frame_data.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_group.technique->getPipeline());
+            getLogicalDevice()->vkCmdBindPipeline(frame_data.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_group.technique->getPipeline());
 
             VkViewport viewport{};
             viewport.x = 0.0f;
@@ -156,22 +156,22 @@ namespace RenderEngine
             viewport.height = (float)render_area.extent.height;
             viewport.minDepth = 0.0f;
             viewport.maxDepth = 1.0f;
-            vkCmdSetViewport(frame_data.command_buffer, 0, 1, &viewport);
+            getLogicalDevice()->vkCmdSetViewport(frame_data.command_buffer, 0, 1, &viewport);
 
             VkRect2D scissor{};
             scissor.offset = { 0, 0 };
             scissor.extent = render_area.extent;
-            vkCmdSetScissor(frame_data.command_buffer, 0, 1, &scissor);
+            getLogicalDevice()->vkCmdSetScissor(frame_data.command_buffer, 0, 1, &scissor);
             auto descriptor_sets = mesh_group.technique->collectDescriptorSets(swap_chain_image_index);
 
             if (descriptor_sets.empty() == false)
             {
-                vkCmdBindDescriptorSets(frame_data.command_buffer,
-                                        VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                        mesh_group.technique->getPipelineLayout(),
-                                        0,
-                                        descriptor_sets.size(),
-                                        descriptor_sets.data(), 0, nullptr);
+                getLogicalDevice()->vkCmdBindDescriptorSets(frame_data.command_buffer,
+                                                            VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                                            mesh_group.technique->getPipelineLayout(),
+                                                            0,
+                                                            descriptor_sets.size(),
+                                                            descriptor_sets.data(), 0, nullptr);
             }
 
             for (auto& mesh_instance : mesh_group.mesh_instances)
@@ -181,16 +181,16 @@ namespace RenderEngine
 
                 VkBuffer vertexBuffers[] = { mesh_buffers.vertex_buffer->getBuffer() };
                 VkDeviceSize offsets[] = { 0 };
-                vkCmdBindVertexBuffers(frame_data.command_buffer, 0, 1, vertexBuffers, offsets);
-                vkCmdBindIndexBuffer(frame_data.command_buffer, mesh_buffers.index_buffer->getBuffer(), 0, VK_INDEX_TYPE_UINT16);
+                getLogicalDevice()->vkCmdBindVertexBuffers(frame_data.command_buffer, 0, 1, vertexBuffers, offsets);
+                getLogicalDevice()->vkCmdBindIndexBuffer(frame_data.command_buffer, mesh_buffers.index_buffer->getBuffer(), 0, VK_INDEX_TYPE_UINT16);
 
 
-                vkCmdDrawIndexed(frame_data.command_buffer, static_cast<uint32_t>(mesh_buffers.index_buffer->getDeviceSize() / sizeof(uint16_t)), 1, 0, 0, 0);
+                getLogicalDevice()->vkCmdDrawIndexed(frame_data.command_buffer, static_cast<uint32_t>(mesh_buffers.index_buffer->getDeviceSize() / sizeof(uint16_t)), 1, 0, 0, 0);
             }
         }
-        vkCmdEndRenderPass(frame_data.command_buffer);
+        getLogicalDevice()->vkCmdEndRenderPass(frame_data.command_buffer);
 
-        if (vkEndCommandBuffer(frame_data.command_buffer) != VK_SUCCESS)
+        if (getLogicalDevice()->vkEndCommandBuffer(frame_data.command_buffer) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to record command buffer!");
         }

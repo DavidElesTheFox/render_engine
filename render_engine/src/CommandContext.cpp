@@ -7,26 +7,25 @@
 
 namespace RenderEngine
 {
-    CommandContext::CommandContext(VkDevice logical_device,
+    CommandContext::CommandContext(LogicalDevice& logical_device,
                                    uint32_t queue_family_index,
                                    DeviceLookup::QueueFamilyInfo queue_family_info,
                                    CreationToken)
-        : _logical_device(logical_device)
+        : _logical_device(&logical_device)
         , _queue_family_index(queue_family_index)
         , _queue_family_info(std::move(queue_family_info))
     {
-        assert(logical_device != VK_NULL_HANDLE);
         assert(_queue_family_info.hasComputeSupport != std::nullopt
                && _queue_family_info.hasGraphicsSupport != std::nullopt
                && _queue_family_info.hasTransferSupport != std::nullopt);
 
-        vkGetDeviceQueue(_logical_device, queue_family_index, 0, &_queue);
+        getLogicalDevice()->vkGetDeviceQueue(*getLogicalDevice(), queue_family_index, 0, &_queue);
         {
             VkCommandPoolCreateInfo pool_info{};
             pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
             pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
             pool_info.queueFamilyIndex = queue_family_index;
-            if (vkCreateCommandPool(_logical_device, &pool_info, nullptr, &_command_pool) != VK_SUCCESS)
+            if (getLogicalDevice()->vkCreateCommandPool(*getLogicalDevice(), &pool_info, nullptr, &_command_pool) != VK_SUCCESS)
             {
                 throw std::runtime_error("failed to create command pool!");
             }
@@ -36,7 +35,7 @@ namespace RenderEngine
             pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
             pool_info.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
             pool_info.queueFamilyIndex = queue_family_index;
-            if (vkCreateCommandPool(_logical_device, &pool_info, nullptr, &_transient_command_pool) != VK_SUCCESS)
+            if (getLogicalDevice()->vkCreateCommandPool(*getLogicalDevice(), &pool_info, nullptr, &_transient_command_pool) != VK_SUCCESS)
             {
                 throw std::runtime_error("failed to create command pool!");
             }
@@ -58,12 +57,12 @@ namespace RenderEngine
     }
     CommandContext::~CommandContext()
     {
-        if (_logical_device == VK_NULL_HANDLE)
+        if (_logical_device == nullptr)
         {
             return;
         }
-        vkDestroyCommandPool(_logical_device, _command_pool, nullptr);
-        vkDestroyCommandPool(_logical_device, _transient_command_pool, nullptr);
+        getLogicalDevice()->vkDestroyCommandPool(*getLogicalDevice(), _command_pool, nullptr);
+        getLogicalDevice()->vkDestroyCommandPool(*getLogicalDevice(), _transient_command_pool, nullptr);
     }
     VkQueue CommandContext::getQueue() const
     {
@@ -82,7 +81,7 @@ namespace RenderEngine
         allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
         allocInfo.commandBufferCount = command_buffers.size();
 
-        if (vkAllocateCommandBuffers(_logical_device, &allocInfo, command_buffers.data()) != VK_SUCCESS)
+        if (getLogicalDevice()->vkAllocateCommandBuffers(*getLogicalDevice(), &allocInfo, command_buffers.data()) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to allocate command buffers!");
         }
@@ -92,7 +91,7 @@ namespace RenderEngine
 
     std::shared_ptr<CommandContext> CommandContext::clone() const
     {
-        return std::make_shared<CommandContext>(_logical_device, _queue_family_index, _queue_family_info, CommandContext::CreationToken{});
+        return std::make_shared<CommandContext>(*_logical_device, _queue_family_index, _queue_family_info, CommandContext::CreationToken{});
     }
 
     bool CommandContext::isPipelineStageSupported(VkPipelineStageFlags2 pipeline_stage) const

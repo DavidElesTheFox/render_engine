@@ -2,6 +2,8 @@
 
 #include <volk.h>
 
+#include <render_engine/LogicalDevice.h>
+
 #include <filesystem>
 #include <optional>
 #include <ranges>
@@ -76,7 +78,7 @@ namespace RenderEngine
             , _spirv_code(spirv_code.begin(), spirv_code.end())
         {}
         virtual ~Shader() = default;
-        ShaderModule loadOn(VkDevice logical_device) const;
+        ShaderModule loadOn(LogicalDevice& logical_device) const;
         const MetaData& getMetaData() const
         {
             return _meta_data;

@@ -41,7 +41,7 @@ namespace RenderEngine
 
     Texture::Texture(Image image,
                      VkPhysicalDevice physical_device,
-                     VkDevice logical_device,
+                     LogicalDevice& logical_device,
                      VkImageAspectFlags aspect,
                      VkShaderStageFlags shader_usage,
                      std::set<uint32_t> compatible_queue_family_indexes,
@@ -87,12 +87,12 @@ namespace RenderEngine
 
         _texture_state.layout = image_info.initialLayout;
 
-        if (vkCreateImage(_logical_device, &image_info, nullptr, &_texture) != VK_SUCCESS)
+        if (_logical_device->vkCreateImage(*_logical_device, &image_info, nullptr, &_texture) != VK_SUCCESS)
         {
             throw std::runtime_error("Cannot create image");
         }
 
-        vkGetImageMemoryRequirements(_logical_device, _texture, &_memory_requirements);
+        _logical_device->vkGetImageMemoryRequirements(*_logical_device, _texture, &_memory_requirements);
 
         VkMemoryAllocateInfo alloc_info{};
         alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -106,11 +106,11 @@ namespace RenderEngine
             export_alloc_info.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
             alloc_info.pNext = &export_alloc_info;
         }
-        if (vkAllocateMemory(_logical_device, &alloc_info, nullptr, &_texture_memory) != VK_SUCCESS)
+        if (_logical_device->vkAllocateMemory(*_logical_device, &alloc_info, nullptr, &_texture_memory) != VK_SUCCESS)
         {
             throw std::runtime_error("Cannot allocate memory for image");
         }
-        vkBindImageMemory(_logical_device, _texture, _texture_memory, 0);
+        _logical_device->vkBindImageMemory(*_logical_device, _texture, _texture_memory, 0);
     }
     catch (const std::exception&)
     {
@@ -142,7 +142,8 @@ namespace RenderEngine
 
         auto* src_context = _texture_state.command_context.lock().get();
 
-        if (src_context->getQueueFamilyIndex() != dst_context->getQueueFamilyIndex())
+        if (dst_context->getQueueFamilyIndex() != transfer_engine.getTransferContext().getQueueFamilyIndex()
+            || src_context->getQueueFamilyIndex() != transfer_engine.getTransferContext().getQueueFamilyIndex())
         {
             return notUnifiedQueueTransfer(image, sync_operations, transfer_engine, src_context, dst_context);
         }
@@ -159,7 +160,7 @@ namespace RenderEngine
     {
         auto upload_command = [&](VkCommandBuffer command_buffer)
             {
-                ResourceStateMachine state_machine;
+                ResourceStateMachine state_machine(dst_context->getLogicalDevice());
                 state_machine.recordStateChange(this,
                                                 getResourceState().clone()
                                                 .setPipelineStage(VK_PIPELINE_STAGE_2_TRANSFER_BIT)
@@ -185,11 +186,11 @@ namespace RenderEngine
                         .height = _image.getHeight(),
                         .depth = _image.getDepth()
                     };
-                    vkCmdCopyBufferToImage(command_buffer,
-                                           _staging_buffer.getBuffer(),
-                                           _texture,
-                                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                           1, &copy_region);
+                    transfer_engine.getTransferContext().getLogicalDevice()->vkCmdCopyBufferToImage(command_buffer,
+                                                                                                    _staging_buffer.getBuffer(),
+                                                                                                    _texture,
+                                                                                                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                                                                                    1, &copy_region);
                 }
 
                 auto getFinalStageMask = [&]
@@ -227,7 +228,7 @@ namespace RenderEngine
 
         auto upload_command = [&](VkCommandBuffer command_buffer)
             {
-                ResourceStateMachine state_machine;
+                ResourceStateMachine state_machine(src_context->getLogicalDevice());
                 state_machine.recordStateChange(this,
                                                 getResourceState().clone()
                                                 .setPipelineStage(VK_PIPELINE_STAGE_2_TRANSFER_BIT)
@@ -252,11 +253,11 @@ namespace RenderEngine
                         .height = _image.getHeight(),
                         .depth = _image.getDepth()
                     };
-                    vkCmdCopyBufferToImage(command_buffer,
-                                           _staging_buffer.getBuffer(),
-                                           _texture,
-                                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                           1, &copy_region);
+                    src_context->getLogicalDevice()->vkCmdCopyBufferToImage(command_buffer,
+                                                                            _staging_buffer.getBuffer(),
+                                                                            _texture,
+                                                                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                                                            1, &copy_region);
                 }
 
 
@@ -338,7 +339,7 @@ namespace RenderEngine
 
         auto download_command = [&](VkCommandBuffer command_buffer)
             {
-                ResourceStateMachine state_machine;
+                ResourceStateMachine state_machine(src_context->getLogicalDevice());
                 auto old_state = getResourceState();
                 state_machine.recordStateChange(this,
                                                 getResourceState().clone()
@@ -364,11 +365,11 @@ namespace RenderEngine
                         .height = _image.getHeight(),
                         .depth = _image.getDepth()
                     };
-                    vkCmdCopyImageToBuffer(command_buffer,
-                                           _texture,
-                                           VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                                           _staging_buffer.getBuffer(),
-                                           1, &copy_region);
+                    src_context->getLogicalDevice()->vkCmdCopyImageToBuffer(command_buffer,
+                                                                            _texture,
+                                                                            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                                                                            _staging_buffer.getBuffer(),
+                                                                            1, &copy_region);
                 }
 
                 state_machine.recordStateChange(this, old_state);
@@ -431,8 +432,8 @@ namespace RenderEngine
 
         }
 
-        vkWaitForFences(_logical_device, 1, sync_operations.getFence(), true, UINT64_MAX);
-        vkResetFences(_logical_device, 1, sync_operations.getFence());
+        _logical_device->vkWaitForFences(*_logical_device, 1, sync_operations.getFence(), true, UINT64_MAX);
+        _logical_device->vkResetFences(*_logical_device, 1, sync_operations.getFence());
 
         std::vector<uint8_t> data(_staging_buffer.getDeviceSize());
         const uint8_t* staging_memory = static_cast<const uint8_t*>(_staging_buffer.getMemory());
@@ -466,7 +467,7 @@ namespace RenderEngine
         create_info.subresourceRange.levelCount = 1;
 
         VkImageView result;
-        if (vkCreateImageView(_logical_device, &create_info, nullptr, &result) != VK_SUCCESS)
+        if (_logical_device->vkCreateImageView(*_logical_device, &create_info, nullptr, &result) != VK_SUCCESS)
         {
             throw std::runtime_error("Cannot create image view");
         }
@@ -503,7 +504,7 @@ namespace RenderEngine
         create_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 
         VkSampler result;
-        if (vkCreateSampler(_logical_device, &create_info, nullptr, &result) != VK_SUCCESS)
+        if (_logical_device->vkCreateSampler(*_logical_device, &create_info, nullptr, &result) != VK_SUCCESS)
         {
             throw std::runtime_error("Cannot create sampler");
         }
@@ -513,8 +514,8 @@ namespace RenderEngine
 
     void Texture::destroy() noexcept
     {
-        vkFreeMemory(_logical_device, _texture_memory, nullptr);
-        vkDestroyImage(_logical_device, _texture, nullptr);
+        _logical_device->vkFreeMemory(*_logical_device, _texture_memory, nullptr);
+        _logical_device->vkDestroyImage(*_logical_device, _texture, nullptr);
     }
 
     HANDLE Texture::getMemoryHandle() const
@@ -526,8 +527,8 @@ namespace RenderEngine
         memory_handle_info.memory = _texture_memory;
         memory_handle_info.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
 
-        assert(vkGetMemoryWin32HandleKHR != nullptr);
-        vkGetMemoryWin32HandleKHR(_logical_device, &memory_handle_info, &result);
+        assert(_logical_device->vkGetMemoryWin32HandleKHR != nullptr);
+        _logical_device->vkGetMemoryWin32HandleKHR(*_logical_device, &memory_handle_info, &result);
         return result;
     }
 

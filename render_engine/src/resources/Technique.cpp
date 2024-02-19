@@ -4,7 +4,7 @@
 
 namespace RenderEngine
 {
-    Technique::Technique(VkDevice logical_device,
+    Technique::Technique(LogicalDevice& logical_device,
                          const MaterialInstance* material_instance,
                          TextureBindingMap&& subpass_textures,
                          GpuResourceSet&& constant_resources,
@@ -51,7 +51,7 @@ namespace RenderEngine
 
         pipelineLayoutInfo.pushConstantRangeCount = push_constants_info_container.size();
         pipelineLayoutInfo.pPushConstantRanges = push_constants_info_container.data();
-        if (vkCreatePipelineLayout(logical_device, &pipelineLayoutInfo, nullptr, &_pipeline_layout) != VK_SUCCESS)
+        if (logical_device->vkCreatePipelineLayout(*logical_device, &pipelineLayoutInfo, nullptr, &_pipeline_layout) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to create pipeline layout!");
         }
@@ -181,7 +181,7 @@ namespace RenderEngine
         pipelineInfo.renderPass = render_pass;
         pipelineInfo.subpass = corresponding_subpass;
         pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
-        if (vkCreateGraphicsPipelines(logical_device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &_pipeline) != VK_SUCCESS)
+        if (_logical_device->vkCreateGraphicsPipelines(*_logical_device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &_pipeline) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to create graphics pipeline!");
         }
@@ -196,8 +196,8 @@ namespace RenderEngine
     }
     void Technique::destroy()
     {
-        vkDestroyPipeline(_logical_device, _pipeline, nullptr);
-        vkDestroyPipelineLayout(_logical_device, _pipeline_layout, nullptr);
+        _logical_device->vkDestroyPipeline(*_logical_device, _pipeline, nullptr);
+        _logical_device->vkDestroyPipelineLayout(*_logical_device, _pipeline_layout, nullptr);
 
     }
 

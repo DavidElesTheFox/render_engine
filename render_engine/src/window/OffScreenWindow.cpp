@@ -126,8 +126,8 @@ namespace RenderEngine
     }
     void OffScreenWindow::destroy()
     {
-        auto logical_device = _device.getLogicalDevice();
-        vkDeviceWaitIdle(logical_device);
+        auto& logical_device = _device.getLogicalDevice();
+        logical_device->vkDeviceWaitIdle(*logical_device);
         _back_buffer.clear();
         _renderers.clear();
 
@@ -176,7 +176,6 @@ namespace RenderEngine
         * TODO we need to ensure that the previous draw call is finished.Currently download is a blocking command, thus it is an implicit guarantee.
         * Probably we should wait here the fence what currently waited inside the download.
         */
-        auto logical_device = _device.getLogicalDevice();
         assert(frame_data.synch_render.getOperationsGroup(SyncGroups::kInternal).hasAnyFence() && "Render sync operation needs a fence");
         /*vkWaitForFences(logical_device, 1, frame_data.synch_render.getOperationsGroup(SyncGroups::kInternal).getFence(), VK_TRUE, UINT64_MAX);
 

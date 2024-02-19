@@ -40,7 +40,7 @@ namespace RenderEngine
         void destroyRenderOutput();
         IWindow& getWindow() { return _window; }
         const IWindow& getWindow() const { return _window; }
-        VkDevice getLogicalDevice() const { return _window.getDevice().getLogicalDevice(); }
+        LogicalDevice& getLogicalDevice() const { return _window.getDevice().getLogicalDevice(); }
         VkPhysicalDevice getPhysicalDevice() const { return _window.getDevice().getPhysicalDevice(); }
         FrameData& getFrameData(uint32_t image_index)
         {

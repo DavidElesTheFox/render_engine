@@ -56,7 +56,7 @@ OffScreenTestApplication::~OffScreenTestApplication()
     if (_window != nullptr)
     {
         // finish all rendering before destroying anything
-        vkDeviceWaitIdle(_window->getDevice().getLogicalDevice());
+        _window->getDevice().waitIdle();
     }
 }
 

@@ -36,7 +36,7 @@ namespace RenderEngine
     {
         _spirv_code = readSpirvCode(spriv_path);
     }
-    ShaderModule Shader::loadOn(VkDevice logical_device) const
+    ShaderModule Shader::loadOn(LogicalDevice& logical_device) const
     {
         VkShaderModuleCreateInfo create_info{};
         create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -44,7 +44,7 @@ namespace RenderEngine
         create_info.pCode = _spirv_code.data();
 
         VkShaderModule shader_module;
-        if (vkCreateShaderModule(logical_device, &create_info, nullptr, &shader_module) != VK_SUCCESS)
+        if (logical_device->vkCreateShaderModule(*logical_device, &create_info, nullptr, &shader_module) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to create shader module!");
         }

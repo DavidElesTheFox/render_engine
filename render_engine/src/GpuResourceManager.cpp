@@ -18,8 +18,11 @@ namespace RenderEngine
 
         }
     }
-    GpuResourceManager::GpuResourceManager(VkPhysicalDevice physical_device, VkDevice logical_device,
-                                           uint32_t back_buffer_size, uint32_t max_num_of_resources) : _physical_device(physical_device)
+    GpuResourceManager::GpuResourceManager(VkPhysicalDevice physical_device,
+                                           LogicalDevice& logical_device,
+                                           uint32_t back_buffer_size,
+                                           uint32_t max_num_of_resources)
+        : _physical_device(physical_device)
         , _logical_device(logical_device)
         , _back_buffer_size(back_buffer_size)
     {
@@ -38,7 +41,7 @@ namespace RenderEngine
         poolInfo.maxSets = back_buffer_size * max_num_of_resources;
 
 
-        if (vkCreateDescriptorPool(logical_device, &poolInfo, nullptr, &_descriptor_pool) != VK_SUCCESS)
+        if (_logical_device->vkCreateDescriptorPool(*_logical_device, &poolInfo, nullptr, &_descriptor_pool) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to create descriptor pool!");
         }
@@ -46,10 +49,8 @@ namespace RenderEngine
 
     GpuResourceManager::~GpuResourceManager()
     {
-        vkDestroyDescriptorPool(_logical_device, _descriptor_pool, nullptr);
+        _logical_device->vkDestroyDescriptorPool(*_logical_device, _descriptor_pool, nullptr);
     }
-
-
 
     std::unique_ptr<Buffer> GpuResourceManager::createAttributeBuffer(VkBufferUsageFlags usage, VkDeviceSize size)
     {

@@ -50,7 +50,7 @@ namespace RenderEngine
         signal_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SIGNAL_INFO;
         signal_info.semaphore = semaphore;
         signal_info.value = _primitives.getTimelineOffset(name) + value;
-        if (vkSignalSemaphore(_primitives.getLogicalDevice(), &signal_info) != VK_SUCCESS)
+        if (_primitives.getLogicalDevice()->vkSignalSemaphore(*_primitives.getLogicalDevice(), &signal_info) != VK_SUCCESS)
         {
             throw std::runtime_error("Couldn't signal semaphore: " + name);
         }
@@ -66,7 +66,7 @@ namespace RenderEngine
         wait_info.pSemaphores = &semaphore;
         wait_info.semaphoreCount = 1;
         wait_info.pValues = &value_to_wait;
-        if (vkWaitSemaphores(_primitives.getLogicalDevice(), &wait_info, UINT64_MAX) != VK_SUCCESS)
+        if (_primitives.getLogicalDevice()->vkWaitSemaphores(*_primitives.getLogicalDevice(), &wait_info, UINT64_MAX) != VK_SUCCESS)
         {
             throw std::runtime_error("Couldn't signal semaphore: " + name);
         }
@@ -88,7 +88,7 @@ namespace RenderEngine
         }
     }
 
-    SyncObject::SyncObject(VkDevice logical_device, bool create_with_fence, VkFenceCreateFlags create_flags)
+    SyncObject::SyncObject(LogicalDevice& logical_device, bool create_with_fence, VkFenceCreateFlags create_flags)
         : _primitives(create_with_fence ? SyncPrimitives::CreateWithFence(logical_device, create_flags)
                       : SyncPrimitives::CreateEmpty(logical_device))
         , _operation_groups{ { std::string(SyncGroups::kInternal), SyncOperations{_primitives.getFence()} },

@@ -10,9 +10,11 @@
 #include <cassert>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <set>
 #include <string>
 #include <vector>
+
 struct ImGuiContext;
 namespace RenderEngine
 {
@@ -20,7 +22,13 @@ namespace RenderEngine
 
     class UIRenderer : public SingleColorOutputRenderer
     {
-        static std::set<ImGuiContext*> kInvalidContexts;
+        struct ImGuiGlobals
+        {
+            std::set<ImGuiContext*> invalidContexts;
+            std::atomic<VkDevice> loadedDevicePrototypes{ VK_NULL_HANDLE };
+        };
+
+        static ImGuiGlobals& getGlobals();
     public:
         static constexpr uint32_t kRendererId = 1u;
 
@@ -44,13 +52,14 @@ namespace RenderEngine
         }
     private:
 
-
         static void registerDeletedContext(ImGuiContext* context);
         static bool isValidContext(ImGuiContext* context);
 
         std::vector<AttachmentInfo> reinitializeAttachments(const RenderTarget& render_target) override final { return {}; }
 
         void draw(const VkFramebuffer& frame_buffer, FrameData& frame_data);
+        void loadVulkanPrototypes();
+
 
         ImGuiContext* _imgui_context{ nullptr };
         ImGuiContext* _imgui_context_during_init{ nullptr };
@@ -58,6 +67,5 @@ namespace RenderEngine
         GLFWwindow* _window_handle{ nullptr };
 
         std::function<void()> _on_gui;
-
     };
 }

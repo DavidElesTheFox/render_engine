@@ -13,7 +13,7 @@ namespace RenderEngine
     }
     GpuResourceSet::GpuResourceSet(GpuResourceManager& gpu_resource_manager,
                                    const std::vector<TextureAssignment::BindingSlot>& binding_slots)
-        : _logical_device(gpu_resource_manager.getLogicalDevice())
+        : _logical_device(&gpu_resource_manager.getLogicalDevice())
     {
         if (binding_slots.empty())
         {
@@ -47,7 +47,7 @@ namespace RenderEngine
         }
         layout_info.pBindings = layout_bindings.data();
 
-        if (vkCreateDescriptorSetLayout(gpu_resource_manager.getLogicalDevice(), &layout_info, nullptr, &_resource_layout)
+        if (getLogicalDevice()->vkCreateDescriptorSetLayout(*getLogicalDevice(), &layout_info, nullptr, &_resource_layout)
             != VK_SUCCESS)
         {
             throw std::runtime_error("Cannot crate descriptor set layout for a shader of material");
@@ -65,9 +65,9 @@ namespace RenderEngine
 
         std::vector<VkDescriptorSet> descriptor_sets;
         descriptor_sets.resize(back_buffer_size);
-        if (vkAllocateDescriptorSets(gpu_resource_manager.getLogicalDevice(), &alloc_info, descriptor_sets.data()) != VK_SUCCESS)
+        if (getLogicalDevice()->vkAllocateDescriptorSets(*getLogicalDevice(), &alloc_info, descriptor_sets.data()) != VK_SUCCESS)
         {
-            vkDestroyDescriptorSetLayout(gpu_resource_manager.getLogicalDevice(), _resource_layout, nullptr);
+            getLogicalDevice()->vkDestroyDescriptorSetLayout(*getLogicalDevice(), _resource_layout, nullptr);
             throw std::runtime_error("failed to allocate descriptor sets!");
         }
         std::vector<VkWriteDescriptorSet> descriptor_writers;
@@ -150,8 +150,8 @@ namespace RenderEngine
             }
             uniform_buffer_creation_data.emplace_back(std::move(back_buffer), slot.binding);
         }
-        vkUpdateDescriptorSets(gpu_resource_manager.getLogicalDevice(),
-                               descriptor_writers.size(), descriptor_writers.data(), 0, nullptr);
+        getLogicalDevice()->vkUpdateDescriptorSets(*getLogicalDevice(),
+                                                   descriptor_writers.size(), descriptor_writers.data(), 0, nullptr);
         for (auto& [back_buffer, binding] : uniform_buffer_creation_data)
         {
             _resources.emplace_back(std::make_unique<UniformBinding>(_resource_layout,
@@ -162,9 +162,9 @@ namespace RenderEngine
     }
     GpuResourceSet::~GpuResourceSet()
     {
-        if (_logical_device != VK_NULL_HANDLE)
+        if (_logical_device != nullptr)
         {
-            vkDestroyDescriptorSetLayout(_logical_device, _resource_layout, nullptr);
+            getLogicalDevice()->vkDestroyDescriptorSetLayout(*getLogicalDevice(), _resource_layout, nullptr);
         }
     }
 }

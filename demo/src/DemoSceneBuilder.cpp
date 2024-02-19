@@ -189,7 +189,7 @@ namespace
         {
             {
                 auto& device = RenderEngine::RenderContext::context().getDevice(0);
-                auto logical_device = device.getLogicalDevice();
+                auto& logical_device = device.getLogicalDevice();
                 auto physical_device = device.getPhysicalDevice();
                 RenderEngine::SyncObject sync_object =
                     RenderEngine::SyncObject::CreateWithFence(logical_device, 0);
@@ -199,7 +199,7 @@ namespace
                                                        sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal),
                                                        &_render_engine.getCommandContext(),
                                                        VK_IMAGE_USAGE_SAMPLED_BIT);
-                vkWaitForFences(logical_device, 1, sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal).getFence(), VK_TRUE, UINT64_MAX);
+                logical_device->vkWaitForFences(*logical_device, 1, sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal).getFence(), VK_TRUE, UINT64_MAX);
 
                 auto billboard_material = _assets.getBaseMaterial<Assets::BillboardMaterial>();
                 _statue_texture = std::move(texture);
@@ -367,7 +367,7 @@ namespace
 
         // TODO remove all direct getDevice reference
         auto& device = RenderEngine::RenderContext::context().getDevice(0);
-        auto logical_device = device.getLogicalDevice();
+        auto& logical_device = device.getLogicalDevice();
         auto physical_device = device.getPhysicalDevice();
         auto ct_material = _assets.getBaseMaterial<Assets::CtVolumeMaterial>();
 
@@ -391,7 +391,7 @@ namespace
                                                            sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal),
                                                            &_render_engine.getCommandContext(),
                                                            VK_IMAGE_USAGE_SAMPLED_BIT);
-            vkWaitForFences(logical_device, 1, sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal).getFence(), VK_TRUE, UINT64_MAX);
+            logical_device->vkWaitForFences(*logical_device, 1, sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal).getFence(), VK_TRUE, UINT64_MAX);
             _ct_texture = std::move(texture);
 
         }
@@ -404,7 +404,7 @@ namespace
                                                    sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal),
                                                    &_render_engine.getCommandContext(),
                                                    VK_IMAGE_USAGE_SAMPLED_BIT);
-            vkWaitForFences(logical_device, 1, sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal).getFence(), VK_TRUE, UINT64_MAX);
+            logical_device->vkWaitForFences(*logical_device, 1, sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal).getFence(), VK_TRUE, UINT64_MAX);
             _ct_texture = std::move(texture);
 
 

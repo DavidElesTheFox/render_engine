@@ -3,6 +3,7 @@
 #include <volk.h>
 
 #include <render_engine/DeviceLookup.h>
+#include <render_engine/LogicalDevice.h>
 
 #include <memory>
 #include <vector>
@@ -18,14 +19,14 @@ namespace RenderEngine
             SingleSubmit = 0,
             MultipleSubmit
         };
-        static std::shared_ptr<CommandContext> create(VkDevice logical_device,
+        static std::shared_ptr<CommandContext> create(LogicalDevice& logical_device,
                                                       uint32_t queue_family_index,
                                                       DeviceLookup::QueueFamilyInfo queue_family_info)
         {
             return std::make_shared<CommandContext>(logical_device, queue_family_index, std::move(queue_family_info), CreationToken{});
         }
 
-        CommandContext(VkDevice logical_device,
+        CommandContext(LogicalDevice& logical_device,
                        uint32_t queue_family_index,
                        DeviceLookup::QueueFamilyInfo queue_family_info,
                        CreationToken);
@@ -44,7 +45,8 @@ namespace RenderEngine
 
         std::shared_ptr<CommandContext> clone() const;
 
-        VkDevice getLogicalDevice() { return _logical_device; }
+        LogicalDevice& getLogicalDevice() { return *_logical_device; }
+        LogicalDevice& getLogicalDevice() const { return *_logical_device; }
 
         bool isPipelineStageSupported(VkPipelineStageFlags2 pipeline_stage) const;
 
@@ -64,7 +66,7 @@ namespace RenderEngine
             }
         }
 
-        VkDevice _logical_device{ VK_NULL_HANDLE };
+        LogicalDevice* _logical_device{ nullptr };
         uint32_t _queue_family_index{ 0 };
         VkQueue _queue{ VK_NULL_HANDLE };
         VkCommandPool _transient_command_pool{ VK_NULL_HANDLE };

@@ -7,7 +7,7 @@ namespace RenderEngine
 {
     ShaderModule::~ShaderModule()
     {
-        vkDestroyShaderModule(_device_loaded_on, _module, nullptr);
+        _device_loaded_on->vkDestroyShaderModule(*_device_loaded_on, _module, nullptr);
     }
 
 }

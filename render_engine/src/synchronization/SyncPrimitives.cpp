@@ -4,32 +4,33 @@
 #include <ranges>
 #include <stdexcept>
 
+
 namespace RenderEngine
 {
-    SyncPrimitives SyncPrimitives::CreateWithFence(VkDevice logical_device, VkFenceCreateFlags flags)
+    SyncPrimitives SyncPrimitives::CreateWithFence(LogicalDevice& logical_device, VkFenceCreateFlags flags)
     {
         SyncPrimitives synchronization_primitives{ logical_device };
         VkFenceCreateInfo fence_info{};
         fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
         fence_info.flags = flags;
         VkFence fence;
-        if (vkCreateFence(logical_device, &fence_info, nullptr, &fence) != VK_SUCCESS)
+        if (logical_device->vkCreateFence(*logical_device, &fence_info, nullptr, &fence) != VK_SUCCESS)
         {
             throw std::runtime_error("Cannot create fence for upload");
         }
         synchronization_primitives._fence = fence;
-        synchronization_primitives._logical_device = logical_device;
+        synchronization_primitives._logical_device = &logical_device;
         return synchronization_primitives;
     }
     SyncPrimitives::~SyncPrimitives()
     {
         if (_fence != VK_NULL_HANDLE)
         {
-            vkDestroyFence(_logical_device, _fence, nullptr);
+            getLogicalDevice()->vkDestroyFence(*getLogicalDevice(), _fence, nullptr);
         }
         for (VkSemaphore semaphore : _semaphore_map | std::views::values)
         {
-            vkDestroySemaphore(_logical_device, semaphore, nullptr);
+            getLogicalDevice()->vkDestroySemaphore(*getLogicalDevice(), semaphore, nullptr);
         }
     }
     SyncPrimitives::SyncPrimitives(SyncPrimitives&& o)
@@ -38,7 +39,7 @@ namespace RenderEngine
         , _logical_device(o._logical_device)
         , _fence(o._fence)
     {
-        o._logical_device = VK_NULL_HANDLE;
+        o._logical_device = nullptr;
         o._fence = VK_NULL_HANDLE;
         o._semaphore_map.clear();
         o._timeline_data.clear();
@@ -56,7 +57,7 @@ namespace RenderEngine
         VkSemaphoreCreateInfo create_info{};
         create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
         VkSemaphore semaphore;
-        if (vkCreateSemaphore(_logical_device, &create_info, nullptr, &semaphore) != VK_SUCCESS)
+        if (getLogicalDevice()->vkCreateSemaphore(*getLogicalDevice(), &create_info, nullptr, &semaphore) != VK_SUCCESS)
         {
             throw std::runtime_error("Cannot create semaphore");
         }
@@ -73,10 +74,11 @@ namespace RenderEngine
         create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
         create_info.pNext = &type_info;
         VkSemaphore semaphore;
-        if (vkCreateSemaphore(_logical_device, &create_info, nullptr, &semaphore) != VK_SUCCESS)
+        if (getLogicalDevice()->vkCreateSemaphore(*getLogicalDevice(), &create_info, nullptr, &semaphore) != VK_SUCCESS)
         {
             throw std::runtime_error("Cannot create semaphore");
         }
+
         _semaphore_map.emplace(name, semaphore);
         _timeline_data.emplace(std::move(name),
                                TimelineSemaphoreData{ .timeline_width = timeline_width, .initial_value = initial_value });

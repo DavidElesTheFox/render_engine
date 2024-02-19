@@ -1,5 +1,6 @@
 #pragma once
 
+#include <render_engine/LogicalDevice.h>
 #include <render_engine/synchronization/SyncOperations.h>
 #include <render_engine/synchronization/SyncPrimitives.h>
 
@@ -87,11 +88,11 @@ namespace RenderEngine
             SyncOperations _operations;
         };
 
-        static SyncObject CreateEmpty(VkDevice logical_device)
+        static SyncObject CreateEmpty(LogicalDevice& logical_device)
         {
             return SyncObject(logical_device, false);
         }
-        static SyncObject CreateWithFence(VkDevice logical_device, VkFenceCreateFlags create_flags)
+        static SyncObject CreateWithFence(LogicalDevice& logical_device, VkFenceCreateFlags create_flags)
         {
             return SyncObject(logical_device, true, create_flags);
         }
@@ -119,7 +120,7 @@ namespace RenderEngine
         Query query() const { return Query::from(*this); }
 
     private:
-        SyncObject(VkDevice logical_device, bool create_with_fence, VkFenceCreateFlags create_flags = 0);
+        SyncObject(LogicalDevice& logical_device, bool create_with_fence, VkFenceCreateFlags create_flags = 0);
 
         SyncPrimitives _primitives;
         std::unordered_map<std::string, SyncOperations> _operation_groups;

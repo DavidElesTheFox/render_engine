@@ -30,15 +30,15 @@ namespace RenderEngine
     }
     void SingleColorOutputRenderer::destroyRenderOutput()
     {
-        auto logical_device = _window.getDevice().getLogicalDevice();
+        auto& logical_device = _window.getDevice().getLogicalDevice();
 
         resetFrameBuffers();
 
-        vkDestroyRenderPass(logical_device, _render_pass, nullptr);
+        logical_device->vkDestroyRenderPass(*logical_device, _render_pass, nullptr);
     }
     void SingleColorOutputRenderer::createFrameBuffers(const RenderTarget& render_target, const std::vector<AttachmentInfo>& render_pass_attachments)
     {
-        auto logical_device = _window.getDevice().getLogicalDevice();
+        auto& logical_device = _window.getDevice().getLogicalDevice();
 
         _frame_buffers.resize(render_target.getImageViews().size());
         for (uint32_t i = 0; i < _frame_buffers.size(); ++i)
@@ -48,7 +48,7 @@ namespace RenderEngine
             {
                 for (uint32_t j = 0; j < i; ++j)
                 {
-                    vkDestroyFramebuffer(logical_device, _frame_buffers[j], nullptr);
+                    logical_device->vkDestroyFramebuffer(*logical_device, _frame_buffers[j], nullptr);
                 }
                 _frame_buffers.clear();
                 throw std::runtime_error("failed to create framebuffer!");
@@ -59,7 +59,7 @@ namespace RenderEngine
                                                       uint32_t frame_buffer_index,
                                                       const AttachmentInfo& render_pass_attachment)
     {
-        auto logical_device = _window.getDevice().getLogicalDevice();
+        auto& logical_device = _window.getDevice().getLogicalDevice();
 
         std::vector<VkImageView> attachments = {
                 render_target.getImageViews()[frame_buffer_index]
@@ -76,7 +76,7 @@ namespace RenderEngine
         framebuffer_info.height = render_target.getHeight();
         framebuffer_info.layers = 1;
 
-        return vkCreateFramebuffer(logical_device, &framebuffer_info, nullptr, &_frame_buffers[frame_buffer_index]) == VK_SUCCESS;
+        return logical_device->vkCreateFramebuffer(*logical_device, &framebuffer_info, nullptr, &_frame_buffers[frame_buffer_index]) == VK_SUCCESS;
     }
     void SingleColorOutputRenderer::createCommandBuffer()
     {
@@ -88,11 +88,11 @@ namespace RenderEngine
     }
     void SingleColorOutputRenderer::resetFrameBuffers()
     {
-        auto logical_device = _window.getDevice().getLogicalDevice();
+        auto& logical_device = _window.getDevice().getLogicalDevice();
 
         for (auto framebuffer : _frame_buffers)
         {
-            vkDestroyFramebuffer(logical_device, framebuffer, nullptr);
+            logical_device->vkDestroyFramebuffer(*logical_device, framebuffer, nullptr);
         }
     }
     void SingleColorOutputRenderer::beforeReinit()

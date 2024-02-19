@@ -27,13 +27,13 @@ namespace
     constexpr size_t k_supported_queue_count = 1;
     constexpr size_t k_num_of_cuda_streams = 8;
 
-    VkDevice createLogicalDevice(size_t queue_count,
-                                 VkPhysicalDevice physical_device,
-                                 uint32_t queue_family_index_graphics,
-                                 uint32_t queue_family_index_presentation,
-                                 uint32_t queue_family_index_transfer,
-                                 const std::vector<const char*>& device_extensions,
-                                 const std::vector<const char*>& validation_layers)
+    VkDevice createVulkanLogicalDevice(size_t queue_count,
+                                       VkPhysicalDevice physical_device,
+                                       uint32_t queue_family_index_graphics,
+                                       uint32_t queue_family_index_presentation,
+                                       uint32_t queue_family_index_transfer,
+                                       const std::vector<const char*>& device_extensions,
+                                       const std::vector<const char*>& validation_layers)
     {
 
         std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
@@ -111,12 +111,11 @@ namespace
             create_info.enabledLayerCount = validation_layers.size();
             create_info.ppEnabledLayerNames = validation_layers.data();
         }
-        VkDevice device;
+        VkDevice device{ VK_NULL_HANDLE };
         if (vkCreateDevice(physical_device, &create_info, nullptr, &device) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to create logical device!");
         }
-        volkLoadDevice(device);
         return device;
 
     }
@@ -164,12 +163,13 @@ namespace RenderEngine
                    DeviceLookup::DeviceInfo device_info)
         : _instance(instance)
         , _physical_device(physical_device)
-        , _logical_device(createLogicalDevice(k_supported_queue_count,
-                                              physical_device,
-                                              queue_family_index_graphics,
-                                              queue_family_index_presentation,
-                                              queue_family_index_transfer,
-                                              device_extensions, validation_layers))
+        , _logical_device(createVulkanLogicalDevice(k_supported_queue_count,
+                                                    physical_device,
+                                                    queue_family_index_graphics,
+                                                    queue_family_index_presentation,
+                                                    queue_family_index_transfer,
+                                                    device_extensions,
+                                                    validation_layers))
         , _queue_family_present(queue_family_index_presentation)
         , _queue_family_graphics(queue_family_index_graphics)
         , _queue_family_transfer(queue_family_index_transfer)
@@ -183,7 +183,7 @@ namespace RenderEngine
     }
     void Device::destroy() noexcept
     {
-        vkDestroyDevice(_logical_device, nullptr);
+
     }
     std::unique_ptr<Window> Device::createWindow(std::string_view name, uint32_t back_buffer_size)
     {
@@ -205,7 +205,7 @@ namespace RenderEngine
         }
         try
         {
-            std::unique_ptr<SwapChain> swap_chain = std::make_unique<SwapChain>(SwapChain::CreateInfo{ window, _instance, _physical_device, _logical_device, std::move(surface), _queue_family_graphics, _queue_family_present, back_buffer_size });
+            std::unique_ptr<SwapChain> swap_chain = std::make_unique<SwapChain>(SwapChain::CreateInfo{ window, _instance, _physical_device, &_logical_device, std::move(surface), _queue_family_graphics, _queue_family_present, back_buffer_size });
             std::unique_ptr<RenderEngine> render_engine = createRenderEngine(back_buffer_size);
             std::unique_ptr<TransferEngine> transfer_engine = createTransferEngine();
             auto command_context = CommandContext::create(_logical_device, _queue_family_present, _device_info.queue_families[_queue_family_present]);
@@ -222,8 +222,8 @@ namespace RenderEngine
     {
         VkQueue render_queue;
         VkQueue present_queue;
-        vkGetDeviceQueue(_logical_device, _queue_family_graphics, 0, &render_queue);
-        vkGetDeviceQueue(_logical_device, _queue_family_present, 0, &present_queue);
+        _logical_device->vkGetDeviceQueue(*_logical_device, _queue_family_graphics, 0, &render_queue);
+        _logical_device->vkGetDeviceQueue(*_logical_device, _queue_family_present, 0, &present_queue);
 
         constexpr auto width = 1024;
         constexpr auto height = 764;
@@ -268,5 +268,8 @@ namespace RenderEngine
                                                 _physical_device,
                                                 _logical_device);
     }
-
+    void Device::waitIdle()
+    {
+        _logical_device->vkDeviceWaitIdle(*_logical_device);
+    }
 }

@@ -65,8 +65,8 @@ VolumeRendererDemo::~VolumeRendererDemo()
     if (_window_setup != nullptr)
     {
         // finish all rendering before destroying anything
-        vkDeviceWaitIdle(getRenderingWindow().getDevice().getLogicalDevice());
-        vkDeviceWaitIdle(getUiWindow().getDevice().getLogicalDevice());
+        getRenderingWindow().getDevice().waitIdle();
+        getUiWindow().getDevice().waitIdle();
     }
 }
 

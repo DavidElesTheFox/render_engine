@@ -5,6 +5,8 @@
 #include <GLFW/glfw3.h>
 #include <vector>
 
+#include <render_engine/LogicalDevice.h>
+
 namespace RenderEngine
 {
     class RenderTarget;
@@ -26,7 +28,7 @@ namespace RenderEngine
             GLFWwindow* window{ nullptr };
             VkInstance instance{ VK_NULL_HANDLE };
             VkPhysicalDevice physical_device{ VK_NULL_HANDLE };
-            VkDevice logical_device{ VK_NULL_HANDLE };
+            LogicalDevice* logical_device{ nullptr };
             VkSurfaceKHR surface{ VK_NULL_HANDLE };
             uint32_t graphics_family_index{ 0 };
             uint32_t present_family_index{ 0 };

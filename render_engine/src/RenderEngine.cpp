@@ -27,7 +27,7 @@ namespace RenderEngine
         submit_info.pCommandBufferInfos = command_buffers.data();
 
         sync_operations.fillInfo(submit_info);
-        if (vkQueueSubmit2(_command_context->getQueue(), 1, &submit_info, *sync_operations.getFence()) != VK_SUCCESS)
+        if (_device.getLogicalDevice()->vkQueueSubmit2(_command_context->getQueue(), 1, &submit_info, *sync_operations.getFence()) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to submit draw command buffer!");
         }

@@ -72,7 +72,7 @@ namespace RenderEngine
         void resetFrameBuffers();
         void beforeReinit() override;
         void finalizeReinit(const RenderTarget& swap_chain) override final;
-
+        LogicalDevice& getLogicalDevice() { return _window.getDevice().getLogicalDevice(); }
         IWindow& _window;
         VkRenderPass _render_pass;
         VkPipelineLayout _pipeline_layout;

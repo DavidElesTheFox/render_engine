@@ -20,17 +20,17 @@ namespace RenderEngine
         begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
-        vkBeginCommandBuffer(command_buffer, &begin_info);
+        _transfer_context->getLogicalDevice()->vkBeginCommandBuffer(command_buffer, &begin_info);
 
         record_transfer_command(command_buffer);
 
-        vkEndCommandBuffer(command_buffer);
+        _transfer_context->getLogicalDevice()->vkEndCommandBuffer(command_buffer);
 
         VkSubmitInfo2 submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
         submitInfo.commandBufferInfoCount = 1;
         submitInfo.pCommandBufferInfos = &command_buffer_info;
         sync_operations.fillInfo(submitInfo);
-        vkQueueSubmit2(_transfer_context->getQueue(), 1, &submitInfo, *sync_operations.getFence());
+        _transfer_context->getLogicalDevice()->vkQueueSubmit2(_transfer_context->getQueue(), 1, &submitInfo, *sync_operations.getFence());
     }
 }

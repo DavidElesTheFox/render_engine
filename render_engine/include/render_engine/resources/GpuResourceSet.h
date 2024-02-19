@@ -42,8 +42,10 @@ namespace RenderEngine
         }
         VkDescriptorSetLayout getLayout() const { return _resource_layout; }
     private:
+        LogicalDevice& getLogicalDevice() { return *_logical_device; }
+
         std::vector<std::unique_ptr<UniformBinding>> _resources;
         VkDescriptorSetLayout _resource_layout{ VK_NULL_HANDLE };
-        VkDevice _logical_device{ VK_NULL_HANDLE };
+        LogicalDevice* _logical_device{ nullptr };
     };
 }

@@ -139,8 +139,8 @@ namespace RenderEngine
     }
     void Window::reinitSwapChain()
     {
-        auto logical_device = _device.getLogicalDevice();
-        vkDeviceWaitIdle(logical_device);
+        auto& logical_device = _device.getLogicalDevice();
+        logical_device->vkDeviceWaitIdle(*logical_device);
         std::vector<AbstractRenderer::ReinitializationCommand> commands;
         for (auto& drawer : _renderers)
         {
@@ -159,8 +159,8 @@ namespace RenderEngine
         {
             return;
         }
-        auto logical_device = _device.getLogicalDevice();
-        vkDeviceWaitIdle(logical_device);
+        auto& logical_device = _device.getLogicalDevice();
+        logical_device->vkDeviceWaitIdle(*logical_device);
         _back_buffer.clear();
         _swap_chain.reset();
         _renderers.clear();
@@ -183,17 +183,17 @@ namespace RenderEngine
             return;
         }
         auto renderers = _renderers | std::views::transform([](const auto& ptr) { return ptr.get(); });
-        auto logical_device = _device.getLogicalDevice();
+        auto& logical_device = _device.getLogicalDevice();
         if (_swap_chain_image_index == std::nullopt)
         {
             uint32_t image_index = 0;
-            vkWaitForFences(logical_device, 1, frame_data.synch_render.getOperationsGroup(SyncGroups::kInternal).getFence(), VK_TRUE, UINT64_MAX);
-            auto call_result = vkAcquireNextImageKHR(logical_device,
-                                                     _swap_chain->getDetails().swap_chain,
-                                                     UINT64_MAX,
-                                                     frame_data.synch_render.getPrimitives().getSemaphore("image-available"),
-                                                     VK_NULL_HANDLE,
-                                                     &image_index);
+            logical_device->vkWaitForFences(*logical_device, 1, frame_data.synch_render.getOperationsGroup(SyncGroups::kInternal).getFence(), VK_TRUE, UINT64_MAX);
+            auto call_result = logical_device->vkAcquireNextImageKHR(*logical_device,
+                                                                     _swap_chain->getDetails().swap_chain,
+                                                                     UINT64_MAX,
+                                                                     frame_data.synch_render.getPrimitives().getSemaphore("image-available"),
+                                                                     VK_NULL_HANDLE,
+                                                                     &image_index);
             switch (call_result)
             {
                 case VK_ERROR_OUT_OF_DATE_KHR:
@@ -207,7 +207,7 @@ namespace RenderEngine
             }
             _swap_chain_image_index = image_index;
         }
-        vkResetFences(logical_device, 1, frame_data.synch_render.getOperationsGroup(SyncGroups::kInternal).getFence());
+        logical_device->vkResetFences(*logical_device, 1, frame_data.synch_render.getOperationsGroup(SyncGroups::kInternal).getFence());
         _render_engine->onFrameBegin(renderers, *_swap_chain_image_index);
 
 
@@ -227,7 +227,7 @@ namespace RenderEngine
 
             presentInfo.pImageIndices = &*_swap_chain_image_index;
 
-            vkQueuePresentKHR(_present_context->getQueue(), &presentInfo);
+            _present_context->getLogicalDevice()->vkQueuePresentKHR(_present_context->getQueue(), &presentInfo);
             _swap_chain_image_index = std::nullopt;
             _presented_frame_counter++;
         }

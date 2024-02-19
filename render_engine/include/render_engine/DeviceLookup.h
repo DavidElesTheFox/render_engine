@@ -44,6 +44,7 @@ namespace RenderEngine
         };
         struct DeviceInfo
         {
+            std::string name;
             std::vector<QueueFamilyInfo> queue_families;
             std::vector<DeviceExtensionInfo> device_extensions;
             std::optional<bool> hasCudaSupport;

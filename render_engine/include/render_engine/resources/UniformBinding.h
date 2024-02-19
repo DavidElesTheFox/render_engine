@@ -24,12 +24,12 @@ namespace RenderEngine
         UniformBinding(VkDescriptorSetLayout descriptor_set_layout,
                        BackBuffer<FrameData>&& back_buffer,
                        int32_t binding,
-                       VkDevice logical_device)
+                       LogicalDevice& logical_device)
             :_logical_device(logical_device)
             , _back_buffer(std::move(back_buffer))
             , _binding(binding)
         {}
-        ~UniformBinding();
+        ~UniformBinding() = default;
         UniformBinding(const UniformBinding&) = delete;
         UniformBinding(UniformBinding&&) = default;
         UniformBinding& operator=(const UniformBinding&) = delete;
@@ -48,7 +48,7 @@ namespace RenderEngine
             return _back_buffer[frame_number].texture;
         }
     private:
-        VkDevice _logical_device;
+        LogicalDevice& _logical_device;
         BackBuffer<FrameData> _back_buffer;
         int32_t _binding{ -1 };
     };

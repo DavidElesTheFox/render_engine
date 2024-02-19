@@ -37,7 +37,7 @@ int main()
 {
     try
     {
-        runVolumeRendererDemo();
+        runMultiWindowApplication();
         RenderEngine::RenderContext::context().reset();
         return 0;
     }

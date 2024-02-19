@@ -59,7 +59,7 @@ namespace
         return buffer;
     }
 
-    VkRenderPass createRenderPass(const RenderTarget& render_target, VkDevice logical_device, bool last_ExampleRenderer)
+    VkRenderPass createRenderPass(const RenderTarget& render_target, LogicalDevice& logical_device, bool last_ExampleRenderer)
     {
         VkAttachmentDescription color_attachment{};
         color_attachment.format = render_target.getImageFormat();
@@ -99,13 +99,13 @@ namespace
 
         VkRenderPass result;
 
-        if (vkCreateRenderPass(logical_device, &renderPassInfo, nullptr, &result) != VK_SUCCESS)
+        if (logical_device->vkCreateRenderPass(*logical_device, &renderPassInfo, nullptr, &result) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to create render pass!");
         }
         return result;
     }
-    VkShaderModule createShaderModule(const std::vector<char>& code, VkDevice logical_device)
+    VkShaderModule createShaderModule(const std::vector<char>& code, LogicalDevice& logical_device)
     {
         VkShaderModuleCreateInfo create_info{};
         create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -113,7 +113,7 @@ namespace
         create_info.pCode = reinterpret_cast<const uint32_t*>(code.data());
 
         VkShaderModule shaderModule;
-        if (vkCreateShaderModule(logical_device, &create_info, nullptr, &shaderModule) != VK_SUCCESS)
+        if (logical_device->vkCreateShaderModule(*logical_device, &create_info, nullptr, &shaderModule) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to create shader module!");
         }
@@ -121,7 +121,7 @@ namespace
         return shaderModule;
     }
 
-    std::pair<VkShaderModule, VkShaderModule> loadShaders(VkDevice logical_device, std::string_view vert_shader_path, std::string_view frag_shader_path)
+    std::pair<VkShaderModule, VkShaderModule> loadShaders(LogicalDevice& logical_device, std::string_view vert_shader_path, std::string_view frag_shader_path)
     {
         auto vert_shader_code = readFile(vert_shader_path);
         auto frag_shader_code = readFile(frag_shader_path);
@@ -131,7 +131,7 @@ namespace
         return { vert_shader_module, frag_shader_module };
     }
 
-    VkDescriptorSetLayout createDescriptorSetLayout(VkDevice logical_device)
+    VkDescriptorSetLayout createDescriptorSetLayout(LogicalDevice& logical_device)
     {
         VkDescriptorSetLayout result;
         VkDescriptorSetLayoutBinding uboLayoutBinding{};
@@ -146,14 +146,14 @@ namespace
         layoutInfo.bindingCount = 1;
         layoutInfo.pBindings = &uboLayoutBinding;
 
-        if (vkCreateDescriptorSetLayout(logical_device, &layoutInfo, nullptr, &result) != VK_SUCCESS)
+        if (logical_device->vkCreateDescriptorSetLayout(*logical_device, &layoutInfo, nullptr, &result) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to create descriptor set layout!");
         }
         return result;
     }
 
-    VkDescriptorPool createDescriptorPool(VkDevice logical_device, uint32_t backbuffer_size)
+    VkDescriptorPool createDescriptorPool(LogicalDevice& logical_device, uint32_t backbuffer_size)
     {
         VkDescriptorPoolSize poolSize{};
         poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -167,14 +167,14 @@ namespace
 
         VkDescriptorPool result;
 
-        if (vkCreateDescriptorPool(logical_device, &poolInfo, nullptr, &result) != VK_SUCCESS)
+        if (logical_device->vkCreateDescriptorPool(*logical_device, &poolInfo, nullptr, &result) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to create descriptor pool!");
         }
         return result;
     }
 
-    std::vector<VkDescriptorSet> createDescriptorSets(VkDevice logical_device,
+    std::vector<VkDescriptorSet> createDescriptorSets(LogicalDevice& logical_device,
                                                       VkDescriptorPool pool,
                                                       VkDescriptorSetLayout layout,
                                                       uint32_t backbuffer_size,
@@ -190,7 +190,7 @@ namespace
 
         std::vector<VkDescriptorSet> descriptor_sets;
         descriptor_sets.resize(backbuffer_size);
-        if (vkAllocateDescriptorSets(logical_device, &allocInfo, descriptor_sets.data()) != VK_SUCCESS)
+        if (logical_device->vkAllocateDescriptorSets(*logical_device, &allocInfo, descriptor_sets.data()) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to allocate descriptor sets!");
         }
@@ -211,12 +211,12 @@ namespace
             descriptorWrite.descriptorCount = 1;
             descriptorWrite.pBufferInfo = &bufferInfo;
 
-            vkUpdateDescriptorSets(logical_device, 1, &descriptorWrite, 0, nullptr);
+            logical_device->vkUpdateDescriptorSets(*logical_device, 1, &descriptorWrite, 0, nullptr);
         }
         return descriptor_sets;
     }
 
-    VkPipelineLayout createPipelineLayout(VkDevice logical_device,
+    VkPipelineLayout createPipelineLayout(LogicalDevice& logical_device,
                                           VkDescriptorSetLayout descriptor_set_layout,
                                           VkShaderModule vertShaderModule,
                                           VkShaderModule fragShaderModule)
@@ -229,16 +229,16 @@ namespace
         pipelineLayoutInfo.pSetLayouts = &descriptor_set_layout;
 
         VkPipelineLayout pipeline_layout;
-        if (vkCreatePipelineLayout(logical_device, &pipelineLayoutInfo, nullptr, &pipeline_layout) != VK_SUCCESS)
+        if (logical_device->vkCreatePipelineLayout(*logical_device, &pipelineLayoutInfo, nullptr, &pipeline_layout) != VK_SUCCESS)
         {
-            vkDestroyShaderModule(logical_device, fragShaderModule, nullptr);
-            vkDestroyShaderModule(logical_device, vertShaderModule, nullptr);
+            logical_device->vkDestroyShaderModule(*logical_device, fragShaderModule, nullptr);
+            logical_device->vkDestroyShaderModule(*logical_device, vertShaderModule, nullptr);
             throw std::runtime_error("failed to create pipeline layout!");
         }
         return pipeline_layout;
     }
 
-    VkPipeline createGraphicsPipeline(VkDevice logical_device, VkRenderPass render_pass, VkPipelineLayout pipeline_layout, VkShaderModule vert_shader, VkShaderModule frag_shader)
+    VkPipeline createGraphicsPipeline(LogicalDevice& logical_device, VkRenderPass render_pass, VkPipelineLayout pipeline_layout, VkShaderModule vert_shader, VkShaderModule frag_shader)
     {
         VkPipelineShaderStageCreateInfo vert_shader_stage_info{};
         vert_shader_stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -335,7 +335,7 @@ namespace
         pipelineInfo.subpass = 0;
         pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
         VkPipeline graphics_pipeline;
-        if (vkCreateGraphicsPipelines(logical_device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphics_pipeline) != VK_SUCCESS)
+        if (logical_device->vkCreateGraphicsPipelines(*logical_device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphics_pipeline) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to create graphics pipeline!");
         }
@@ -352,7 +352,7 @@ namespace RenderEngine
                                      bool last_ExampleRenderer)
         : _window(window)
     {
-        auto logical_device = window.getDevice().getLogicalDevice();
+        auto& logical_device = window.getDevice().getLogicalDevice();
         auto [vert_shader, frag_shader] = loadShaders(logical_device, BASE_VERT_SHADER, BASE_FRAG_SHADER);
 
         try
@@ -368,24 +368,24 @@ namespace RenderEngine
             _render_area.extent = render_target.getExtent();
             createFrameBuffers(render_target);
             createCommandBuffer();
-            vkDestroyShaderModule(logical_device, vert_shader, nullptr);
-            vkDestroyShaderModule(logical_device, frag_shader, nullptr);
+            logical_device->vkDestroyShaderModule(*logical_device, vert_shader, nullptr);
+            logical_device->vkDestroyShaderModule(*logical_device, frag_shader, nullptr);
         }
         catch (const std::runtime_error&)
         {
-            auto logical_device = window.getDevice().getLogicalDevice();
+            auto& logical_device = window.getDevice().getLogicalDevice();
 
             for (auto framebuffer : _frame_buffers)
             {
-                vkDestroyFramebuffer(logical_device, framebuffer, nullptr);
+                logical_device->vkDestroyFramebuffer(*logical_device, framebuffer, nullptr);
             }
-            vkDestroyDescriptorSetLayout(logical_device, _descriptor_set_layout, nullptr);
-            vkDestroyPipelineLayout(logical_device, _pipeline_layout, nullptr);
-            vkDestroyRenderPass(logical_device, _render_pass, nullptr);
-            vkDestroyPipeline(logical_device, _pipeline, nullptr);
+            logical_device->vkDestroyDescriptorSetLayout(*logical_device, _descriptor_set_layout, nullptr);
+            logical_device->vkDestroyPipelineLayout(*logical_device, _pipeline_layout, nullptr);
+            logical_device->vkDestroyRenderPass(*logical_device, _render_pass, nullptr);
+            logical_device->vkDestroyPipeline(*logical_device, _pipeline, nullptr);
 
-            vkDestroyShaderModule(logical_device, vert_shader, nullptr);
-            vkDestroyShaderModule(logical_device, frag_shader, nullptr);
+            logical_device->vkDestroyShaderModule(*logical_device, vert_shader, nullptr);
+            logical_device->vkDestroyShaderModule(*logical_device, frag_shader, nullptr);
             throw;
         }
     }
@@ -431,11 +431,11 @@ namespace RenderEngine
     {
         frame_data.color_offset->uploadMapped(std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(&_color_offset), sizeof(ColorOffset)));
 
-        vkResetCommandBuffer(frame_data.command_buffer, /*VkCommandBufferResetFlagBits*/ 0);
+        getLogicalDevice()->vkResetCommandBuffer(frame_data.command_buffer, /*VkCommandBufferResetFlagBits*/ 0);
         VkCommandBufferBeginInfo begin_info{};
         begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-        if (vkBeginCommandBuffer(frame_data.command_buffer, &begin_info) != VK_SUCCESS)
+        if (getLogicalDevice()->vkBeginCommandBuffer(frame_data.command_buffer, &begin_info) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to begin recording command buffer!");
         }
@@ -450,9 +450,9 @@ namespace RenderEngine
         render_pass_info.clearValueCount = 1;
         render_pass_info.pClearValues = &clearColor;
 
-        vkCmdBeginRenderPass(frame_data.command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
+        getLogicalDevice()->vkCmdBeginRenderPass(frame_data.command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
 
-        vkCmdBindPipeline(frame_data.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipeline);
+        getLogicalDevice()->vkCmdBindPipeline(frame_data.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipeline);
 
         VkViewport viewport{};
         viewport.x = 0.0f;
@@ -461,24 +461,24 @@ namespace RenderEngine
         viewport.height = (float)_render_area.extent.height;
         viewport.minDepth = 0.0f;
         viewport.maxDepth = 1.0f;
-        vkCmdSetViewport(frame_data.command_buffer, 0, 1, &viewport);
+        getLogicalDevice()->vkCmdSetViewport(frame_data.command_buffer, 0, 1, &viewport);
 
         VkRect2D scissor{};
         scissor.offset = { 0, 0 };
         scissor.extent = _render_area.extent;
-        vkCmdSetScissor(frame_data.command_buffer, 0, 1, &scissor);
+        getLogicalDevice()->vkCmdSetScissor(frame_data.command_buffer, 0, 1, &scissor);
 
         VkBuffer vertexBuffers[] = { _vertex_buffer->getBuffer() };
         VkDeviceSize offsets[] = { 0 };
-        vkCmdBindVertexBuffers(frame_data.command_buffer, 0, 1, vertexBuffers, offsets);
-        vkCmdBindIndexBuffer(frame_data.command_buffer, _index_buffer->getBuffer(), 0, VK_INDEX_TYPE_UINT16);
-        vkCmdBindDescriptorSets(frame_data.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipeline_layout, 0, 1, &frame_data.descriptor_set, 0, nullptr);
+        getLogicalDevice()->vkCmdBindVertexBuffers(frame_data.command_buffer, 0, 1, vertexBuffers, offsets);
+        getLogicalDevice()->vkCmdBindIndexBuffer(frame_data.command_buffer, _index_buffer->getBuffer(), 0, VK_INDEX_TYPE_UINT16);
+        getLogicalDevice()->vkCmdBindDescriptorSets(frame_data.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipeline_layout, 0, 1, &frame_data.descriptor_set, 0, nullptr);
 
-        vkCmdDrawIndexed(frame_data.command_buffer, static_cast<uint32_t>(_index_buffer->getDeviceSize() / sizeof(uint16_t)), 1, 0, 0, 0);
+        getLogicalDevice()->vkCmdDrawIndexed(frame_data.command_buffer, static_cast<uint32_t>(_index_buffer->getDeviceSize() / sizeof(uint16_t)), 1, 0, 0, 0);
 
-        vkCmdEndRenderPass(frame_data.command_buffer);
+        getLogicalDevice()->vkCmdEndRenderPass(frame_data.command_buffer);
 
-        if (vkEndCommandBuffer(frame_data.command_buffer) != VK_SUCCESS)
+        if (getLogicalDevice()->vkEndCommandBuffer(frame_data.command_buffer) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to record command buffer!");
         }
@@ -486,24 +486,24 @@ namespace RenderEngine
 
     ExampleRenderer::~ExampleRenderer()
     {
-        auto logical_device = _window.getDevice().getLogicalDevice();
+        auto& logical_device = _window.getDevice().getLogicalDevice();
 
         resetFrameBuffers();
 
-        vkDestroyDescriptorPool(logical_device, _descriptor_pool, nullptr);
-        vkDestroyDescriptorSetLayout(logical_device, _descriptor_set_layout, nullptr);
+        logical_device->vkDestroyDescriptorPool(*logical_device, _descriptor_pool, nullptr);
+        logical_device->vkDestroyDescriptorSetLayout(*logical_device, _descriptor_set_layout, nullptr);
 
-        vkDestroyPipelineLayout(logical_device, _pipeline_layout, nullptr);
-        vkDestroyRenderPass(logical_device, _render_pass, nullptr);
-        vkDestroyPipeline(logical_device, _pipeline, nullptr);
+        logical_device->vkDestroyPipelineLayout(*logical_device, _pipeline_layout, nullptr);
+        logical_device->vkDestroyRenderPass(*logical_device, _render_pass, nullptr);
+        logical_device->vkDestroyPipeline(*logical_device, _pipeline, nullptr);
     }
     void ExampleRenderer::resetFrameBuffers()
     {
-        auto logical_device = _window.getDevice().getLogicalDevice();
+        auto& logical_device = _window.getDevice().getLogicalDevice();
 
         for (auto framebuffer : _frame_buffers)
         {
-            vkDestroyFramebuffer(logical_device, framebuffer, nullptr);
+            logical_device->vkDestroyFramebuffer(*logical_device, framebuffer, nullptr);
         }
     }
     void ExampleRenderer::beforeReinit()
@@ -518,7 +518,7 @@ namespace RenderEngine
     }
     void ExampleRenderer::createFrameBuffers(const RenderTarget& render_target)
     {
-        auto logical_device = _window.getDevice().getLogicalDevice();
+        auto& logical_device = _window.getDevice().getLogicalDevice();
 
         _frame_buffers.resize(render_target.getImageViews().size());
         for (uint32_t i = 0; i < _frame_buffers.size(); ++i)
@@ -527,7 +527,7 @@ namespace RenderEngine
             {
                 for (uint32_t j = 0; j < i; ++j)
                 {
-                    vkDestroyFramebuffer(logical_device, _frame_buffers[j], nullptr);
+                    logical_device->vkDestroyFramebuffer(*logical_device, _frame_buffers[j], nullptr);
                 }
                 _frame_buffers.clear();
                 throw std::runtime_error("failed to create framebuffer!");
@@ -536,7 +536,7 @@ namespace RenderEngine
     }
     bool ExampleRenderer::createFrameBuffer(const RenderTarget& render_target, uint32_t frame_buffer_index)
     {
-        auto logical_device = _window.getDevice().getLogicalDevice();
+        auto& logical_device = _window.getDevice().getLogicalDevice();
 
         VkImageView attachments[] = {
                 render_target.getImageViews()[frame_buffer_index]
@@ -550,7 +550,7 @@ namespace RenderEngine
         framebuffer_info.height = render_target.getHeight();
         framebuffer_info.layers = 1;
 
-        return vkCreateFramebuffer(logical_device, &framebuffer_info, nullptr, &_frame_buffers[frame_buffer_index]) == VK_SUCCESS;
+        return logical_device->vkCreateFramebuffer(*logical_device, &framebuffer_info, nullptr, &_frame_buffers[frame_buffer_index]) == VK_SUCCESS;
     }
 
     void ExampleRenderer::createCommandBuffer()

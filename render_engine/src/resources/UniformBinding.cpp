@@ -2,6 +2,5 @@
 
 namespace RenderEngine
 {
-    UniformBinding::~UniformBinding() = default;
 
 }

@@ -79,7 +79,7 @@ namespace RenderEngine
     private:
         Texture(Image image,
                 VkPhysicalDevice physical_device,
-                VkDevice logical_device,
+                LogicalDevice& logical_device,
                 VkImageAspectFlags aspect,
                 VkShaderStageFlags shader_usage,
                 std::set<uint32_t> compatible_queue_family_indexes,
@@ -97,7 +97,7 @@ namespace RenderEngine
                                                      CommandContext* dst_context);
 
         VkPhysicalDevice _physical_device{ VK_NULL_HANDLE };
-        VkDevice _logical_device{ VK_NULL_HANDLE };
+        LogicalDevice& _logical_device;
         VkImage _texture{ VK_NULL_HANDLE };
         Image _image;
         VkDeviceMemory _texture_memory{ VK_NULL_HANDLE };
@@ -129,20 +129,21 @@ namespace RenderEngine
                     Texture::ImageViewData image_view_data,
                     std::optional<Texture::SamplerData> sampler_data,
                     VkPhysicalDevice physical_device,
-                    VkDevice logical_device)
+                    LogicalDevice& logical_device)
             : _texture(texture)
             , _image_view(texture.createImageView(image_view_data))
             , _sampler(sampler_data != std::nullopt ? texture.createSampler(*sampler_data) : VK_NULL_HANDLE)
-            , _logical_device(logical_device)
+            , _logical_device(&logical_device)
             , _image_view_data(std::move(image_view_data))
             , _sampler_data(std::move(sampler_data))
         {}
         ~TextureView() override
         {
-            if (_logical_device)
+            if (_logical_device != nullptr)
             {
-                vkDestroyImageView(_logical_device, _image_view, nullptr);
-                vkDestroySampler(_logical_device, _sampler, nullptr);
+                auto& logical_device = *_logical_device;
+                logical_device->vkDestroyImageView(*logical_device, _image_view, nullptr);
+                logical_device->vkDestroySampler(*logical_device, _sampler, nullptr);
             }
         }
         TextureView(TextureView&& o)
@@ -176,7 +177,7 @@ namespace RenderEngine
 
         void disableObjectDestroy() noexcept
         {
-            _logical_device = VK_NULL_HANDLE;
+            _logical_device = nullptr;
             _physical_device = VK_NULL_HANDLE;
         }
     private:
@@ -185,7 +186,7 @@ namespace RenderEngine
         VkImageView _image_view{ VK_NULL_HANDLE };
         VkSampler _sampler{ VK_NULL_HANDLE };
         VkPhysicalDevice _physical_device{ VK_NULL_HANDLE };
-        VkDevice _logical_device{ VK_NULL_HANDLE };
+        LogicalDevice* _logical_device{ nullptr };
         Texture::ImageViewData _image_view_data;
         std::optional<Texture::SamplerData> _sampler_data{ std::nullopt };
     };
@@ -224,7 +225,7 @@ namespace RenderEngine
         TextureFactory(TransferEngine& transfer_engine,
                        std::set<uint32_t> compatible_queue_family_indexes,
                        VkPhysicalDevice physical_device,
-                       VkDevice logical_device)
+                       LogicalDevice& logical_device)
             : _transfer_engine(transfer_engine)
             , _compatible_queue_family_indexes(std::move(compatible_queue_family_indexes))
             , _physical_device(physical_device)
@@ -261,7 +262,7 @@ namespace RenderEngine
         TransferEngine& _transfer_engine;
         std::set<uint32_t> _compatible_queue_family_indexes;
         VkPhysicalDevice _physical_device{ VK_NULL_HANDLE };
-        VkDevice _logical_device{ VK_NULL_HANDLE };
+        LogicalDevice& _logical_device;
     };
 
 }

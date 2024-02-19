@@ -199,9 +199,9 @@ namespace RenderEngine
         renderPassInfo.pSubpasses = &subpass;
         renderPassInfo.dependencyCount = 0;
 
-        auto logical_device = window.getDevice().getLogicalDevice();
+        auto& logical_device = window.getDevice().getLogicalDevice();
         VkRenderPass render_pass{ VK_NULL_HANDLE };
-        if (vkCreateRenderPass(logical_device, &renderPassInfo, nullptr, &render_pass) != VK_SUCCESS)
+        if (logical_device->vkCreateRenderPass(*logical_device, &renderPassInfo, nullptr, &render_pass) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to create render pass!");
         }
@@ -311,7 +311,7 @@ namespace RenderEngine
         {
             _image_cache.setData(image_data);
         }
-        VkDevice logical_device = getLogicalDevice();
+        auto& logical_device = getLogicalDevice();
 
         {
             auto& upload_texture = _texture_container[swap_chain_image_index];
@@ -343,8 +343,8 @@ namespace RenderEngine
             }
             else
             {
-                vkWaitForFences(logical_device, 1, it->second.synchronization_object.getOperationsGroup(SyncGroups::kInternal).getFence(), VK_TRUE, UINT64_MAX);
-                vkResetFences(logical_device, 1, it->second.synchronization_object.getOperationsGroup(SyncGroups::kInternal).getFence());
+                logical_device->vkWaitForFences(*logical_device, 1, it->second.synchronization_object.getOperationsGroup(SyncGroups::kInternal).getFence(), VK_TRUE, UINT64_MAX);
+                logical_device->vkResetFences(*logical_device, 1, it->second.synchronization_object.getOperationsGroup(SyncGroups::kInternal).getFence());
 
                 auto sync_object_for_upload = upload_texture->upload(_image_cache,
                                                                      it->second.synchronization_object.getOperationsGroup(SyncGroups::kInternal),
@@ -379,15 +379,15 @@ namespace RenderEngine
             render_pass_info.clearValueCount = 1;
             render_pass_info.pClearValues = &clearColor;
 
-            if (vkBeginCommandBuffer(frame_data.command_buffer, &begin_info) != VK_SUCCESS)
+            if (getLogicalDevice()->vkBeginCommandBuffer(frame_data.command_buffer, &begin_info) != VK_SUCCESS)
             {
                 throw std::runtime_error("failed to begin recording command buffer!");
             }
-            vkCmdBeginRenderPass(frame_data.command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
+            getLogicalDevice()->vkCmdBeginRenderPass(frame_data.command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
 
             auto& technique = _technique;
 
-            vkCmdBindPipeline(frame_data.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, technique->getPipeline());
+            getLogicalDevice()->vkCmdBindPipeline(frame_data.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, technique->getPipeline());
 
             VkViewport viewport{};
             viewport.x = 0.0f;
@@ -396,29 +396,29 @@ namespace RenderEngine
             viewport.height = (float)render_area.extent.height;
             viewport.minDepth = 0.0f;
             viewport.maxDepth = 1.0f;
-            vkCmdSetViewport(frame_data.command_buffer, 0, 1, &viewport);
+            getLogicalDevice()->vkCmdSetViewport(frame_data.command_buffer, 0, 1, &viewport);
 
             VkRect2D scissor{};
             scissor.offset = { 0, 0 };
             scissor.extent = render_area.extent;
-            vkCmdSetScissor(frame_data.command_buffer, 0, 1, &scissor);
+            getLogicalDevice()->vkCmdSetScissor(frame_data.command_buffer, 0, 1, &scissor);
             auto descriptor_sets = technique->collectDescriptorSets(swap_chain_image_index);
 
             if (descriptor_sets.empty() == false)
             {
-                vkCmdBindDescriptorSets(frame_data.command_buffer,
-                                        VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                        technique->getPipelineLayout(),
-                                        0,
-                                        descriptor_sets.size(),
-                                        descriptor_sets.data(), 0, nullptr);
+                getLogicalDevice()->vkCmdBindDescriptorSets(frame_data.command_buffer,
+                                                            VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                                            technique->getPipelineLayout(),
+                                                            0,
+                                                            descriptor_sets.size(),
+                                                            descriptor_sets.data(), 0, nullptr);
             }
 
             // Draw nothing just 3 'empty' vertexes trick is in the vertex shader
-            vkCmdDraw(frame_data.command_buffer, 3, 1, 0, 0);
-            vkCmdEndRenderPass(frame_data.command_buffer);
+            getLogicalDevice()->vkCmdDraw(frame_data.command_buffer, 3, 1, 0, 0);
+            getLogicalDevice()->vkCmdEndRenderPass(frame_data.command_buffer);
 
-            if (vkEndCommandBuffer(frame_data.command_buffer) != VK_SUCCESS)
+            if (getLogicalDevice()->vkEndCommandBuffer(frame_data.command_buffer) != VK_SUCCESS)
             {
                 throw std::runtime_error("failed to record command buffer!");
             }

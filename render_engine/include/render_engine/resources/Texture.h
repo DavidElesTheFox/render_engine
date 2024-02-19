@@ -48,14 +48,15 @@ namespace RenderEngine
          *       So, it makes sense to add there queued command to change textures and keeps the synchronization with the corresponding renders.
          */
         [[nodiscard]]
-        TransferEngine::InFlightData upload(const Image& image,
-                                            const SyncOperations& sync_operations,
-                                            TransferEngine& transfer_engine,
-                                            uint32_t dst_queue_family_index);
+        std::vector<SyncObject> upload(const Image& image,
+                                       SyncOperations sync_operations,
+                                       TransferEngine& transfer_engine,
+                                       CommandContext* dst_context);
 
         [[nodiscard]]
         std::vector<uint8_t> download(const SyncOperations& sync_operations,
-                                      TransferEngine& transfer_engine);
+                                      TransferEngine& transfer_engine,
+                                      CommandContext* src_context);
 
         VkImageView createImageView(const ImageViewData& data);
         VkSampler createSampler(const SamplerData& data);
@@ -64,13 +65,17 @@ namespace RenderEngine
         VkImage getVkImage() const { return _texture; }
         const Image& getImage() const { return _image; }
 
-        const ResourceStateMachine::TextureState& getResourceState() const
+        const TextureState& getResourceState() const
         {
             return _texture_state;
         }
 
         HANDLE getMemoryHandle() const;
         const VkMemoryRequirements& getMemoryRequirements() const { return _memory_requirements; }
+        void overrideResourceState(TextureState value, ResourceAccessToken)
+        {
+            _texture_state = std::move(value);
+        }
     private:
         Texture(Image image,
                 VkPhysicalDevice physical_device,
@@ -81,11 +86,16 @@ namespace RenderEngine
                 VkImageUsageFlags image_usage,
                 bool support_external_usage);
         void destroy() noexcept;
+        std::vector<SyncObject> notUnifiedQueueTransfer(const Image& image,
+                                                        SyncOperations sync_operations,
+                                                        TransferEngine& transfer_engine,
+                                                        CommandContext* src_context,
+                                                        CommandContext* dst_context);
+        std::vector<SyncObject> unifiedQueueTransfer(const Image& image,
+                                                     SyncOperations sync_operations,
+                                                     TransferEngine& transfer_engine,
+                                                     CommandContext* dst_context);
 
-        void overrideResourceState(ResourceStateMachine::TextureState value)
-        {
-            _texture_state = std::move(value);
-        }
         VkPhysicalDevice _physical_device{ VK_NULL_HANDLE };
         VkDevice _logical_device{ VK_NULL_HANDLE };
         VkImage _texture{ VK_NULL_HANDLE };
@@ -95,9 +105,11 @@ namespace RenderEngine
         VkImageAspectFlags _aspect{ VK_IMAGE_ASPECT_NONE };
         VkShaderStageFlags _shader_usage{ VK_SHADER_STAGE_ALL };
         std::set<uint32_t> _compatible_queue_family_indexes;
-        ResourceStateMachine::TextureState _texture_state;
+        TextureState _texture_state;
         VkMemoryRequirements _memory_requirements{};
     };
+
+    static_assert(IsResourceStateHolder_V<Texture>, "Texture needs to be a resource state holder");
 
     class ITextureView
     {
@@ -220,19 +232,19 @@ namespace RenderEngine
         {}
 
         [[nodiscar]]
-        std::tuple<std::unique_ptr<Texture>, TransferEngine::InFlightData> create(Image image,
-                                                                                  VkImageAspectFlags aspect,
-                                                                                  VkShaderStageFlags shader_usage,
-                                                                                  const SyncOperations& synchronization_primitive,
-                                                                                  uint32_t dst_queue_family_index,
-                                                                                  VkImageUsageFlagBits image_usage);
+        std::unique_ptr<Texture> create(Image image,
+                                        VkImageAspectFlags aspect,
+                                        VkShaderStageFlags shader_usage,
+                                        const SyncOperations& synchronization_primitive,
+                                        CommandContext* dst_context,
+                                        VkImageUsageFlagBits image_usage);
         [[nodiscar]]
-        std::tuple<std::unique_ptr<Texture>, TransferEngine::InFlightData> createExternal(Image image,
-                                                                                          VkImageAspectFlags aspect,
-                                                                                          VkShaderStageFlags shader_usage,
-                                                                                          const SyncOperations& synchronization_primitive,
-                                                                                          uint32_t dst_queue_family_index,
-                                                                                          VkImageUsageFlagBits image_usage);
+        std::unique_ptr<Texture> createExternal(Image image,
+                                                VkImageAspectFlags aspect,
+                                                VkShaderStageFlags shader_usage,
+                                                const SyncOperations& synchronization_primitive,
+                                                CommandContext* dst_context,
+                                                VkImageUsageFlagBits image_usage);
         [[nodiscar]]
         std::unique_ptr<Texture> createNoUpload(Image image,
                                                 VkImageAspectFlags aspect,
@@ -251,4 +263,5 @@ namespace RenderEngine
         VkPhysicalDevice _physical_device{ VK_NULL_HANDLE };
         VkDevice _logical_device{ VK_NULL_HANDLE };
     };
+
 }

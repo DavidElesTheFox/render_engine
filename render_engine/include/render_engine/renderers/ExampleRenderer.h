@@ -80,7 +80,6 @@ namespace RenderEngine
         VkDescriptorSetLayout _descriptor_set_layout;
         VkDescriptorPool _descriptor_pool;
         std::vector<VkFramebuffer> _frame_buffers;
-        CommandPoolFactory::CommandPool _command_pool;
         std::vector<FrameData> _back_buffer;
         VkRect2D _render_area;
 

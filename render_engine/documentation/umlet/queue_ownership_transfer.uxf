@@ -1,0 +1,42 @@
+<diagram program="umletino" version="15.1"><zoom_level>8</zoom_level><element><id>UMLSpecialState</id><coordinates><x>408</x><y>88</y><w>16</w><h>16</h></coordinates><panel_attributes>type=initial</panel_attributes><additional_attributes></additional_attributes></element><element><id>UMLSpecialState</id><coordinates><x>400</x><y>160</y><w>32</w><h>32</h></coordinates><panel_attributes>type=decision</panel_attributes><additional_attributes></additional_attributes></element><element><id>Relation</id><coordinates><x>408</x><y>184</y><w>136</w><h>80</h></coordinates><panel_attributes>lt=&lt;-
+[src_supports_new_stage]</panel_attributes><additional_attributes>10;80;10;10</additional_attributes></element><element><id>Relation</id><coordinates><x>408</x><y>96</y><w>24</w><h>80</h></coordinates><panel_attributes>lt=&lt;-</panel_attributes><additional_attributes>10;80;10;10</additional_attributes></element><element><id>UMLState</id><coordinates><x>328</x><y>248</y><w>200</w><h>96</h></coordinates><panel_attributes>Release
+--
+srcStageMask=resource_stage
+dstStageMask=new_stage
+srcQueueFamilyIndex=src_idx
+dstQueueFamilyIndex=dst_idx
+--
+signal_timeline_semaphore=RELEASE,1
+wait_semaphore=INPUT, supported_by_src</panel_attributes><additional_attributes></additional_attributes></element><element><id>Relation</id><coordinates><x>408</x><y>336</y><w>24</w><h>72</h></coordinates><panel_attributes>lt=&lt;-</panel_attributes><additional_attributes>10;70;10;10</additional_attributes></element><element><id>UMLState</id><coordinates><x>312</x><y>392</y><w>216</w><h>96</h></coordinates><panel_attributes>Acquire
+--
+srcStageMask=resource_stage
+dstStageMask=new_stage
+srcQueueFamilyIndex=src_idx
+dstQueueFamilyIndex=dst_idx
+--
+wait_timeline_semaphore=RELEASE,1
+signal_semaphore=INPUT, supported_by_dst</panel_attributes><additional_attributes></additional_attributes></element><element><id>Relation</id><coordinates><x>424</x><y>160</y><w>328</w><h>104</h></coordinates><panel_attributes>lt=&lt;-
+[src_DOES_NOT_supports_new_stage]</panel_attributes><additional_attributes>390;110;390;20;10;20</additional_attributes></element><element><id>UMLState</id><coordinates><x>640</x><y>248</y><w>200</w><h>96</h></coordinates><panel_attributes>Release
+--
+srcStageMask=resource_stage
+dstStageMask=resource_stage
+srcQueueFamilyIndex=src_idx
+dstQueueFamilyIndex=dst_idx
+--
+signal_timeline_semaphore=RELEASE,1
+wait_semaphore=INPUT, supported_by_src</panel_attributes><additional_attributes></additional_attributes></element><element><id>UMLState</id><coordinates><x>632</x><y>392</y><w>216</w><h>96</h></coordinates><panel_attributes>Acquire
+--
+srcStageMask=resource_stage
+dstStageMask=resource_stage
+srcQueueFamilyIndex=src_idx
+dstQueueFamilyIndex=dst_idx
+--
+wait_timeline_semaphore=RELEASE,1</panel_attributes><additional_attributes></additional_attributes></element><element><id>Relation</id><coordinates><x>728</x><y>336</y><w>24</w><h>72</h></coordinates><panel_attributes>lt=&lt;-</panel_attributes><additional_attributes>10;70;10;10</additional_attributes></element><element><id>UMLState</id><coordinates><x>632</x><y>520</y><w>216</w><h>96</h></coordinates><panel_attributes>Barrier
+--
+srcStageMask=resource_stage
+dstStageMask=new_stage
+srcQueueFamilyIndex=dst_idx
+dstQueueFamilyIndex=dst_idx
+--
+signal_semaphore=INPUT, supported_by_dst</panel_attributes><additional_attributes></additional_attributes></element><element><id>Relation</id><coordinates><x>728</x><y>480</y><w>24</w><h>56</h></coordinates><panel_attributes>lt=&lt;-</panel_attributes><additional_attributes>10;50;10;10</additional_attributes></element><element><id>UMLSpecialState</id><coordinates><x>536</x><y>656</y><w>16</w><h>16</h></coordinates><panel_attributes>type=final</panel_attributes><additional_attributes></additional_attributes></element><element><id>Relation</id><coordinates><x>536</x><y>608</y><w>192</w><h>64</h></coordinates><panel_attributes>lt=&lt;-</panel_attributes><additional_attributes>10;60;10;40;220;40;220;10</additional_attributes></element><element><id>Relation</id><coordinates><x>400</x><y>480</y><w>160</w><h>192</h></coordinates><panel_attributes>lt=&lt;-</panel_attributes><additional_attributes>180;220;180;200;10;200;10;10</additional_attributes></element><element><id>UMLObject</id><coordinates><x>296</x><y>48</y><w>584</w><h>656</h></coordinates><panel_attributes>Queue Ownership Transfer
+valign=top</panel_attributes><additional_attributes></additional_attributes></element></diagram>

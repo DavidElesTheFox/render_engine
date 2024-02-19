@@ -20,7 +20,7 @@ void OffScreenTestApplication::init()
     createScene();
     _texture_factory = RenderContext::context().getDevice(0).createTextureFactory(
         _window->getTransferEngine(),
-        { _window->getTransferEngine().getQueueFamilyIndex(), _window->getRenderEngine().getQueueFamilyIndex() }
+        { _window->getTransferEngine().getTransferContext().getQueueFamilyIndex(), _window->getRenderEngine().getCommandContext().getQueueFamilyIndex() }
     );
     DemoSceneBuilder demoSceneBuilder;
     _scene_resources = demoSceneBuilder.buildSceneOfQuads(_assets, *_scene, *_texture_factory, _window->getRenderEngine());

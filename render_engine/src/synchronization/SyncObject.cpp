@@ -14,6 +14,16 @@ namespace RenderEngine
         }
         it->second.addSignalOperation(_primitives, semaphore_name, stage_mask);
     }
+
+    void SyncObject::addSignalOperationToGroup(const std::string& group_name, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask, uint64_t value)
+    {
+        auto it = _operation_groups.find(group_name);
+        if (it == _operation_groups.end())
+        {
+            it = _operation_groups.insert({ group_name, SyncOperations{ _primitives.getFence() } }).first;
+        }
+        it->second.addSignalOperation(_primitives, semaphore_name, stage_mask, value);
+    }
     void SyncObject::addWaitOperationToGroup(const std::string& group_name, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask)
     {
         auto it = _operation_groups.find(group_name);

@@ -8,7 +8,9 @@
 #include <render_engine/DeviceLookup.h>
 #include <render_engine/RendererFactory.h>
 
+#include <variant>
 
+#include <render_engine/synchronization/SyncObject.h>
 namespace RenderEngine
 {
     class Device;
@@ -16,6 +18,8 @@ namespace RenderEngine
     class RenderContext
     {
     public:
+        using Garbage = std::variant<SyncObject>;
+
         struct InitializationInfo
         {
             struct QueueFamilyIndexes
@@ -49,7 +53,22 @@ namespace RenderEngine
             return *_renderer_factory;
         }
         uint32_t generateId() { return _engine_id_counter++; }
+
+        [[deprecated("This object is a sign of ownership problem. It's not nice but sometimes a you need a shortcut. "
+                     "This is a visible short cut and the goal is that whenever it is used let's remove it soon.")]]
+        void addGarbage(Garbage garbage) { _garbage.emplace_back(std::move(garbage)); }
+        [[deprecated("This object is a sign of ownership problem. It's not nice but sometimes a you need a shortcut. "
+                     "This is a visible short cut and the goal is that whenever it is used let's remove it soon.")]]
+        void clearGarbage();
     private:
+        struct GarbageData
+        {
+            explicit GarbageData(Garbage garbage)
+                : object(std::move(garbage))
+            {}
+            Garbage object;
+            uint32_t life_count{ 3 };
+        };
         static RenderContext& context_impl();
         RenderContext() = default;
         ~RenderContext()
@@ -67,5 +86,6 @@ namespace RenderEngine
         std::unique_ptr<RendererFeactory> _renderer_factory;
         bool _initialized{ false };
         uint32_t _engine_id_counter = kEngineReservedIdStart;
+        std::vector<GarbageData> _garbage;
     };
 }

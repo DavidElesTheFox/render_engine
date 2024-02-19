@@ -166,6 +166,7 @@ set(RENDER_ENGINE_ROOT_SRC
 		src/TransferEngine.cpp
 		src/CommandPoolFactory.cpp
         src/DeviceLookup.cpp
+        src/CommandContext.cpp
 )
 set(RENDER_ENGINE_ROOT_HEADERS
 	${RENDER_ENGINE_HEADER_LOCATION}/RenderEngine.h
@@ -176,6 +177,7 @@ set(RENDER_ENGINE_ROOT_HEADERS
 	${RENDER_ENGINE_HEADER_LOCATION}/TransferEngine.h
 	${RENDER_ENGINE_HEADER_LOCATION}/CommandPoolFactory.h
     ${RENDER_ENGINE_HEADER_LOCATION}/DeviceLookup.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/CommandContext.h
 )
 source_group("src" FILES ${RENDER_ENGINE_ROOT_SRC})
 source_group("include" FILES ${RENDER_ENGINE_ROOT_HEADERS})
@@ -199,11 +201,14 @@ set(RENDER_ENGINE_HEADERS
 	${RENDER_ENGINE_WINDOW_HEADERS}
 	${RENDER_ENGINE_MEMORY_HEADERS}
     ${RENDER_ENGINE_SYNCHRONIZATION_HEADERS}
-	${RENDER_ENGINE_ROOT_HEADERS})
+	${RENDER_ENGINE_ROOT_HEADERS} "include/render_engine/synchronization/ResourceStates.h")
 
 add_library(RenderEngine STATIC ${RENDER_ENGINE_SRC} ${RENDER_ENGINE_HEADERS})
 set_property(TARGET RenderEngine PROPERTY CXX_STANDARD 20)
 
+target_compile_options(RenderEngine PRIVATE
+  $<$<CXX_COMPILER_ID:MSVC>:/W4>
+)
 
 #####################
 # Imgui integration #

@@ -39,13 +39,14 @@ namespace RenderEngine
         submit_info.value = sync_object.getTimelineOffset(semaphore_name) + value;
         _signal_semaphore_dependency.emplace_back(std::move(submit_info));
     }
-    void SyncOperations::fillInfo(VkSubmitInfo2& submit_info) const
+    const SyncOperations& SyncOperations::fillInfo(VkSubmitInfo2& submit_info) const
     {
         submit_info.waitSemaphoreInfoCount = _wait_semaphore_dependency.size();
         submit_info.pWaitSemaphoreInfos = _wait_semaphore_dependency.data();
 
         submit_info.signalSemaphoreInfoCount = _signal_semaphore_dependency.size();
         submit_info.pSignalSemaphoreInfos = _signal_semaphore_dependency.data();
+        return *this;
     }
     SyncOperations& SyncOperations::unionWith(const SyncOperations& o)
     {
@@ -74,4 +75,24 @@ namespace RenderEngine
             submit_info.value += offset;
         }
     }
+    void SyncOperations::clear()
+    {
+        _wait_semaphore_dependency.clear();
+        _signal_semaphore_dependency.clear();
+        _fence = VK_NULL_HANDLE;
+    }
+    SyncOperations SyncOperations::restrict(const CommandContext& context) const
+    {
+        auto result = *this;
+        std::erase_if(result._wait_semaphore_dependency, [&](auto& submit_info)
+                      {
+                          return context.isPipelineStageSupported(submit_info.stageMask) == false;
+                      });
+        std::erase_if(result._signal_semaphore_dependency, [&](auto& submit_info)
+                      {
+                          return context.isPipelineStageSupported(submit_info.stageMask) == false;
+                      });
+        return result;
+    }
+
 }

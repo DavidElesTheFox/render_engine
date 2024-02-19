@@ -2,6 +2,8 @@
 
 #include <volk.h>
 
+#include <render_engine/DeviceLookup.h>
+
 #include <memory>
 #include <set>
 #include <span>
@@ -68,13 +70,14 @@ namespace RenderEngine
     class Device
     {
     public:
-        explicit Device(VkInstance instance,
-                        VkPhysicalDevice physical_device,
-                        uint32_t queue_family_index_graphics,
-                        uint32_t queue_family_index_presentation,
-                        uint32_t queue_family_index_transfer,
-                        const std::vector<const char*>& device_extensions,
-                        const std::vector<const char*>& validation_layers);
+        Device(VkInstance instance,
+               VkPhysicalDevice physical_device,
+               uint32_t queue_family_index_graphics,
+               uint32_t queue_family_index_presentation,
+               uint32_t queue_family_index_transfer,
+               const std::vector<const char*>& device_extensions,
+               const std::vector<const char*>& validation_layers,
+               DeviceLookup::DeviceInfo device_info);
         Device(const Device&) = delete;
         Device(Device&&) = delete;
 
@@ -105,5 +108,6 @@ namespace RenderEngine
         uint32_t _queue_family_graphics = 0;
         uint32_t _queue_family_transfer = 0;
         std::unique_ptr<CudaCompute::CudaDevice> _cuda_device;
+        DeviceLookup::DeviceInfo _device_info;
     };
 }

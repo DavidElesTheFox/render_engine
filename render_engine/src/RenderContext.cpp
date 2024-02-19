@@ -30,109 +30,6 @@
 namespace
 {
 
-    VkApplicationInfo createAppInfo()
-    {
-        VkApplicationInfo appInfo{};
-        appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-        appInfo.pApplicationName = "TestApplication";
-        appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-        appInfo.pEngineName = "SharpEngine";
-        appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-        appInfo.apiVersion = VK_API_VERSION_1_3;
-        return appInfo;
-    }
-
-    struct QueueFamilyIndices
-    {
-        std::optional<uint32_t> graphics_index;
-        std::optional<uint32_t> presentation_index;
-        std::optional<uint32_t> transfer_index;
-
-        bool hasAll() const
-        {
-            return graphics_index != std::nullopt
-                && presentation_index != std::nullopt
-                && transfer_index != std::nullopt;
-        }
-    };
-
-    // TODO Find multiple families
-    QueueFamilyIndices findQueueFamilies(VkInstance instance, VkPhysicalDevice device)
-    {
-
-        QueueFamilyIndices result;
-        uint32_t queue_family_count = 0;
-        vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, nullptr);
-
-        std::vector<VkQueueFamilyProperties> queue_families(queue_family_count);
-        vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, queue_families.data());
-
-        for (uint32_t i = 0; i < queue_families.size(); ++i)
-        {
-            const auto& queue_family = queue_families[i];
-
-            if (queue_family.queueFlags & VK_QUEUE_GRAPHICS_BIT)
-            {
-                result.graphics_index = i;
-            }
-            if (queue_family.queueFlags & VK_QUEUE_TRANSFER_BIT)
-            {
-                result.transfer_index = i;
-            }
-            if (glfwGetPhysicalDevicePresentationSupport(instance, device, i))
-            {
-                result.presentation_index = i;
-            }
-            if (result.hasAll())
-            {
-                break;
-            }
-        }
-
-        return result;
-    }
-    bool checkDeviceExtensionSupport(VkPhysicalDevice physical_device, const std::vector<const char*>& extensions)
-    {
-        uint32_t extension_count = 0;
-        vkEnumerateDeviceExtensionProperties(physical_device, nullptr, &extension_count, nullptr);
-
-        std::vector<VkExtensionProperties> available_extensions(extension_count);
-        vkEnumerateDeviceExtensionProperties(physical_device, nullptr, &extension_count, available_extensions.data());
-
-        std::set<std::string> missing_extensions(extensions.begin(), extensions.end());
-
-        for (const auto& extension : available_extensions)
-        {
-            missing_extensions.erase(extension.extensionName);
-        }
-
-        return missing_extensions.empty();
-    }
-    bool isDeviceSuitable(VkInstance instance, VkPhysicalDevice device, const std::vector<const char*>& extensions)
-    {
-        auto indecies = findQueueFamilies(instance, device);
-
-        return indecies.hasAll() && checkDeviceExtensionSupport(device, extensions);
-    }
-
-    std::vector<VkPhysicalDevice> findPhysicalDevices(VkInstance instance, std::vector<const char*> extensions)
-    {
-        uint32_t device_count = 0;
-        vkEnumeratePhysicalDevices(instance, &device_count, nullptr);
-
-        if (device_count == 0)
-        {
-            throw std::runtime_error("failed to find GPUs with Vulkan support!");
-        }
-
-        std::vector<VkPhysicalDevice> devices(device_count);
-        vkEnumeratePhysicalDevices(instance, &device_count, devices.data());
-
-        devices.erase(std::remove_if(devices.begin(), devices.end(),
-                                     [&](const auto& device) { return isDeviceSuitable(instance, device, extensions) == false; }),
-                      devices.end());
-        return devices;
-    }
     bool checkLayerSupport(const std::vector<std::string>& layers)
     {
         uint32_t layer_count;
@@ -179,6 +76,11 @@ namespace
 }
 namespace RenderEngine
 {
+
+    void RenderContext::clearGarbage()
+    {
+        std::erase_if(_garbage, [](auto& data) { data.life_count--; return data.life_count == 0; });
+    }
     RenderContext& RenderContext::context()
     {
         RenderContext& result = context_impl();
@@ -218,7 +120,7 @@ namespace RenderEngine
         else
         {
             throw std::runtime_error("Cannot open the file handle: " + std::string{ RENDERDOC_DLL });
-        }
+}
 #endif
         _renderer_factory = std::move(info.renderer_factory);
 
@@ -304,8 +206,8 @@ namespace RenderEngine
         {
             throw std::runtime_error("Device selection failed");
         }
-
-        InitializationInfo::QueueFamilyIndexes queue_families = info.queue_family_selector(device_lookup.queryDeviceInfo(physical_device));
+        DeviceLookup::DeviceInfo device_info = device_lookup.queryDeviceInfo(physical_device);
+        InitializationInfo::QueueFamilyIndexes queue_families = info.queue_family_selector(device_info);
 
         {
             std::vector<const char*> enabled_layers(info.enabled_layers.size(), nullptr);
@@ -317,7 +219,8 @@ namespace RenderEngine
                                                    queue_families.present,
                                                    queue_families.transfer,
                                                    device_extensions,
-                                                   enabled_layers);
+                                                   enabled_layers,
+                                                   std::move(device_info));
             _devices.push_back(std::move(device));
             /* TODO implement volk device table usage
              * Volk can load functions into table, and it might be different from device to device.

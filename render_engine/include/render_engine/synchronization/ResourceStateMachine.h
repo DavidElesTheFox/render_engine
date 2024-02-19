@@ -1,120 +1,92 @@
 #pragma once
 
+
+#include <render_engine/CommandContext.h>
+#include <render_engine/synchronization/ResourceStates.h>
+#include <render_engine/synchronization/SyncObject.h>
+
+#include <cassert>
+#include <functional>
 #include <optional>
 #include <unordered_map>
-
-#include <volk.h>
-
 
 namespace RenderEngine
 {
     class Buffer;
     class Texture;
+
+
     class ResourceStateMachine
     {
     public:
-        struct TextureState
-        {
-            VkPipelineStageFlagBits2 pipeline_stage{ VK_PIPELINE_STAGE_2_NONE };
-            VkAccessFlags2 access_flag{ VK_ACCESS_2_NONE };
-            VkImageLayout layout{ VK_IMAGE_LAYOUT_UNDEFINED };
-            std::optional<uint32_t> queue_family_index{ 0 };
-
-            TextureState&& setPipelineStage(VkPipelineStageFlagBits2 pipeline_stage)&&
-            {
-                this->pipeline_stage = pipeline_stage;
-                return std::move(*this);
-            }
-            TextureState&& setAccessFlag(VkAccessFlags2 access_flag)&&
-            {
-                this->access_flag = access_flag;
-                return std::move(*this);
-            }
-            TextureState&& setImageLayout(VkImageLayout layout)&&
-            {
-                this->layout = layout;
-                return std::move(*this);
-            }
-            TextureState&& setQueueFamilyIndex(uint32_t queue_family_index)
-            {
-                this->queue_family_index = queue_family_index;
-                return std::move(*this);
-            }
-
-            TextureState clone() const
-            {
-                return *this;
-            }
-
-            bool operator==(const TextureState& o) const
-            {
-                return pipeline_stage == o.pipeline_stage
-                    && access_flag == o.access_flag
-                    && layout == o.layout
-                    && queue_family_index == o.queue_family_index;
-            }
-            bool operator!=(const TextureState& o) const
-            {
-                return ((*this) == o) == false;
-            }
-        };
-
-        struct BufferState
-        {
-            VkPipelineStageFlagBits2 pipeline_stage{ VK_PIPELINE_STAGE_2_NONE };
-            VkAccessFlags2 access_flag{ VK_ACCESS_2_NONE };
-            std::optional<uint32_t> queue_family_index{ 0 };
-
-            BufferState&& setPipelineStage(VkPipelineStageFlagBits2 pipeline_stage)&&
-            {
-                this->pipeline_stage = pipeline_stage;
-                return std::move(*this);
-            }
-
-            BufferState&& setAccessFlag(VkAccessFlags2 access_flag)&&
-            {
-                this->access_flag = access_flag;
-                return std::move(*this);
-            }
-
-            BufferState&& setQueueFamilyIndex(uint32_t queue_family_index)&&
-            {
-                this->queue_family_index = queue_family_index;
-                return std::move(*this);
-            }
-
-            BufferState clone() const
-            {
-                return *this;
-            }
-            bool operator==(const BufferState& o) const
-            {
-                return pipeline_stage == o.pipeline_stage
-                    && access_flag == o.access_flag
-                    && queue_family_index == o.queue_family_index;
-            }
-            bool operator!=(const BufferState& o) const
-            {
-                return ((*this) == o) == false;
-            }
-        };
-
         static void resetStages(Texture& texture);
         static void resetStages(Buffer& texture);
+        [[nodiscard]]
+        static SyncObject transferOwnership(Texture* texture,
+                                            TextureState new_state,
+                                            CommandContext* src,
+                                            CommandContext* dst,
+                                            const SyncOperations& sync_operations);
 
+        [[nodiscard]]
+        static SyncObject transferOwnership(Buffer* buffer,
+                                            BufferState new_state,
+                                            CommandContext* src,
+                                            CommandContext* dst,
+                                            const SyncOperations& sync_operations);
+
+        [[nodiscard]]
+        static SyncObject barrier(Texture* texture,
+                                  CommandContext* src,
+                                  const SyncOperations& sync_operations);
+        [[nodiscard]]
+        static SyncObject barrier(Buffer* buffer,
+                                  CommandContext* src,
+                                  const SyncOperations& sync_operations);
         ResourceStateMachine() = default;
-
 
         void recordStateChange(Texture* texture, TextureState next_state);
         void recordStateChange(Buffer* buffer, BufferState next_state);
-
-        void commitChanges(VkCommandBuffer command_buffer);
+        void commitChanges(VkCommandBuffer command_buffer)
+        {
+            commitChanges(command_buffer, true);
+        }
     private:
-        std::vector<VkImageMemoryBarrier2> createImageBarriers();
-        std::vector<VkBufferMemoryBarrier2> createBufferBarriers();
+        [[nodiscard]]
+        static SyncObject transferOwnershipImpl(ResourceStateHolder auto* texture,
+                                                ResourceState auto new_state,
+                                                CommandContext* src,
+                                                CommandContext* dst,
+                                                const SyncOperations& sync_operations);
+
+        static void ownershipTransformRelease(VkCommandBuffer src_command_buffer,
+                                              VkQueue src_queue,
+                                              ResourceStateHolder auto* texture,
+                                              const ResourceState auto& transition_state,
+                                              const SyncObject& transformation_sync_object,
+                                              const SyncOperations& external_operations);
+
+        static void ownershipTransformAcquire(VkCommandBuffer dst_command_buffer,
+                                              VkQueue dst_queue,
+                                              ResourceStateHolder auto* texture,
+                                              const ResourceState auto& transition_state,
+                                              const SyncObject& transformation_sync_object,
+                                              const SyncOperations& external_operations,
+                                              const std::function<void(VkCommandBuffer, ResourceStateMachine&)>& additional_command);
+
+        static SyncObject barrierImpl(ResourceStateHolder auto* resource,
+                                      CommandContext* src,
+                                      const SyncOperations& sync_operations);
+
+        void commitChanges(VkCommandBuffer command_buffer, bool apply_state_change_on_objects);
+
+        std::vector<VkImageMemoryBarrier2> createImageBarriers(bool apply_state_change_on_texture);
+        std::vector<VkBufferMemoryBarrier2> createBufferBarriers(bool apply_state_change_on_buffer);
         bool stateCanMakeChangesOnMemory(VkAccessFlags2 access);
 
+        // TODO remove optional - so far it always has value
         std::unordered_map<Texture*, std::optional<TextureState>> _images{};
         std::unordered_map<Buffer*, std::optional<BufferState>> _buffers{};
+
     };
 }

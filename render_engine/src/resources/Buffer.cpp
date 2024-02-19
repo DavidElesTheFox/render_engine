@@ -100,13 +100,14 @@ namespace RenderEngine
         vkFreeMemory(_logical_device, _buffer_memory, nullptr);
     }
 
-    void Buffer::uploadUnmapped(std::span<const uint8_t> data_view, TransferEngine& transfer_engine, uint32_t dst_queue_index)
+    void Buffer::uploadUnmapped(std::span<const uint8_t> data_view, TransferEngine& transfer_engine, CommandContext* dst_context, SyncOperations sync_operations)
     {
         assert(isMapped() == false);
         if (_buffer_info.size != data_view.size())
         {
             throw std::runtime_error("Invalid size during upload. Buffer size: " + std::to_string(_buffer_info.size) + " data to upload: " + std::to_string(data_view.size()));
         }
+        std::vector<SyncObject> result;
         auto [staging_buffer, staging_memory] = createBuffer(_physical_device,
                                                              _logical_device,
                                                              _buffer_info.size,
@@ -118,33 +119,92 @@ namespace RenderEngine
         memcpy(data, data_view.data(), (size_t)_buffer_info.size);
         vkUnmapMemory(_logical_device, staging_memory);
 
-        if (_buffer_state.queue_family_index == std::nullopt)
+        const bool is_initial_transfer = _buffer_state.command_context.expired();
+        if (is_initial_transfer)
         {
-            _buffer_state.queue_family_index = transfer_engine.getQueueFamilyIndex();
+            _buffer_state.command_context = transfer_engine.getTransferContext().getWeakReference();
         }
-        SyncObject sync_object = SyncObject::CreateWithFence(_logical_device, 0);
-        auto inflight_data = transfer_engine.transfer(sync_object.getOperationsGroup(SyncGroups::kInternal),
-                                                      [&](VkCommandBuffer command_buffer)
-                                                      {
-                                                          ResourceStateMachine state_machine;
+        auto* src_context = _buffer_state.command_context.lock().get();
 
-                                                          state_machine.recordStateChange(this,
-                                                                                          getResourceState().clone().setQueueFamilyIndex(transfer_engine.getQueueFamilyIndex()));
-                                                          state_machine.commitChanges(command_buffer);
+        if (src_context->getQueue() != dst_context->getQueue())
+        {
+            // TODO remove lock
+            SyncObject global_object = SyncObject::CreateWithFence(src_context->getLogicalDevice(), 0);
 
-                                                          VkBufferCopy copy_region{};
-                                                          copy_region.size = _buffer_info.size;
-                                                          vkCmdCopyBuffer(command_buffer, staging_buffer, _buffer, 1, &copy_region);
 
-                                                          state_machine.recordStateChange(this,
-                                                                                          getResourceState().clone().setQueueFamilyIndex(dst_queue_index));
-                                                          state_machine.commitChanges(command_buffer);
-                                                      });
+            SyncObject transfer_sync_object = SyncObject::CreateEmpty(src_context->getLogicalDevice());
+            transfer_sync_object.createSemaphore("DataTransferFinished");
+            transfer_sync_object.addSignalOperationToGroup(SyncGroups::kInternal, "DataTransferFinished", VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+            transfer_sync_object.addWaitOperationToGroup(SyncGroups::kExternal, "DataTransferFinished", VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+            auto upload_command = [&](VkCommandBuffer command_buffer)
+                {
+                    ResourceStateMachine state_machine;
+                    state_machine.recordStateChange(this,
+                                                    getResourceState().clone()
+                                                    .setPipelineStage(VK_PIPELINE_STAGE_2_TRANSFER_BIT)
+                                                    .setAccessFlag(VK_ACCESS_2_TRANSFER_WRITE_BIT));
+                    VkBufferCopy copy_region{};
+                    copy_region.size = _buffer_info.size;
+                    vkCmdCopyBuffer(command_buffer, staging_buffer, _buffer, 1, &copy_region);
+                };
+            if (is_initial_transfer == false)
+            {
+                SyncObject sync_object_src_to_transfer = ResourceStateMachine::transferOwnership(this,
+                                                                                                 getResourceState().clone()
+                                                                                                 .setPipelineStage(VK_PIPELINE_STAGE_2_TRANSFER_BIT)
+                                                                                                 .setAccessFlag(0),
+                                                                                                 _buffer_state.command_context.lock().get(),
+                                                                                                 &transfer_engine.getTransferContext(),
+                                                                                                 sync_operations.extract(SyncOperations::ExtractWaitOperations));
+                transfer_engine.transfer(sync_object_src_to_transfer.getOperationsGroup(SyncGroups::kExternal)
+                                         .createUnionWith(transfer_sync_object.getOperationsGroup(SyncGroups::kInternal)),
+                                         upload_command);
+                result.push_back(std::move(sync_object_src_to_transfer));
 
-        vkWaitForFences(_logical_device, 1, sync_object.getOperationsGroup(SyncGroups::kInternal).getFence(), VK_TRUE, UINT64_MAX);
+            }
+            else
+            {
+                SyncObject execution_barrier = ResourceStateMachine::barrier(this, src_context, sync_operations);
+                transfer_engine.transfer(execution_barrier.getOperationsGroup(SyncGroups::kExternal)
+                                         .createUnionWith(transfer_sync_object.getOperationsGroup(SyncGroups::kInternal)),
+                                         upload_command);
+                result.push_back(std::move(execution_barrier));
+            }
+            assert(getResourceState().getQueueFamilyIndex() == transfer_engine.getTransferContext().getQueueFamilyIndex());
 
-        vkDestroyBuffer(_logical_device, staging_buffer, nullptr);
-        vkFreeMemory(_logical_device, staging_memory, nullptr);
+            SyncObject sync_object_transfer_to_dst = ResourceStateMachine::transferOwnership(this,
+                                                                                             getResourceState().clone(),
+                                                                                             _buffer_state.command_context.lock().get(),
+                                                                                             dst_context,
+                                                                                             sync_operations.extract(SyncOperations::ExtractSignalOperations)
+                                                                                             .createUnionWith(transfer_sync_object.getOperationsGroup(SyncGroups::kExternal))
+                                                                                             .createUnionWith(global_object.getOperationsGroup(SyncGroups::kInternal)));
+            assert(getResourceState().getQueueFamilyIndex() == dst_context->getQueueFamilyIndex());
+            result.push_back(std::move(sync_object_transfer_to_dst));
+            result.push_back(std::move(transfer_sync_object));
+            vkWaitForFences(_logical_device, 1, global_object.getOperationsGroup(SyncGroups::kInternal).getFence(), VK_TRUE, UINT64_MAX);
+
+            vkDestroyBuffer(_logical_device, staging_buffer, nullptr);
+            vkFreeMemory(_logical_device, staging_memory, nullptr);
+        }
+        else
+        {
+            // TODO remove global lock
+            SyncObject sync_object = SyncObject::CreateWithFence(_logical_device, 0);
+            transfer_engine.transfer(sync_object.getOperationsGroup(SyncGroups::kInternal),
+                                     [&](VkCommandBuffer command_buffer)
+                                     {
+                                         VkBufferCopy copy_region{};
+                                         copy_region.size = _buffer_info.size;
+                                         vkCmdCopyBuffer(command_buffer, staging_buffer, _buffer, 1, &copy_region);
+                                     });
+
+            vkWaitForFences(_logical_device, 1, sync_object.getOperationsGroup(SyncGroups::kInternal).getFence(), VK_TRUE, UINT64_MAX);
+            // TODO remove lock
+
+            vkDestroyBuffer(_logical_device, staging_buffer, nullptr);
+            vkFreeMemory(_logical_device, staging_memory, nullptr);
+        }
     }
 
     void Buffer::uploadMapped(std::span<const uint8_t> data_view)

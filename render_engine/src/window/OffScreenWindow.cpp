@@ -43,8 +43,7 @@ namespace RenderEngine
         for (uint32_t i = 0; i < _back_buffer_size; ++i)
         {
             _back_buffer.emplace_back(FrameData{
-                // TODO fence is only necessary because of the download is a blocking command and waits for the finish
-                .synch_render = SyncObject::CreateWithFence(device.getLogicalDevice(), VK_FENCE_CREATE_SIGNALED_BIT) });
+                .synch_render = SyncObject::CreateWithFence(device.getLogicalDevice(), 0) });
         }
         Texture::ImageViewData image_view_data;
         for (auto& texture : _textures)
@@ -69,6 +68,7 @@ namespace RenderEngine
 
     void OffScreenWindow::update()
     {
+        RenderContext::context().clearGarbage();
         present();
     }
 
@@ -172,18 +172,21 @@ namespace RenderEngine
         }
         auto renderers = _renderers | std::views::transform([](const auto& ptr) { return ptr.get(); });
 
-        // TODO this fance basically doesn't necessary because download is a blocking command.
-        // Using a concurent queue in ImageStream and using there a future can obsolate this call.
+        /*
+        * TODO we need to ensure that the previous draw call is finished.Currently download is a blocking command, thus it is an implicit guarantee.
+        * Probably we should wait here the fence what currently waited inside the download.
+        */
         auto logical_device = _device.getLogicalDevice();
         assert(frame_data.synch_render.getOperationsGroup(SyncGroups::kInternal).hasAnyFence() && "Render sync operation needs a fence");
-        vkWaitForFences(logical_device, 1, frame_data.synch_render.getOperationsGroup(SyncGroups::kInternal).getFence(), VK_TRUE, UINT64_MAX);
+        /*vkWaitForFences(logical_device, 1, frame_data.synch_render.getOperationsGroup(SyncGroups::kInternal).getFence(), VK_TRUE, UINT64_MAX);
 
         vkResetFences(logical_device, 1, frame_data.synch_render.getOperationsGroup(SyncGroups::kInternal).getFence());
+        */
         _render_engine->onFrameBegin(renderers, getCurrentImageIndex());
 
         const std::string operation_group_name = frame_data.contains_image ? SyncGroups::kInternal : SyncGroups::kEmpty;
 
-        bool draw_call_submitted = _render_engine->render(frame_data.synch_render.getOperationsGroup(operation_group_name),
+        bool draw_call_submitted = _render_engine->render(frame_data.synch_render.getOperationsGroup(operation_group_name).extract(~SyncOperations::ExtractFence),
                                                           _renderers | std::views::transform([](const auto& ptr) { return ptr.get(); }),
                                                           getCurrentImageIndex());
         frame_data.contains_image = draw_call_submitted;
@@ -196,7 +199,8 @@ namespace RenderEngine
         }
 
         std::vector<uint8_t> image_data = _textures[getOldestImageIndex()]->download(frame.synch_render.getOperationsGroup(SyncGroups::kPresent),
-                                                                                     *_transfer_engine);
+                                                                                     *_transfer_engine,
+                                                                                     &_render_engine->getCommandContext());
 
         _image_stream << std::move(image_data);
     }

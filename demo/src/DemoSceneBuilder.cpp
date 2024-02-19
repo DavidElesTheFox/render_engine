@@ -194,11 +194,11 @@ namespace
                 RenderEngine::SyncObject sync_object =
                     RenderEngine::SyncObject::CreateWithFence(logical_device, 0);
                 RenderEngine::Image image(std::filesystem::path{ IMAGE_BASE } / "statue.jpg");
-                auto [texture, transfer_data] = _texture_factory.create(image, VK_IMAGE_ASPECT_COLOR_BIT,
-                                                                        VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                                        sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal),
-                                                                        _render_engine.getQueueFamilyIndex(),
-                                                                        VK_IMAGE_USAGE_SAMPLED_BIT);
+                auto texture = _texture_factory.create(image, VK_IMAGE_ASPECT_COLOR_BIT,
+                                                       VK_SHADER_STAGE_FRAGMENT_BIT,
+                                                       sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal),
+                                                       &_render_engine.getCommandContext(),
+                                                       VK_IMAGE_USAGE_SAMPLED_BIT);
                 vkWaitForFences(logical_device, 1, sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal).getFence(), VK_TRUE, UINT64_MAX);
 
                 auto billboard_material = _assets.getBaseMaterial<Assets::BillboardMaterial>();
@@ -386,11 +386,11 @@ namespace
 
         if (_use_ao)
         {
-            auto [texture, transfer_data] = _texture_factory.createExternal(image_3d, VK_IMAGE_ASPECT_COLOR_BIT,
-                                                                            VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                                            sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal),
-                                                                            _render_engine.getQueueFamilyIndex(),
-                                                                            VK_IMAGE_USAGE_SAMPLED_BIT);
+            auto texture = _texture_factory.createExternal(image_3d, VK_IMAGE_ASPECT_COLOR_BIT,
+                                                           VK_SHADER_STAGE_FRAGMENT_BIT,
+                                                           sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal),
+                                                           &_render_engine.getCommandContext(),
+                                                           VK_IMAGE_USAGE_SAMPLED_BIT);
             vkWaitForFences(logical_device, 1, sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal).getFence(), VK_TRUE, UINT64_MAX);
             _ct_texture = std::move(texture);
 
@@ -399,11 +399,11 @@ namespace
         {
             ct_material->processImage(&image_3d);
 
-            auto [texture, transfer_data] = _texture_factory.create(image_3d, VK_IMAGE_ASPECT_COLOR_BIT,
-                                                                    VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                                    sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal),
-                                                                    _render_engine.getQueueFamilyIndex(),
-                                                                    VK_IMAGE_USAGE_SAMPLED_BIT);
+            auto texture = _texture_factory.create(image_3d, VK_IMAGE_ASPECT_COLOR_BIT,
+                                                   VK_SHADER_STAGE_FRAGMENT_BIT,
+                                                   sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal),
+                                                   &_render_engine.getCommandContext(),
+                                                   VK_IMAGE_USAGE_SAMPLED_BIT);
             vkWaitForFences(logical_device, 1, sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal).getFence(), VK_TRUE, UINT64_MAX);
             _ct_texture = std::move(texture);
 

@@ -28,27 +28,28 @@ namespace RenderEngine
 
         void uploadMapped(std::span<const uint8_t> data_view);
 
-        void uploadUnmapped(std::span<const uint8_t> data_view, TransferEngine& transfer_engine, uint32_t dst_queue_index);
+        void uploadUnmapped(std::span<const uint8_t> data_view, TransferEngine& transfer_engine, CommandContext* dst_context, SyncOperations sync_operations);
         template<typename T>
-        void uploadUnmapped(std::span<const T> data_view, TransferEngine& transfer_engine, uint32_t dst_queue_index)
+        void uploadUnmapped(std::span<const T> data_view, TransferEngine& transfer_engine, CommandContext* dst_context, SyncOperations sync_operations)
         {
             uploadUnmapped(std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(data_view.data()), data_view.size() * sizeof(T)),
-                           transfer_engine, dst_queue_index);
+                           transfer_engine, dst_context, sync_operations);
         }
         VkBuffer getBuffer() const { return _buffer; }
         VkDeviceSize getDeviceSize() const { return _buffer_info.size; }
-        const ResourceStateMachine::BufferState& getResourceState() const
+        const BufferState& getResourceState() const
         {
             return _buffer_state;
         }
         const void* getMemory() const { return _mapped_memory; }
-    private:
-
-        bool isMapped() const { return _buffer_info.mapped; }
-        void overrideResourceState(ResourceStateMachine::BufferState value)
+        void overrideResourceState(BufferState value, ResourceAccessToken)
         {
             _buffer_state = std::move(value);
         }
+
+    private:
+
+        bool isMapped() const { return _buffer_info.mapped; }
 
         VkPhysicalDevice _physical_device{ VK_NULL_HANDLE };
         VkDevice _logical_device{ VK_NULL_HANDLE };
@@ -56,6 +57,8 @@ namespace RenderEngine
         VkDeviceMemory _buffer_memory{ VK_NULL_HANDLE };;
         BufferInfo _buffer_info;
         void* _mapped_memory{ nullptr };
-        ResourceStateMachine::BufferState _buffer_state;
+        BufferState _buffer_state;
     };
+
+    static_assert(IsResourceStateHolder_V<Buffer>, "Buffer must be a resource state holder");
 }

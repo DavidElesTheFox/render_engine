@@ -24,6 +24,69 @@ namespace RenderEngine
     class SyncObject
     {
     public:
+        class Query
+        {
+        public:
+            static Query from(const SyncObject& sync_object)
+            {
+                return Query{ sync_object };
+            }
+
+            Query&& select(const std::string& name)&&
+            {
+                _operations = _sync_object.getOperationsGroup(name);
+                return std::move(*this);
+            }
+            Query&& select(std::initializer_list<std::string> name_container)&&
+            {
+                // Fences are needed only once to avoid 'fence-conflict' See more in the unionWith function
+                bool need_fence = true;
+                for (auto name : name_container)
+                {
+                    if (need_fence == false)
+                    {
+                        constexpr int32_t everything_except_fence_bit = ~SyncOperations::ExtractFence;
+                        _operations.unionWith(_sync_object.getOperationsGroup(name).extract(everything_except_fence_bit));
+                    }
+                    else
+                    {
+                        need_fence = false;
+                        _operations.unionWith(_sync_object.getOperationsGroup(name));
+                    }
+                }
+                return std::move(*this);
+            }
+            Query&& extract(int32_t extract_flags)&&
+            {
+                _operations.extract(extract_flags);
+                return std::move(*this);
+            }
+
+            Query&& join(const SyncOperations& operations)&&
+            {
+                _operations.unionWith(operations);
+                return std::move(*this);
+            }
+
+            Query&& join(const Query& o)&&
+            {
+                _operations.unionWith(o._operations);
+                return std::move(*this);
+            }
+
+            const SyncOperations& get()&&
+            {
+                return _operations;
+            }
+        private:
+            Query(const SyncObject& sync_object)
+                : _sync_object(sync_object)
+            {}
+
+            const SyncObject& _sync_object;
+            SyncOperations _operations;
+        };
+
         static SyncObject CreateEmpty(VkDevice logical_device)
         {
             return SyncObject(logical_device, false);
@@ -35,6 +98,7 @@ namespace RenderEngine
         const SyncOperations& getOperationsGroup(const std::string& name) const { return _operation_groups.at(name); }
 
         void addSignalOperationToGroup(const std::string& group_name, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask);
+        void addSignalOperationToGroup(const std::string& group_name, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask, uint64_t value);
 
         void addWaitOperationToGroup(const std::string& group_name, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask);
 
@@ -51,6 +115,8 @@ namespace RenderEngine
         void createTimelineSemaphore(std::string name, uint64_t initial_value, uint64_t timeline_width);
 
         void stepTimeline(const std::string& name);
+
+        Query query() const { return Query::from(*this); }
 
     private:
         SyncObject(VkDevice logical_device, bool create_with_fence, VkFenceCreateFlags create_flags = 0);

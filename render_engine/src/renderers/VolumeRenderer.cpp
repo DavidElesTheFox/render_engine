@@ -104,7 +104,7 @@ namespace RenderEngine
         try : SingleColorOutputRenderer(window)
         , _render_target(render_target)
         , _texture_factory(window.getTransferEngine(),
-                           { window.getRenderEngine().getQueueFamilyIndex(), window.getTransferEngine().getQueueFamilyIndex() },
+                           { window.getRenderEngine().getCommandContext().getQueueFamilyIndex(), window.getTransferEngine().getTransferContext().getQueueFamilyIndex() },
                            getPhysicalDevice(), getLogicalDevice())
     {
         std::array<VkAttachmentDescription, 3> attachments = {
@@ -263,14 +263,15 @@ namespace RenderEngine
         MeshBuffers mesh_buffers;
         auto& transfer_engine = getWindow().getTransferEngine();
         auto& gpu_resource_manager = getWindow().getRenderEngine().getGpuResourceManager();
-        uint32_t render_queue_family_index = getWindow().getRenderEngine().getQueueFamilyIndex();
         if (geometry.positions.empty() == false)
         {
             std::vector vertex_buffer = mesh->createVertexBuffer();
             mesh_buffers.vertex_buffer = gpu_resource_manager.createAttributeBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                                                                                     vertex_buffer.size());
             mesh_buffers.vertex_buffer->uploadUnmapped(std::span{ vertex_buffer.data(), vertex_buffer.size() },
-                                                       transfer_engine, render_queue_family_index);
+                                                       transfer_engine,
+                                                       &getWindow().getRenderEngine().getCommandContext(),
+                                                       SyncOperations{});
 
         }
         if (geometry.indexes.empty() == false)
@@ -278,7 +279,9 @@ namespace RenderEngine
             mesh_buffers.index_buffer = gpu_resource_manager.createAttributeBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
                                                                                    geometry.indexes.size() * sizeof(int16_t));
             mesh_buffers.index_buffer->uploadUnmapped(std::span{ geometry.indexes.data(), geometry.indexes.size() },
-                                                      transfer_engine, render_queue_family_index);
+                                                      transfer_engine,
+                                                      &getWindow().getRenderEngine().getCommandContext(),
+                                                      SyncOperations{});
         }
         _mesh_buffers[mesh_instance->getMesh()] = std::move(mesh_buffers);
         if (mesh_instance->getVolumeMaterialInstance()->getVolumeMaterial().isRequireDistanceField())
@@ -513,10 +516,6 @@ namespace RenderEngine
     {
         auto& window = getWindow();
         auto& transfare_engine = window.getTransferEngine();
-        TextureFactory texture_factory(transfare_engine,
-                                       { transfare_engine.getQueueFamilyIndex(), window.getRenderEngine().getQueueFamilyIndex() },
-                                       getPhysicalDevice(),
-                                       getLogicalDevice());
 
         frame_buffer_data->textures_per_back_buffer.clear();
         frame_buffer_data->texture_views_per_back_buffer.clear();
@@ -524,10 +523,10 @@ namespace RenderEngine
         Texture::SamplerData sampler_data{};
         for (uint32_t i = 0; i < back_buffer_count; ++i)
         {
-            frame_buffer_data->textures_per_back_buffer.push_back(texture_factory.createNoUpload(ethalon_image,
-                                                                                                 VK_IMAGE_ASPECT_COLOR_BIT,
-                                                                                                 VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                                                                 VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT));
+            frame_buffer_data->textures_per_back_buffer.push_back(_texture_factory.createNoUpload(ethalon_image,
+                                                                                                  VK_IMAGE_ASPECT_COLOR_BIT,
+                                                                                                  VK_SHADER_STAGE_FRAGMENT_BIT,
+                                                                                                  VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT));
             auto& texture = frame_buffer_data->textures_per_back_buffer.back();
             auto texture_view = std::make_unique<TextureView>(*texture,
                                                               Texture::ImageViewData{},

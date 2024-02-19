@@ -33,18 +33,16 @@ namespace RenderEngine
                    std::unique_ptr<TransferEngine>&& transfer_engine,
                    GLFWwindow* window,
                    std::unique_ptr<SwapChain> swap_chain,
-                   VkQueue present_queue,
-                   size_t back_buffer_size)
-        try : _present_queue{ present_queue }
-        , _window(window)
-        , _swap_chain(std::move(swap_chain))
-        , _device(device)
+                   std::shared_ptr<CommandContext>&& present_context)
+        try : _device(device)
         , _render_engine(std::move(render_engine))
         , _transfer_engine(std::move(transfer_engine))
-        , _back_buffer_size(back_buffer_size)
+        , _window(window)
+        , _swap_chain(std::move(swap_chain))
+        , _present_context(std::move(present_context))
     {
-        _back_buffer.reserve(_back_buffer_size);
-        for (uint32_t i = 0; i < _back_buffer_size; ++i)
+        _back_buffer.reserve(_render_engine->getBackBufferSize());
+        for (uint32_t i = 0; i < _render_engine->getBackBufferSize(); ++i)
         {
             _back_buffer.emplace_back(FrameData{
                 .synch_render = SyncObject::CreateWithFence(device.getLogicalDevice(), VK_FENCE_CREATE_SIGNALED_BIT) });
@@ -58,6 +56,7 @@ namespace RenderEngine
 
     void Window::update()
     {
+        RenderContext::context().clearGarbage();
         if (_closed)
         {
             destroy();
@@ -228,7 +227,7 @@ namespace RenderEngine
 
             presentInfo.pImageIndices = &*_swap_chain_image_index;
 
-            vkQueuePresentKHR(_present_queue, &presentInfo);
+            vkQueuePresentKHR(_present_context->getQueue(), &presentInfo);
             _swap_chain_image_index = std::nullopt;
             _presented_frame_counter++;
         }

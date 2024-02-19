@@ -2,27 +2,15 @@
 
 namespace RenderEngine
 {
-    TransferEngine::TransferEngine(VkDevice logical_device, uint32_t queue_familiy_index, VkQueue transfer_queue)
-        : _logical_device(logical_device)
-        , _queue_family_index(queue_familiy_index)
-        , _transfer_queue(transfer_queue)
-        , _command_pool_factory(logical_device, queue_familiy_index)
+    TransferEngine::TransferEngine(std::shared_ptr<CommandContext>&& transfer_context)
+        : _transfer_context(std::move(transfer_context))
     {}
 
-    TransferEngine::InFlightData TransferEngine::transfer(const SyncOperations& sync_operations,
-                                                          std::function<void(VkCommandBuffer)> record_transfer_command,
-                                                          VkQueue transfer_queue_override)
+    void TransferEngine::transfer(const SyncOperations& sync_operations,
+                                  std::function<void(VkCommandBuffer)> record_transfer_command)
     {
-        auto command_pool = _command_pool_factory.getCommandPool(VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
 
-        VkCommandBufferAllocateInfo alloc_info{};
-        alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        alloc_info.commandPool = command_pool.command_pool;
-        alloc_info.commandBufferCount = 1;
-
-        VkCommandBuffer command_buffer;
-        vkAllocateCommandBuffers(_logical_device, &alloc_info, &command_buffer);
+        VkCommandBuffer command_buffer = _transfer_context->createCommandBuffer(CommandContext::Usage::SingleSubmit);
 
         VkCommandBufferSubmitInfo command_buffer_info{};
         command_buffer_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
@@ -43,24 +31,6 @@ namespace RenderEngine
         submitInfo.commandBufferInfoCount = 1;
         submitInfo.pCommandBufferInfos = &command_buffer_info;
         sync_operations.fillInfo(submitInfo);
-        vkQueueSubmit2(transfer_queue_override, 1, &submitInfo, *sync_operations.getFence());
-
-        return { command_buffer, std::move(command_pool),_logical_device };
-    }
-    TransferEngine::InFlightData::~InFlightData()
-    {
-        destroy();
-    }
-    void TransferEngine::InFlightData::destroy() noexcept
-    {
-        if (_logical_device == VK_NULL_HANDLE)
-        {
-            return;
-        }
-        vkFreeCommandBuffers(_logical_device, _command_pool.command_pool, 1, &_command_buffer);
-        vkDestroyCommandPool(_logical_device, _command_pool.command_pool, nullptr);
-        _command_pool = {};
-        _command_buffer = VK_NULL_HANDLE;
-        _logical_device = VK_NULL_HANDLE;
+        vkQueueSubmit2(_transfer_context->getQueue(), 1, &submitInfo, *sync_operations.getFence());
     }
 }

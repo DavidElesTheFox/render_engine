@@ -41,6 +41,9 @@ namespace RenderEngine
         }
 
         uint64_t stepTimeline(const std::string& name);
+
+        bool hasSemaphore(const std::string& name) const { return _semaphore_map.contains(name); }
+        bool hasTimelineSemaphore(const std::string& name) const { return _timeline_data.contains(name); }
     private:
         struct TimelineSemaphoreData
         {

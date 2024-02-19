@@ -17,6 +17,8 @@
 
 class MultiWindowApplication
 {
+    static constexpr uint32_t kPrimaryDeviceIndex = 0;
+    static constexpr uint32_t kSecondaryDeviceIndex = 1;
 public:
     void init();
 

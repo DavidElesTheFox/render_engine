@@ -14,20 +14,20 @@ void MultiWindowApplication::init()
     initEngine();
     initImages();
 #if ENABLE_WINDOW_0
-    _window_0 = RenderEngine::RenderContext::context().getDevice(0).createWindow("Main Window", 3);
+    _window_0 = RenderEngine::RenderContext::context().getDevice(kPrimaryDeviceIndex).createWindow(std::format("Example Renderer (on device {})", kPrimaryDeviceIndex), 3);
     _window_0->registerRenderers({ RenderEngine::ExampleRenderer::kRendererId });
 #endif
 #if ENABLE_WINDOW_1
 
-    _window_1 = RenderEngine::RenderContext::context().getDevice(0).createWindow("Secondary Window", 3);
+    _window_1 = RenderEngine::RenderContext::context().getDevice(kSecondaryDeviceIndex).createWindow(std::format("Example Renderer with UI (on device {})", kSecondaryDeviceIndex), 3);
     _window_1->registerRenderers({ RenderEngine::ExampleRenderer::kRendererId, RenderEngine::UIRenderer::kRendererId });
 #endif
 #if ENABLE_WINDOW_2
-    _window_2 = RenderEngine::RenderContext::context().getDevice(0).createWindow("Secondary Window", 3);
+    _window_2 = RenderEngine::RenderContext::context().getDevice(kPrimaryDeviceIndex).createWindow(std::format("UI only (on device {})", kPrimaryDeviceIndex), 3);
     _window_2->registerRenderers({ RenderEngine::UIRenderer::kRendererId });
 #endif
 #if ENABLE_WINDOW_3
-    _window_3 = RenderEngine::RenderContext::context().getDevice(0).createWindow("Image Window", 3);
+    _window_3 = RenderEngine::RenderContext::context().getDevice(kSecondaryDeviceIndex).createWindow(std::format("Image Stream Renderer (on device {})", kSecondaryDeviceIndex), 3);
     _window_3->registerRenderers({ RenderEngine::ImageStreamRenderer::kRendererId });
 #endif
 
@@ -122,8 +122,9 @@ void MultiWindowApplication::initEngine()
                                 {
                                     return std::make_unique<ImageStreamRenderer>(window, *_image_stream, render_target, back_buffer_count, has_next);
                                 });
+    constexpr bool enable_multiple_device_selection = kPrimaryDeviceIndex != kSecondaryDeviceIndex;
+    DeviceSelector device_selector(enable_multiple_device_selection);
 
-    DeviceSelector device_selector;
     RenderContext::InitializationInfo init_info{};
     init_info.app_info.apiVersion = VK_API_VERSION_1_3;
     init_info.app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;

@@ -30,7 +30,7 @@ namespace
     {
         auto optional_bool_to_str = [](const std::optional<bool>& v)->std::string { return v != std::nullopt ? (*v ? "X" : " ") : "Not defined"; };
 
-        os << "Device: \n";
+        os << "Device: '" << info.name << "'\n";
         os << "  Has Cuda support: [" << optional_bool_to_str(info.hasCudaSupport) << "]\n";
         os << "  Queue Families:\n";
         for (const auto& queue_family_info : info.queue_families)
@@ -45,6 +45,12 @@ namespace
 
 VkPhysicalDevice DeviceSelector::askForDevice(const RenderEngine::DeviceLookup& lookup)
 {
+    if (_multiple_device_selection_enabled == false
+        && _selected_device_count > 0)
+    {
+        return VK_NULL_HANDLE;
+    }
+
     const auto devices = lookup.queryDevices();
     constexpr auto delimeter = "===========================================";
     for (uint32_t i = 0; i < devices.size(); ++i)
@@ -52,10 +58,24 @@ VkPhysicalDevice DeviceSelector::askForDevice(const RenderEngine::DeviceLookup& 
         std::cout << i << ") " << devices[i] << std::endl;
         std::cout << delimeter << std::endl;
     }
+    if (_multiple_device_selection_enabled)
+    {
+        std::cout << devices.size() << ") Select None" << std::endl;
+        std::cout << delimeter << std::endl;
+    }
     std::cout << "Selected device: " << std::flush;
     uint32_t device_id = 0;
     std::cin >> device_id;
-    return devices.at(device_id).phyiscal_device;
+
+    _selected_device_count++;
+    if (device_id == devices.size())
+    {
+        return VK_NULL_HANDLE;
+    }
+    else
+    {
+        return devices.at(device_id).phyiscal_device;
+    }
 }
 
 RenderEngine::RenderContext::InitializationInfo::QueueFamilyIndexes

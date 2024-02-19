@@ -196,10 +196,6 @@ namespace RenderEngine
         ImGui::SetCurrentContext(_imgui_context);
         _window_handle = window.getWindowHandle();
 
-        /*ImGui_ImplVulkan_LoadFunctions([](const char* function_name, void* vulkan_instance)
-                                       {
-                                           return vkGetInstanceProcAddr(*(reinterpret_cast<VkInstance*>(vulkan_instance)), function_name);
-                                       }, &window.getDevice().getVulkanInstance());*/
         VkDevice prev_device = getGlobals().loadedDevicePrototypes.exchange(*getLogicalDevice());
         if (prev_device != *getLogicalDevice())
         {

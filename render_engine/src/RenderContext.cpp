@@ -200,32 +200,30 @@ namespace RenderEngine
                                std::back_inserter(device_extensions),
                                [](const std::string& name) { return name.c_str(); });
         DeviceLookup device_lookup(_instance);
-        VkPhysicalDevice physical_device = info.device_selector(device_lookup);
 
-        if (physical_device == VK_NULL_HANDLE)
+        while (VkPhysicalDevice physical_device = info.device_selector(device_lookup))
+        {
+            DeviceLookup::DeviceInfo device_info = device_lookup.queryDeviceInfo(physical_device);
+            InitializationInfo::QueueFamilyIndexes queue_families = info.queue_family_selector(device_info);
+
+            {
+                std::vector<const char*> enabled_layers(info.enabled_layers.size(), nullptr);
+                std::ranges::transform(info.enabled_layers, enabled_layers.begin(),
+                                       [](const std::string& str) { return str.c_str(); });
+                auto device = std::make_unique<Device>(_instance,
+                                                       physical_device,
+                                                       queue_families.graphics,
+                                                       queue_families.present,
+                                                       queue_families.transfer,
+                                                       device_extensions,
+                                                       enabled_layers,
+                                                       std::move(device_info));
+                _devices.push_back(std::move(device));
+            }
+        }
+        if (_devices.empty())
         {
             throw std::runtime_error("Device selection failed");
-        }
-        DeviceLookup::DeviceInfo device_info = device_lookup.queryDeviceInfo(physical_device);
-        InitializationInfo::QueueFamilyIndexes queue_families = info.queue_family_selector(device_info);
-
-        {
-            std::vector<const char*> enabled_layers(info.enabled_layers.size(), nullptr);
-            std::ranges::transform(info.enabled_layers, enabled_layers.begin(),
-                                   [](const std::string& str) { return str.c_str(); });
-            auto device = std::make_unique<Device>(_instance,
-                                                   physical_device,
-                                                   queue_families.graphics,
-                                                   queue_families.present,
-                                                   queue_families.transfer,
-                                                   device_extensions,
-                                                   enabled_layers,
-                                                   std::move(device_info));
-            _devices.push_back(std::move(device));
-            /* TODO implement volk device table usage
-             * Volk can load functions into table, and it might be different from device to device.
-             * Implement a VulkanLogicalDevice that has the api callbacks.
-             */
         }
     }
 
@@ -247,6 +245,6 @@ namespace RenderEngine
 #else
         throw std::runtime_error("Cannot enable renderdoc, feature is disabled in this build");
 #endif
-}
+    }
 
-}
+    }

@@ -11,7 +11,12 @@ namespace RenderEngine
 
     namespace
     {
-        VkPhysicalDeviceIDProperties getDeviceUUID(VkPhysicalDevice physical_device)
+        struct DeviceProperties
+        {
+            VkPhysicalDeviceIDProperties id;
+            VkPhysicalDeviceProperties general;
+        };
+        DeviceProperties getDeviceProperties(VkPhysicalDevice physical_device)
         {
             VkPhysicalDeviceIDProperties device_id_property = {};
             device_id_property.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES;
@@ -20,7 +25,7 @@ namespace RenderEngine
             device_property.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
             device_property.pNext = &device_id_property;
             vkGetPhysicalDeviceProperties2(physical_device, &device_property);
-            return device_id_property;
+            return { device_id_property, device_property.properties };
         }
     }
     std::vector<DeviceLookup::DeviceInfo> DeviceLookup::queryDevices() const
@@ -52,8 +57,9 @@ namespace RenderEngine
         result.phyiscal_device = physical_device;
         result.queue_families = queryQueueFamilies(physical_device);
         result.device_extensions = queryDeviceExtensions(physical_device);
-        auto device_info = getDeviceUUID(physical_device);
-        result.hasCudaSupport = CudaCompute::CudaDevice::hasDeviceWithUUIDCudaSupport(std::span{ &device_info.deviceUUID[0], VK_UUID_SIZE });
+        auto device_info = getDeviceProperties(physical_device);
+        result.name = device_info.general.deviceName;
+        result.hasCudaSupport = CudaCompute::CudaDevice::hasDeviceWithUUIDCudaSupport(std::span{ &device_info.id.deviceUUID[0], VK_UUID_SIZE });
         return result;
     }
 

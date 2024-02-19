@@ -21,8 +21,7 @@ A render engine is not only for games. Many scientific code uses rendering and c
 This render API supports this need. Imgui is integrated in a way that it supports multiple context. With different renderer definition one can visualize different things on different windows.
 ![multiple window support](./render_engine/documentation/images/multi_window.png)
 
-Open TODOs:
-- Proper support of multi GPUs. The API uses volk. But in a wrong way and globally loads the features. It needs to be changed
+This feature sounds easy but not. The most problematic things are with using elegantly the volk function table and how to integrate this with ImGui. See more in [Logical Device ADR](./render_engine/documentation/logical_device.md)
 
 # Offscreen rendering
 
@@ -69,15 +68,15 @@ See
  - [Volume Rendering with Ambient Occlusion](render_engine/documentation/volume-rendering_ao.md)
  - [Synchronization with fences,semaphores](render_engine/documentation/synchronization-primitives.md)
  - [Multiple Queue Family Support](render_engine/documentation/multiple_queue_family_support.md)
-  - [DescriptorSetLayout Setup](render_engine/documentation/descriptor-set-layout-setup.md)
+ - [DescriptorSetLayout Setup](render_engine/documentation/descriptor-set-layout-setup.md)
  - [Command Context](render_engine/documentation/command_context.md)
+ - [Multiple Device Support - Having a Logical Device](render_engine/documentation/logical_device.md)
  - [Error handling](render_engine/documentation/handling-errors.md)
  - [Object initialization](render_engine/documentation/object-initializations.md)
  - [Objects responsibility](render_engine/documentation/objects-responsibility.md)
  - [Singletons](render_engine/documentation/singletons.md)
 
 Ongoing TODOs:
- - [Multiple Device Support - Having a Logical Device](render_engine/documentation/todo/logical_device.md)
  - [Parallel Rendering](render_engine/documentation/todo/parallel_rendering.md)
  - [Render Graph](render_engine/documentation/todo/render_graph.md)
  - [Resource Uploader](render_engine/documentation/todo/resource_uploader.md.md)

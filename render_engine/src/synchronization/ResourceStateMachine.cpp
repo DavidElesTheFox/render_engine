@@ -312,8 +312,7 @@ namespace RenderEngine
         {
             auto state_description = texture->getResourceState();
 
-            if (next_state == std::nullopt
-                || next_state == state_description)
+            if (next_state == state_description)
             {
                 continue;
             }
@@ -322,11 +321,11 @@ namespace RenderEngine
             barrier.image = texture->getVkImage();
             barrier.srcStageMask = state_description.pipeline_stage;
             barrier.srcAccessMask = state_description.access_flag;
-            barrier.dstStageMask = next_state->pipeline_stage;
-            barrier.dstAccessMask = next_state->access_flag;
+            barrier.dstStageMask = next_state.pipeline_stage;
+            barrier.dstAccessMask = next_state.access_flag;
 
             std::optional<uint32_t> current_queue_family_index = state_description.getQueueFamilyIndex();
-            std::optional<uint32_t> next_queue_family_index = next_state->getQueueFamilyIndex();
+            std::optional<uint32_t> next_queue_family_index = next_state.getQueueFamilyIndex();
             assert(current_queue_family_index.has_value() == next_queue_family_index.has_value()
                    && "During family queue ownership transfer both states need a family queue index");
 
@@ -337,12 +336,12 @@ namespace RenderEngine
             }
 
             barrier.oldLayout = state_description.layout;
-            barrier.newLayout = next_state->layout;
+            barrier.newLayout = next_state.layout;
             barrier.subresourceRange = texture->createSubresourceRange();
             image_barriers.emplace_back(barrier);
             if (apply_state_change_on_texture)
             {
-                texture->overrideResourceState(*next_state, {});
+                texture->overrideResourceState(next_state, {});
             }
         }
         _images.clear();
@@ -356,8 +355,7 @@ namespace RenderEngine
         {
             auto state_description = buffer->getResourceState();
 
-            if (next_state == std::nullopt
-                || next_state == state_description)
+            if (next_state == state_description)
             {
                 continue;
             }
@@ -368,11 +366,11 @@ namespace RenderEngine
             barrier.srcStageMask = state_description.pipeline_stage;
             barrier.srcAccessMask = state_description.access_flag;
 
-            barrier.dstStageMask = next_state->pipeline_stage;
-            barrier.dstAccessMask = next_state->access_flag;
+            barrier.dstStageMask = next_state.pipeline_stage;
+            barrier.dstAccessMask = next_state.access_flag;
 
             std::optional<uint32_t> current_queue_family_index = state_description.getQueueFamilyIndex();
-            std::optional<uint32_t> next_queue_family_index = next_state->getQueueFamilyIndex();
+            std::optional<uint32_t> next_queue_family_index = next_state.getQueueFamilyIndex();
 
             assert(current_queue_family_index.has_value() == next_queue_family_index.has_value()
                    && "During family queue ownership transfer both states need a family queue index");
@@ -386,7 +384,7 @@ namespace RenderEngine
             buffer_barriers.emplace_back(barrier);
             if (apply_state_change_on_buffer)
             {
-                buffer->overrideResourceState(*next_state, {});
+                buffer->overrideResourceState(next_state, {});
             }
         }
         _buffers.clear();

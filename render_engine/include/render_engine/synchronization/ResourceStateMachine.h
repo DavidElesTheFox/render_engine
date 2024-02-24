@@ -89,9 +89,8 @@ namespace RenderEngine
         bool stateCanMakeChangesOnMemory(VkAccessFlags2 access);
 
         LogicalDevice& _logical_device;
-        // TODO remove optional - so far it always has value
-        std::unordered_map<Texture*, std::optional<TextureState>> _images{};
-        std::unordered_map<Buffer*, std::optional<BufferState>> _buffers{};
+        std::unordered_map<Texture*, TextureState> _images{};
+        std::unordered_map<Buffer*, BufferState> _buffers{};
 
     };
 }

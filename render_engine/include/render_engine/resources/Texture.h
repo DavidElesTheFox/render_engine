@@ -122,7 +122,6 @@ namespace RenderEngine
     public:
         friend class Texture;
         friend class TextureViewReference;
-        // TODO: TextureView should be created from a texture member function
 
         ~TextureView() override
         {

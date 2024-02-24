@@ -4,7 +4,7 @@
 #include <string>
 namespace RenderEngine
 {
-    void RendererFeactory::registerRenderer(uint32_t id, std::function<std::unique_ptr<AbstractRenderer>(IWindow&, const RenderTarget&, uint32_t, AbstractRenderer*, bool)> factory_method)
+    void RendererFeactory::registerRenderer(uint32_t id, std::function<std::unique_ptr<AbstractRenderer>(IWindow&, RenderTarget, uint32_t, AbstractRenderer*, bool)> factory_method)
     {
         bool inserted = _factory_methods.insert({ id, factory_method }).second;
         if (inserted == false)
@@ -14,7 +14,7 @@ namespace RenderEngine
     }
     std::vector<std::unique_ptr<AbstractRenderer>> RendererFeactory::generateRenderers(std::vector<uint32_t> renderer_ids,
                                                                                        IWindow& window,
-                                                                                       const RenderTarget& render_target,
+                                                                                       RenderTarget render_target,
                                                                                        uint32_t back_buffer_count)
     {
         std::vector<std::unique_ptr<AbstractRenderer>> result;

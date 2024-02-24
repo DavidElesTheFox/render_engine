@@ -51,7 +51,9 @@ namespace Assets
                                                        std::vector<uint8_t> vertex_buffer(begin, begin + vertex_buffer_data.size() * sizeof(float));
                                                        return vertex_buffer;
                                                    }
-                                               }, id);
+                                               },
+                                               id,
+                                               "NoLitMaterial");
     }
     std::unique_ptr<NoLitMaterial::Instance> NoLitMaterial::createInstance(glm::vec3 instance_color, Scene::Scene* scene, uint32_t id)
     {

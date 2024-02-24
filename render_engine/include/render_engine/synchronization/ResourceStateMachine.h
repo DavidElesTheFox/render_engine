@@ -36,8 +36,8 @@ namespace RenderEngine
                                             const SyncOperations& sync_operations);
 
         [[nodiscard]]
-        static SyncObject barrier(Texture* texture,
-                                  CommandContext* src,
+        static SyncObject barrier(Texture& texture,
+                                  CommandContext& src,
                                   const SyncOperations& sync_operations);
         [[nodiscard]]
         static SyncObject barrier(Buffer* buffer,
@@ -78,8 +78,8 @@ namespace RenderEngine
                                               const SyncOperations& external_operations,
                                               const std::function<void(VkCommandBuffer, ResourceStateMachine&)>& additional_command);
 
-        static SyncObject barrierImpl(ResourceStateHolder auto* resource,
-                                      CommandContext* src,
+        static SyncObject barrierImpl(ResourceStateHolder auto& resource,
+                                      CommandContext& src,
                                       const SyncOperations& sync_operations);
 
         void commitChanges(VkCommandBuffer command_buffer, bool apply_state_change_on_objects);
@@ -89,9 +89,8 @@ namespace RenderEngine
         bool stateCanMakeChangesOnMemory(VkAccessFlags2 access);
 
         LogicalDevice& _logical_device;
-        // TODO remove optional - so far it always has value
-        std::unordered_map<Texture*, std::optional<TextureState>> _images{};
-        std::unordered_map<Buffer*, std::optional<BufferState>> _buffers{};
+        std::unordered_map<Texture*, TextureState> _images{};
+        std::unordered_map<Buffer*, BufferState> _buffers{};
 
     };
 }

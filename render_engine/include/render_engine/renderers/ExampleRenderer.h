@@ -58,7 +58,7 @@ namespace RenderEngine
         struct FrameData
         {
             VkCommandBuffer command_buffer;
-            std::unique_ptr<Buffer> color_offset;
+            std::unique_ptr<CoherentBuffer> color_offset;
             VkDescriptorSet descriptor_set;
         };
         void createFrameBuffers(const RenderTarget& swap_chain);

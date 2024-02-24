@@ -186,7 +186,7 @@ namespace RenderEngine
 
 
     UIRenderer::UIRenderer(Window& window,
-                           const RenderTarget& render_target,
+                           RenderTarget render_target,
                            uint32_t back_buffer_size,
                            bool first_renderer)
         : SingleColorOutputRenderer(window)
@@ -234,8 +234,7 @@ namespace RenderEngine
                                                                       {
                                                                           ImGui_ImplVulkan_CreateFontsTexture(command_buffer);
                                                                       });
-
-                logical_device->vkWaitForFences(*logical_device, 1, sync_object.getOperationsGroup(SyncGroups::kInternal).getFence(), VK_TRUE, UINT64_MAX);
+                sync_object.waitFence();
 
             }
             ImGui_ImplVulkan_DestroyFontUploadObjects();
@@ -288,7 +287,6 @@ namespace RenderEngine
             ImGui_ImplGlfw_NewFrame();
             ImGui::NewFrame();
         }
-        getLogicalDevice()->vkResetCommandBuffer(frame_data.command_buffer, /*VkCommandBufferResetFlagBits*/ 0);
         VkCommandBufferBeginInfo begin_info{};
         begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
@@ -296,6 +294,8 @@ namespace RenderEngine
         {
             throw std::runtime_error("failed to begin recording command buffer!");
         }
+
+        auto renderer_marker = _performance_markers.createMarker(frame_data.command_buffer, "UIRenderer");
 
         VkRenderPassBeginInfo render_pass_info{};
         render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;

@@ -18,12 +18,12 @@ void OffScreenTestApplication::init()
     createWindow();
 
     createScene();
-    _texture_factory = RenderContext::context().getDevice(0).createTextureFactory(
-        _window->getTransferEngine(),
-        { _window->getTransferEngine().getTransferContext().getQueueFamilyIndex(), _window->getRenderEngine().getCommandContext().getQueueFamilyIndex() }
-    );
+
     DemoSceneBuilder demoSceneBuilder;
-    _scene_resources = demoSceneBuilder.buildSceneOfQuads(_assets, *_scene, *_texture_factory, _window->getRenderEngine());
+    _scene_resources = demoSceneBuilder.buildSceneOfQuads(_assets,
+                                                          *_scene,
+                                                          _window->getDevice(),
+                                                          _window->getRenderEngine());
 
     _render_manager = std::make_unique<Scene::SceneRenderManager>(_scene->getNodeLookup(), *_window);
 
@@ -77,7 +77,7 @@ void OffScreenTestApplication::initializeRenderers()
     std::unique_ptr<RendererFeactory> renderers = std::make_unique<RendererFeactory>();
 
     renderers->registerRenderer(ForwardRenderer::kRendererId,
-                                [&](auto& window, const auto& render_target, uint32_t back_buffer_count, AbstractRenderer* previous_renderer, bool has_next) -> std::unique_ptr<AbstractRenderer>
+                                [&](auto& window, auto render_target, uint32_t back_buffer_count, AbstractRenderer* previous_renderer, bool has_next) -> std::unique_ptr<AbstractRenderer>
                                 {
                                     return std::make_unique<ForwardRenderer>(window, render_target, has_next);
                                 });

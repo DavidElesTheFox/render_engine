@@ -46,17 +46,12 @@ namespace RenderEngine
                                                            CommandContext* dst,
                                                            const SyncOperations& sync_operations)
     {
-        const std::string kTransferFinishedSemaphore = "TransferFinished";
         auto src_command_buffer = src->createCommandBuffer(CommandContext::Usage::SingleSubmit);
         auto dst_command_buffer = dst->createCommandBuffer(CommandContext::Usage::SingleSubmit);
 
         assert(*src->getLogicalDevice() == *dst->getLogicalDevice());
         assert(dst->isPipelineStageSupported(new_state.pipeline_stage));
         SyncObject sync_object = SyncObject::CreateEmpty(src->getLogicalDevice());
-
-        sync_object.createTimelineSemaphore(kTransferFinishedSemaphore, 0, 2);
-        sync_object.addSignalOperationToGroup(SyncGroups::kInternal, kTransferFinishedSemaphore, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, 1);
-        sync_object.addWaitOperationToGroup(SyncGroups::kExternal, kTransferFinishedSemaphore, VK_PIPELINE_STAGE_2_NONE, 1);
 
         const std::string texture_semaphore_name = std::format("{:#x}", reinterpret_cast<intptr_t>(resource));
         sync_object.createTimelineSemaphore(texture_semaphore_name, 0, 2);
@@ -204,7 +199,7 @@ namespace RenderEngine
             .select({ SyncGroups::kInternal, SyncGroups::kAcquire })
             .join(external_operations.extract(SyncOperations::ExtractSignalOperations | SyncOperations::ExtractFence)).get();
         acquire_operations.fillInfo(dst_submit_info);
-        logical_device->vkQueueSubmit2(dst_queue, 1, &dst_submit_info, *acquire_operations.getFence());
+        logical_device->vkQueueSubmit2(dst_queue, 1, &dst_submit_info, acquire_operations.getFence());
     }
 
     [[nodiscard]]
@@ -234,43 +229,43 @@ namespace RenderEngine
                                      sync_operations);
     }
 
-    SyncObject ResourceStateMachine::barrier(Texture* texture, CommandContext* src, const SyncOperations& sync_operations)
+    SyncObject ResourceStateMachine::barrier(Texture& texture, CommandContext& src, const SyncOperations& sync_operations)
     {
         return barrierImpl(texture, src, sync_operations);
     }
     SyncObject ResourceStateMachine::barrier(Buffer* buffer, CommandContext* src, const SyncOperations& sync_operations)
     {
-        return barrierImpl(buffer, src, sync_operations);
+        return barrierImpl(*buffer, *src, sync_operations);
     }
-    SyncObject ResourceStateMachine::barrierImpl(ResourceStateHolder auto* resource,
-                                                 CommandContext* src,
+    SyncObject ResourceStateMachine::barrierImpl(ResourceStateHolder auto& resource,
+                                                 CommandContext& src,
                                                  const SyncOperations& sync_operations)
     {
-        SyncObject result = SyncObject::CreateEmpty(src->getLogicalDevice());
+        SyncObject result = SyncObject::CreateEmpty(src.getLogicalDevice());
         result.createTimelineSemaphore("BarrierFinished", 0, 2);
         result.addSignalOperationToGroup(SyncGroups::kInternal,
                                          "BarrierFinished",
-                                         resource->getResourceState().pipeline_stage,
+                                         resource.getResourceState().pipeline_stage,
                                          1);
         result.addWaitOperationToGroup(SyncGroups::kExternal,
                                        "BarrierFinished",
-                                       resource->getResourceState().pipeline_stage,
+                                       resource.getResourceState().pipeline_stage,
                                        1);
 
-        auto command_buffer = src->createCommandBuffer(CommandContext::Usage::SingleSubmit);
+        auto command_buffer = src.createCommandBuffer(CommandContext::Usage::SingleSubmit);
         VkCommandBufferBeginInfo begin_info{};
         begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
-        src->getLogicalDevice()->vkBeginCommandBuffer(command_buffer, &begin_info);
+        src.getLogicalDevice()->vkBeginCommandBuffer(command_buffer, &begin_info);
 
         VkDependencyInfo dependency{};
         dependency.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
         dependency.imageMemoryBarrierCount = 0;
         dependency.bufferMemoryBarrierCount = 0;
-        src->getLogicalDevice()->vkCmdPipelineBarrier2(command_buffer, &dependency);
+        src.getLogicalDevice()->vkCmdPipelineBarrier2(command_buffer, &dependency);
 
-        src->getLogicalDevice()->vkEndCommandBuffer(command_buffer);
+        src.getLogicalDevice()->vkEndCommandBuffer(command_buffer);
 
         VkCommandBufferSubmitInfo command_buffer_info{};
         command_buffer_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
@@ -286,7 +281,7 @@ namespace RenderEngine
             .select(SyncGroups::kInternal)
             .join(sync_operations.extract(SyncOperations::ExtractWaitOperations)).get();
         operations.fillInfo(submit_info);
-        src->getLogicalDevice()->vkQueueSubmit2(src->getQueue(), 1, &submit_info, VK_NULL_HANDLE);
+        src.getLogicalDevice()->vkQueueSubmit2(src.getQueue(), 1, &submit_info, VK_NULL_HANDLE);
         return result;
     }
 
@@ -317,8 +312,7 @@ namespace RenderEngine
         {
             auto state_description = texture->getResourceState();
 
-            if (next_state == std::nullopt
-                || next_state == state_description)
+            if (next_state == state_description)
             {
                 continue;
             }
@@ -327,11 +321,11 @@ namespace RenderEngine
             barrier.image = texture->getVkImage();
             barrier.srcStageMask = state_description.pipeline_stage;
             barrier.srcAccessMask = state_description.access_flag;
-            barrier.dstStageMask = next_state->pipeline_stage;
-            barrier.dstAccessMask = next_state->access_flag;
+            barrier.dstStageMask = next_state.pipeline_stage;
+            barrier.dstAccessMask = next_state.access_flag;
 
             std::optional<uint32_t> current_queue_family_index = state_description.getQueueFamilyIndex();
-            std::optional<uint32_t> next_queue_family_index = next_state->getQueueFamilyIndex();
+            std::optional<uint32_t> next_queue_family_index = next_state.getQueueFamilyIndex();
             assert(current_queue_family_index.has_value() == next_queue_family_index.has_value()
                    && "During family queue ownership transfer both states need a family queue index");
 
@@ -342,12 +336,12 @@ namespace RenderEngine
             }
 
             barrier.oldLayout = state_description.layout;
-            barrier.newLayout = next_state->layout;
+            barrier.newLayout = next_state.layout;
             barrier.subresourceRange = texture->createSubresourceRange();
             image_barriers.emplace_back(barrier);
             if (apply_state_change_on_texture)
             {
-                texture->overrideResourceState(*next_state, {});
+                texture->overrideResourceState(next_state, {});
             }
         }
         _images.clear();
@@ -361,8 +355,7 @@ namespace RenderEngine
         {
             auto state_description = buffer->getResourceState();
 
-            if (next_state == std::nullopt
-                || next_state == state_description)
+            if (next_state == state_description)
             {
                 continue;
             }
@@ -373,11 +366,11 @@ namespace RenderEngine
             barrier.srcStageMask = state_description.pipeline_stage;
             barrier.srcAccessMask = state_description.access_flag;
 
-            barrier.dstStageMask = next_state->pipeline_stage;
-            barrier.dstAccessMask = next_state->access_flag;
+            barrier.dstStageMask = next_state.pipeline_stage;
+            barrier.dstAccessMask = next_state.access_flag;
 
             std::optional<uint32_t> current_queue_family_index = state_description.getQueueFamilyIndex();
-            std::optional<uint32_t> next_queue_family_index = next_state->getQueueFamilyIndex();
+            std::optional<uint32_t> next_queue_family_index = next_state.getQueueFamilyIndex();
 
             assert(current_queue_family_index.has_value() == next_queue_family_index.has_value()
                    && "During family queue ownership transfer both states need a family queue index");
@@ -391,7 +384,7 @@ namespace RenderEngine
             buffer_barriers.emplace_back(barrier);
             if (apply_state_change_on_buffer)
             {
-                buffer->overrideResourceState(*next_state, {});
+                buffer->overrideResourceState(next_state, {});
             }
         }
         _buffers.clear();

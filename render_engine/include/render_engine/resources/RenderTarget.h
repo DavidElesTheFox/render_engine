@@ -7,27 +7,29 @@
 namespace RenderEngine
 {
     class SwapChain;
-    class Texture;
+    class ITextureView;
     class Image;
     class RenderTarget
     {
     public:
-        RenderTarget(std::vector<VkImageView> images,
+        RenderTarget(std::vector<ITextureView*> texture_views,
                      uint32_t width,
                      uint32_t height,
                      VkFormat image_format,
                      VkImageLayout layout);
-        ~RenderTarget() = default;
+        ~RenderTarget();
         uint32_t getWidth() const { return _extent.width; }
         uint32_t getHeight() const { return _extent.height; }
         VkFormat getImageFormat() const { return _image_format; }
         VkImageLayout getLayout() const { return _layout; }
-        const std::vector<VkImageView>& getImageViews() const { return _image_views; }
+        const ITextureView& getTextureView(uint32_t index) const { return *_texture_views[index]; }
+        ITextureView& getTextureView(uint32_t index) { return *_texture_views[index]; }
         VkExtent2D getExtent() const { return _extent; }
-        Image createImage() const;
+        const Image& getImage(uint32_t index) const;
+        uint32_t getTexturesCount() const { return _texture_views.size(); }
     private:
 
-        std::vector<VkImageView> _image_views;
+        std::vector<ITextureView*> _texture_views;
         VkExtent2D _extent{};
         VkFormat _image_format{ VK_FORMAT_UNDEFINED };
         VkImageLayout _layout{ VK_IMAGE_LAYOUT_UNDEFINED };

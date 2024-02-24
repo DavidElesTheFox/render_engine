@@ -90,7 +90,7 @@ namespace RenderEngine
                             VkDescriptorImageInfo image_info{};
                             image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
                             image_info.imageView = slot.texture_views[i]->getImageView();
-                            image_info.sampler = slot.texture_views[i]->getSamler();
+                            image_info.sampler = slot.texture_views[i]->getSampler();
                             image_info_holder.push_back(image_info);
                         }
                         VkWriteDescriptorSet writer{};
@@ -106,10 +106,10 @@ namespace RenderEngine
                     },
                     [&](const Shader::MetaData::UniformBuffer& buffer)
                     {
-                        back_buffer[i].buffer = gpu_resource_manager.createUniformBuffer(buffer.size);
+                        back_buffer[i].coherent_buffer = gpu_resource_manager.createUniformBuffer(buffer.size);
                         {
                             VkDescriptorBufferInfo buffer_info{};
-                            buffer_info.buffer = back_buffer[i].buffer->getBuffer();
+                            buffer_info.buffer = back_buffer[i].coherent_buffer->getBuffer();
                             buffer_info.offset = 0;
                             buffer_info.range = buffer.size;
                             buffer_info_holder.push_back(buffer_info);
@@ -132,7 +132,7 @@ namespace RenderEngine
                             VkDescriptorImageInfo image_info{};
                             image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
                             image_info.imageView = slot.texture_views[i]->getImageView();
-                            image_info.sampler = slot.texture_views[i]->getSamler();
+                            image_info.sampler = slot.texture_views[i]->getSampler();
                             image_info_holder.push_back(image_info);
                         }
                         VkWriteDescriptorSet writer{};

@@ -51,6 +51,11 @@ namespace RenderEngine
         bool isPipelineStageSupported(VkPipelineStageFlags2 pipeline_stage) const;
 
         std::weak_ptr<CommandContext> getWeakReference() { return shared_from_this(); }
+
+        bool isCompatibleWith(CommandContext& o) const
+        {
+            return o._queue_family_index == _queue_family_index;
+        }
     private:
 
         VkCommandPool getCommandPool(Usage usage) const

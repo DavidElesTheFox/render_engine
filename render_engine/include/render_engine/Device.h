@@ -23,7 +23,9 @@ namespace RenderEngine
     class OffScreenWindow;
     class TransferEngine;
     class TextureFactory;
-
+    class DataTransferScheduler;
+    class LogicalDevice;
+    class SyncOperations;
 
     class Device;
     class PerformanceMarkerFactory
@@ -71,6 +73,24 @@ namespace RenderEngine
     class Device
     {
     public:
+        class StagingArea
+        {
+        public:
+            StagingArea(std::unique_ptr<TransferEngine> transfer_engine,
+                        std::set<uint32_t> queue_family_indexes,
+                        VkPhysicalDevice physical_device,
+                        LogicalDevice& logical_device);
+
+            ~StagingArea();
+            DataTransferScheduler& getScheduler() { return *_scheduler; }
+            TextureFactory& getTextureFactory() { return *_texture_factory; }
+            void synchronizeStagingArea(SyncOperations sync_operations);
+            void destroy();
+        private:
+            std::unique_ptr<DataTransferScheduler> _scheduler;
+            std::unique_ptr<TransferEngine> _transfer_engine;
+            std::unique_ptr<TextureFactory> _texture_factory;
+        };
         Device(VkInstance instance,
                VkPhysicalDevice physical_device,
                uint32_t queue_family_index_graphics,
@@ -90,17 +110,20 @@ namespace RenderEngine
         std::unique_ptr<OffScreenWindow> createOffScreenWindow(std::string_view name, size_t back_buffer_size);
         std::unique_ptr<RenderEngine> createRenderEngine(size_t back_buffer_size);
         std::unique_ptr<TransferEngine> createTransferEngine();
-        std::unique_ptr<TextureFactory> createTextureFactory(TransferEngine& transfer_engine,
-                                                             std::set<uint32_t> compatible_queue_family_indexes);
 
         LogicalDevice& getLogicalDevice() { return _logical_device; }
         VkPhysicalDevice getPhysicalDevice() { return _physical_device; }
         VkInstance& getVulkanInstance() { return _instance; }
 
         CudaCompute::CudaDevice& getCudaDevice() const { return *_cuda_device; }
+        TextureFactory& getTextureFactory() { return _staging_area.getTextureFactory(); }
+
         bool hasCudaDevice() const { return _cuda_device != nullptr; }
 
         void waitIdle();
+
+        void synchronizeStagingArea(SyncOperations syncOperations);
+        StagingArea& getStagingArea() { return _staging_area; }
     private:
         void destroy() noexcept;
 
@@ -112,5 +135,7 @@ namespace RenderEngine
         uint32_t _queue_family_transfer = 0;
         std::unique_ptr<CudaCompute::CudaDevice> _cuda_device;
         DeviceLookup::DeviceInfo _device_info;
+        StagingArea _staging_area;
+
     };
 }

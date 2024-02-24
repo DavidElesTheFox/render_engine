@@ -107,18 +107,18 @@ void MultiWindowApplication::initEngine()
     using namespace RenderEngine;
     std::unique_ptr<RendererFeactory> renderers = std::make_unique<RendererFeactory>();
     renderers->registerRenderer(UIRenderer::kRendererId,
-                                [](auto& window, const auto& render_target, uint32_t back_buffer_count, AbstractRenderer* previous_renderer, bool) -> std::unique_ptr<AbstractRenderer>
+                                [](auto& window, auto render_target, uint32_t back_buffer_count, AbstractRenderer* previous_renderer, bool) -> std::unique_ptr<AbstractRenderer>
                                 {
                                     return std::make_unique<UIRenderer>(static_cast<Window&>(window), render_target, back_buffer_count, previous_renderer == nullptr);
                                 });
 
     renderers->registerRenderer(ExampleRenderer::kRendererId,
-                                [](auto& window, const auto& render_target, uint32_t back_buffer_count, AbstractRenderer* previous_renderer, bool has_next) -> std::unique_ptr<AbstractRenderer>
+                                [](auto& window, auto render_target, uint32_t back_buffer_count, AbstractRenderer* previous_renderer, bool has_next) -> std::unique_ptr<AbstractRenderer>
                                 {
                                     return std::make_unique<ExampleRenderer>(window, render_target, back_buffer_count, has_next);
                                 });
     renderers->registerRenderer(ImageStreamRenderer::kRendererId,
-                                [&](auto& window, const auto& render_target, uint32_t back_buffer_count, AbstractRenderer* previous_renderer, bool has_next) -> std::unique_ptr<AbstractRenderer>
+                                [&](auto& window, auto render_target, uint32_t back_buffer_count, AbstractRenderer* previous_renderer, bool has_next) -> std::unique_ptr<AbstractRenderer>
                                 {
                                     return std::make_unique<ImageStreamRenderer>(window, *_image_stream, render_target, back_buffer_count, has_next);
                                 });

@@ -35,7 +35,7 @@ namespace RenderEngine
     public:
         static constexpr uint32_t kRendererId = 2u;
         ForwardRenderer(IWindow& window,
-                        const RenderTarget& render_target,
+                        RenderTarget render_target,
                         bool last_renderer);
         ~ForwardRenderer() override;
         void onFrameBegin(uint32_t image_index) override;
@@ -50,6 +50,7 @@ namespace RenderEngine
 
         std::vector<MeshGroup> _meshes;
         std::map<const Mesh*, MeshBuffers> _mesh_buffers;
+        PerformanceMarkerFactory _performance_markers;
 
     };
 }

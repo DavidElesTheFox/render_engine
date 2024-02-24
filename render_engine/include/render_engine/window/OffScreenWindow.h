@@ -15,7 +15,6 @@ namespace RenderEngine
     public:
         OffScreenWindow(Device& device,
                         std::unique_ptr<RenderEngine>&& render_engine,
-                        std::unique_ptr<TransferEngine>&& transfer_engine,
                         std::vector<std::unique_ptr<Texture>>&& textures);
         ~OffScreenWindow();
         void update() override final;
@@ -24,7 +23,6 @@ namespace RenderEngine
         void enableRenderdocCapture() override final;
         void disableRenderdocCapture() override final;
         RenderEngine& getRenderEngine()  override final { return *_render_engine; }
-        TransferEngine& getTransferEngine()  override final { return *_transfer_engine; }
         bool isClosed() const override final { return false; }
 
         template<typename T>
@@ -42,27 +40,27 @@ namespace RenderEngine
         uint32_t getFrameCounter() const { return _frame_counter; }
         void registerTunnel(WindowTunnel& tunnel) override final;
         WindowTunnel* getTunnel() override final;
+
+        TextureFactory& getTextureFactory() final;
     private:
         struct FrameData
         {
             SyncObject synch_render;
             bool contains_image{ false };
+            std::unique_ptr<Texture> render_target_texture;
+            std::unique_ptr<ITextureView> render_target_texture_view;
         };
         void initSynchronizationObjects();
         void present();
         void present(FrameData& current_frame_data) const;
-        void readBack(FrameData& frame);
+        void readBack();
         void destroy();
         RenderTarget createRenderTarget();
         uint32_t getCurrentImageIndex() const { return _current_render_target_index; }
-        uint32_t getOldestImageIndex() const { return (_current_render_target_index + 1) % _textures.size(); }
+        uint32_t getOldestImageIndex() const { return (_current_render_target_index + 1) % _back_buffer_size; }
 
         Device& _device;
         std::unique_ptr<RenderEngine> _render_engine;
-        std::unique_ptr<TransferEngine> _transfer_engine;
-        std::vector<std::unique_ptr<Texture>> _textures;
-        std::vector<std::unique_ptr<TextureView>> _texture_views;
-
         std::vector<FrameData> _back_buffer;
         uint32_t _render_queue_family{ 0 };
 

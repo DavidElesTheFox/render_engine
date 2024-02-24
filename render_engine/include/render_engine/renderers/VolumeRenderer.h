@@ -17,7 +17,7 @@ namespace RenderEngine
         static constexpr uint32_t kRendererId = 4u;
 
         VolumeRenderer(IWindow& window,
-                       const RenderTarget& render_target,
+                       RenderTarget render_target,
                        bool last_renderer);
         ~VolumeRenderer() override = default;
         void onFrameBegin(uint32_t image_index) override;
@@ -81,7 +81,6 @@ namespace RenderEngine
         FrameBufferData _back_face_frame_buffer;
         std::map<const Mesh*, MeshBuffers> _mesh_buffers;
         PerformanceMarkerFactory _performance_markers;
-        TextureFactory _texture_factory;
 
     };
 }

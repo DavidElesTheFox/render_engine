@@ -33,7 +33,7 @@ namespace RenderEngine
         static constexpr uint32_t kRendererId = 1u;
 
         UIRenderer(Window& window,
-                   const RenderTarget& render_target,
+                   RenderTarget render_target,
                    uint32_t back_buffer_size,
                    bool first_renderer);
         void onFrameBegin(uint32_t frame_number) override final {}
@@ -67,5 +67,7 @@ namespace RenderEngine
         GLFWwindow* _window_handle{ nullptr };
 
         std::function<void()> _on_gui;
+        PerformanceMarkerFactory _performance_markers;
+
     };
 }

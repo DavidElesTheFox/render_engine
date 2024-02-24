@@ -3,6 +3,7 @@
 #include <render_engine/Device.h>
 #include <render_engine/GpuResourceManager.h>
 #include <render_engine/RenderContext.h>
+#include <render_engine/resources/Texture.h>
 
 #include <data_config.h>
 
@@ -30,13 +31,11 @@ namespace RenderEngine
 {
     Window::Window(Device& device,
                    std::unique_ptr<RenderEngine>&& render_engine,
-                   std::unique_ptr<TransferEngine>&& transfer_engine,
                    GLFWwindow* window,
                    std::unique_ptr<SwapChain> swap_chain,
                    std::shared_ptr<CommandContext>&& present_context)
         try : _device(device)
         , _render_engine(std::move(render_engine))
-        , _transfer_engine(std::move(transfer_engine))
         , _window(window)
         , _swap_chain(std::move(swap_chain))
         , _present_context(std::move(present_context))
@@ -166,7 +165,6 @@ namespace RenderEngine
         _renderers.clear();
 
         _render_engine.reset();
-        _transfer_engine.reset();
         glfwDestroyWindow(_window);
 
         _window = nullptr;
@@ -187,7 +185,7 @@ namespace RenderEngine
         if (_swap_chain_image_index == std::nullopt)
         {
             uint32_t image_index = 0;
-            logical_device->vkWaitForFences(*logical_device, 1, frame_data.synch_render.getOperationsGroup(SyncGroups::kInternal).getFence(), VK_TRUE, UINT64_MAX);
+            frame_data.synch_render.waitFence();
             auto call_result = logical_device->vkAcquireNextImageKHR(*logical_device,
                                                                      _swap_chain->getDetails().swap_chain,
                                                                      UINT64_MAX,
@@ -207,7 +205,7 @@ namespace RenderEngine
             }
             _swap_chain_image_index = image_index;
         }
-        logical_device->vkResetFences(*logical_device, 1, frame_data.synch_render.getOperationsGroup(SyncGroups::kInternal).getFence());
+        frame_data.synch_render.resetFence();
         _render_engine->onFrameBegin(renderers, *_swap_chain_image_index);
 
 
@@ -249,6 +247,11 @@ namespace RenderEngine
     WindowTunnel* Window::getTunnel()
     {
         return _tunnel;
+    }
+
+    TextureFactory& Window::getTextureFactory()
+    {
+        return _device.getTextureFactory();
     }
 
 }

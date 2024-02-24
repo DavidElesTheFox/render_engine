@@ -5,12 +5,13 @@
 
 #include <volk.h>
 
+#include <render_engine/Debugger.h>
 #include <render_engine/DeviceLookup.h>
 #include <render_engine/RendererFactory.h>
+#include <render_engine/synchronization/SyncObject.h>
 
 #include <variant>
 
-#include <render_engine/synchronization/SyncObject.h>
 namespace RenderEngine
 {
     class Device;
@@ -60,6 +61,7 @@ namespace RenderEngine
         [[deprecated("This object is a sign of ownership problem. It's not nice but sometimes a you need a shortcut. "
                      "This is a visible short cut and the goal is that whenever it is used let's remove it soon.")]]
         void clearGarbage();
+        Debugger& getDebugger() { return _debugger; }
     private:
         struct GarbageData
         {
@@ -87,5 +89,6 @@ namespace RenderEngine
         bool _initialized{ false };
         uint32_t _engine_id_counter = kEngineReservedIdStart;
         std::vector<GarbageData> _garbage;
+        Debugger _debugger;
     };
 }

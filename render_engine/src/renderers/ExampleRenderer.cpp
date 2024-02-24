@@ -1,8 +1,10 @@
 #include <render_engine/renderers/ExampleRenderer.h>
 
+#include <render_engine/DataTransferScheduler.h>
 #include <render_engine/Device.h>
 #include <render_engine/GpuResourceManager.h>
 #include <render_engine/resources/RenderTarget.h>
+#include <render_engine/resources/Texture.h>
 #include <render_engine/window/Window.h>
 
 #include <data_config.h>
@@ -178,7 +180,7 @@ namespace
                                                       VkDescriptorPool pool,
                                                       VkDescriptorSetLayout layout,
                                                       uint32_t backbuffer_size,
-                                                      std::vector<Buffer*> uniform_buffers)
+                                                      std::vector<CoherentBuffer*> uniform_buffers)
     {
         std::vector<VkDescriptorSetLayout> layouts(backbuffer_size, layout);
         VkDescriptorSetAllocateInfo allocInfo{};
@@ -396,19 +398,22 @@ namespace RenderEngine
         {
             VkDeviceSize size = sizeof(Vertex) * vertices.size();
             _vertex_buffer = _window.getRenderEngine().getGpuResourceManager().createAttributeBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, size);
-            _vertex_buffer->uploadUnmapped(std::span<const Vertex>{vertices.data(), vertices.size()},
-                                           _window.getTransferEngine(), & _window.getRenderEngine().getCommandContext(), SyncOperations{});
+
+            _window.getDevice().getStagingArea().getScheduler().upload(_vertex_buffer.get(),
+                                                                       std::span(vertices),
+                                                                       _window.getRenderEngine().getCommandContext(),
+                                                                       _vertex_buffer->getResourceState().clone());
         }
         {
             VkDeviceSize size = sizeof(uint16_t) * indicies.size();
             _index_buffer = _window.getRenderEngine().getGpuResourceManager().createAttributeBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, size);
-            _index_buffer->uploadUnmapped(std::span<const uint16_t>{indicies.data(), indicies.size()},
-                                          _window.getTransferEngine(),
-                                          & _window.getRenderEngine().getCommandContext(),
-                                          SyncOperations{});
+            _window.getDevice().getStagingArea().getScheduler().upload(_index_buffer.get(),
+                                                                       std::span(indicies),
+                                                                       _window.getRenderEngine().getCommandContext(),
+                                                                       _vertex_buffer->getResourceState().clone());
         }
 
-        std::vector<Buffer*> created_buffers;
+        std::vector<CoherentBuffer*> created_buffers;
         for (auto& frame_data : _back_buffer)
         {
             frame_data.color_offset = _window.getRenderEngine().getGpuResourceManager().createUniformBuffer(sizeof(ColorOffset));
@@ -429,7 +434,7 @@ namespace RenderEngine
 
     void ExampleRenderer::draw(const VkFramebuffer& frame_buffer, FrameData& frame_data)
     {
-        frame_data.color_offset->uploadMapped(std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(&_color_offset), sizeof(ColorOffset)));
+        frame_data.color_offset->upload(std::span(&_color_offset, 1));
 
         getLogicalDevice()->vkResetCommandBuffer(frame_data.command_buffer, /*VkCommandBufferResetFlagBits*/ 0);
         VkCommandBufferBeginInfo begin_info{};
@@ -520,7 +525,7 @@ namespace RenderEngine
     {
         auto& logical_device = _window.getDevice().getLogicalDevice();
 
-        _frame_buffers.resize(render_target.getImageViews().size());
+        _frame_buffers.resize(render_target.getTexturesCount());
         for (uint32_t i = 0; i < _frame_buffers.size(); ++i)
         {
             if (createFrameBuffer(render_target, i) == false)
@@ -539,7 +544,7 @@ namespace RenderEngine
         auto& logical_device = _window.getDevice().getLogicalDevice();
 
         VkImageView attachments[] = {
-                render_target.getImageViews()[frame_buffer_index]
+                render_target.getTextureView(frame_buffer_index).getImageView()
         };
         VkFramebufferCreateInfo framebuffer_info{};
         framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;

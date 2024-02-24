@@ -1,6 +1,7 @@
 #include "render_engine/assets/Image.h"
 
 #include <render_engine/containers/VariantOverloaded.h>
+#include <render_engine/resources/Buffer.h>
 
 #include <fstream>
 #define STB_IMAGE_IMPLEMENTATION
@@ -119,8 +120,7 @@ namespace RenderEngine
         return BufferInfo{
                 .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                 .size = getSize(),
-                .memory_properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                .mapped = true
+                .memory_properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
         };
     }
     VkDeviceSize Image::getSize() const

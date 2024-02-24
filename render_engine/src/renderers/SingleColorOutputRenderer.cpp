@@ -14,7 +14,7 @@ namespace RenderEngine
     {
         destroyRenderOutput();
     }
-    void SingleColorOutputRenderer::initializeRendererOutput(const RenderTarget& render_target,
+    void SingleColorOutputRenderer::initializeRendererOutput(RenderTarget& render_target,
                                                              VkRenderPass render_pass,
                                                              size_t back_buffer_size,
                                                              const std::vector<AttachmentInfo>& render_pass_attachments)
@@ -26,8 +26,26 @@ namespace RenderEngine
         _render_area.extent = render_target.getExtent();
         createFrameBuffers(render_target, render_pass_attachments);
         createCommandBuffer();
+        initializeRenderTargetCommandContext(render_target);
 
     }
+
+    void SingleColorOutputRenderer::initializeRenderTargetCommandContext(RenderTarget& render_target)
+    {
+        for (uint32_t i = 0; i < render_target.getTexturesCount(); ++i)
+        {
+            if (render_target.getTextureView(i).getTexture().getResourceState().command_context.expired())
+            {
+                render_target.getTextureView(i).getTexture().setInitialCommandContext(_window.getRenderEngine().getCommandContext().getWeakReference());
+            }
+            else
+            {
+                assert(render_target.getTextureView(i).getTexture().getResourceState().command_context.lock()->isCompatibleWith(_window.getRenderEngine().getCommandContext())
+                       && "The render target current context needs to be compatible with the current render engine command context");
+            }
+        }
+    }
+
     void SingleColorOutputRenderer::destroyRenderOutput()
     {
         auto& logical_device = _window.getDevice().getLogicalDevice();
@@ -40,7 +58,7 @@ namespace RenderEngine
     {
         auto& logical_device = _window.getDevice().getLogicalDevice();
 
-        _frame_buffers.resize(render_target.getImageViews().size());
+        _frame_buffers.resize(render_target.getTexturesCount());
         for (uint32_t i = 0; i < _frame_buffers.size(); ++i)
         {
             const AttachmentInfo attachment_info = render_pass_attachments.empty() ? AttachmentInfo{} : render_pass_attachments[i];
@@ -62,7 +80,7 @@ namespace RenderEngine
         auto& logical_device = _window.getDevice().getLogicalDevice();
 
         std::vector<VkImageView> attachments = {
-                render_target.getImageViews()[frame_buffer_index]
+                render_target.getTextureView(frame_buffer_index).getImageView()
         };
         std::ranges::transform(render_pass_attachment.attachments, std::back_inserter(attachments),
                                [](ITextureView* view) { return view->getImageView(); });

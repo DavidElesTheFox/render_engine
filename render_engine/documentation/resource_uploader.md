@@ -2,7 +2,7 @@
 
 ## Status
 
-proposed
+accepted
 
 ## Context
 
@@ -14,4 +14,12 @@ When data needs to be downloaded it uses std::futures to block only the main thr
 
 ## Decision
 
+DataTransferScheduler is the object that responsible to schedule the different upload/download tasks execution. With SyncOperations it synchronizes the upload and download tasks with other queue operations.
+
+A device has a DataTransferScheduler (so it is not per Window). The execution of these operations needs to be done one certain point. It needs to be also part of the RenderGraph because these tasks are highly depend on the render execution.
+
 ## Consequences
+
+- Textures and Buffers cannot be uploaded at any time. 
+- Textures and Buffers has proper synchronization
+- Textures and Buffers are the owners of the task that operates on the GPU. In this way it can be always queried what is the situation with the resource.

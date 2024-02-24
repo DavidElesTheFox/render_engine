@@ -29,14 +29,10 @@ void VolumeRendererDemo::init(bool use_ao)
     createWindowSetup();
 
     createScene();
-    _texture_factory = RenderContext::context().getDevice(0).createTextureFactory(
-        getRenderingWindow().getTransferEngine(),
-        { getRenderingWindow().getTransferEngine().getTransferContext().getQueueFamilyIndex(), getRenderingWindow().getRenderEngine().getCommandContext().getQueueFamilyIndex() }
-    );
     DemoSceneBuilder demoSceneBuilder;
     _scene_resources = demoSceneBuilder.buildVolumetricScene(_assets,
                                                              *_scene,
-                                                             *_texture_factory,
+                                                             getRenderingWindow().getDevice(),
                                                              getRenderingWindow().getRenderEngine(),
                                                              use_ao);
 
@@ -86,24 +82,24 @@ void VolumeRendererDemo::initializeRenderers()
 
     std::unique_ptr<RendererFeactory> renderers = std::make_unique<RendererFeactory>();
     renderers->registerRenderer(UIRenderer::kRendererId,
-                                [](auto& window, const auto& render_target, uint32_t back_buffer_count, AbstractRenderer* previous_renderer, bool) -> std::unique_ptr<AbstractRenderer>
+                                [](auto& window, auto render_target, uint32_t back_buffer_count, AbstractRenderer* previous_renderer, bool) -> std::unique_ptr<AbstractRenderer>
                                 {
                                     return std::make_unique<UIRenderer>(dynamic_cast<Window&>(window), render_target, back_buffer_count, previous_renderer == nullptr);
                                 });
     renderers->registerRenderer(ForwardRenderer::kRendererId,
-                                [](auto& window, const auto& render_target, uint32_t back_buffer_count, AbstractRenderer* previous_renderer, bool has_next) -> std::unique_ptr<AbstractRenderer>
+                                [](auto& window, auto render_target, uint32_t back_buffer_count, AbstractRenderer* previous_renderer, bool has_next) -> std::unique_ptr<AbstractRenderer>
                                 {
                                     return std::make_unique<ForwardRenderer>(window, render_target, has_next);
                                 });
     renderers->registerRenderer(ImageStreamRenderer::kRendererId,
-                                [](IWindow& window, const auto& render_target, uint32_t back_buffer_count, AbstractRenderer* previous_renderer, bool has_next) -> std::unique_ptr<AbstractRenderer>
+                                [](IWindow& window, auto render_target, uint32_t back_buffer_count, AbstractRenderer* previous_renderer, bool has_next) -> std::unique_ptr<AbstractRenderer>
                                 {
                                     assert(window.getTunnel() != nullptr && "No tunnel defined for the given window. Cannot connect with its origin's stream");
                                     return std::make_unique<ImageStreamRenderer>(window, window.getTunnel()->getOriginWindow().getImageStream(), render_target, back_buffer_count, has_next);
 
                                 });
     renderers->registerRenderer(VolumeRenderer::kRendererId,
-                                [](IWindow& window, const auto& render_target, uint32_t back_buffer_count, AbstractRenderer* previous_renderer, bool has_next) -> std::unique_ptr<AbstractRenderer>
+                                [](IWindow& window, auto render_target, uint32_t back_buffer_count, AbstractRenderer* previous_renderer, bool has_next) -> std::unique_ptr<AbstractRenderer>
                                 {
                                     return std::make_unique<VolumeRenderer>(window, render_target, has_next);
                                 });

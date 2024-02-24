@@ -14,7 +14,7 @@ namespace RenderEngine
         static constexpr uint32_t kRendererId = 3u;
         ImageStreamRenderer(IWindow& window,
                             ImageStream& image_stream,
-                            const RenderTarget& render_target,
+                            RenderTarget render_target,
                             uint32_t back_buffer_size,
                             bool last_renderer);
         ~ImageStreamRenderer()
@@ -44,5 +44,7 @@ namespace RenderEngine
         std::unique_ptr<Technique> _technique;
         std::vector<std::unique_ptr<Texture>> _texture_container;
         bool _draw_call_recorded{ true };
+        PerformanceMarkerFactory _performance_markers;
+
     };
 }

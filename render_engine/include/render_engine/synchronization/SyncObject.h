@@ -47,31 +47,31 @@ namespace RenderEngine
                     if (need_fence == false)
                     {
                         constexpr int32_t everything_except_fence_bit = ~SyncOperations::ExtractFence;
-                        _operations.unionWith(_sync_object.getOperationsGroup(name).extract(everything_except_fence_bit));
+                        _operations = _operations.createUnionWith(_sync_object.getOperationsGroup(name).extract(everything_except_fence_bit));
                     }
                     else
                     {
                         need_fence = false;
-                        _operations.unionWith(_sync_object.getOperationsGroup(name));
+                        _operations = _operations.createUnionWith(_sync_object.getOperationsGroup(name));
                     }
                 }
                 return std::move(*this);
             }
             Query&& extract(int32_t extract_flags)&&
             {
-                _operations.extract(extract_flags);
+                _operations = _operations.extract(extract_flags);
                 return std::move(*this);
             }
 
             Query&& join(const SyncOperations& operations)&&
             {
-                _operations.unionWith(operations);
+                _operations = _operations.createUnionWith(operations);
                 return std::move(*this);
             }
 
             Query&& join(const Query& o)&&
             {
-                _operations.unionWith(o._operations);
+                _operations = _operations.createUnionWith(o._operations);
                 return std::move(*this);
             }
 
@@ -87,6 +87,12 @@ namespace RenderEngine
             const SyncObject& _sync_object;
             SyncOperations _operations;
         };
+
+        SyncObject(const SyncObject&) = delete;
+        SyncObject(SyncObject&&) = default;
+
+        SyncObject& operator=(const SyncObject&) = delete;
+        SyncObject& operator=(SyncObject&&) = default;
 
         static SyncObject CreateEmpty(LogicalDevice& logical_device)
         {
@@ -108,6 +114,10 @@ namespace RenderEngine
         void signalSemaphore(const std::string& name, uint64_t value);
 
         void waitSemaphore(const std::string& name, uint64_t value);
+        uint64_t getSemaphoreValue(const std::string& name);
+
+        void waitFence();
+        void resetFence();
 
         const SyncPrimitives& getPrimitives() const { return _primitives; }
 

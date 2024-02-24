@@ -29,7 +29,6 @@ namespace RenderEngine
         static constexpr std::array<const char*, 1> kDeviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
         Window(Device& device,
                std::unique_ptr<RenderEngine>&& render_engine,
-               std::unique_ptr<TransferEngine>&& transfer_engine,
                GLFWwindow* window,
                std::unique_ptr<SwapChain> swap_chain,
                std::shared_ptr<CommandContext>&& present_context);
@@ -44,7 +43,6 @@ namespace RenderEngine
         void enableRenderdocCapture() override final;
         void disableRenderdocCapture() override final;
         RenderEngine& getRenderEngine()  override final { return *_render_engine; }
-        TransferEngine& getTransferEngine()  override final { return *_transfer_engine; }
 
         GLFWwindow* getWindowHandle() { return _window; }
         template<typename T>
@@ -60,6 +58,7 @@ namespace RenderEngine
 
         void registerTunnel(WindowTunnel& tunnel) override final;
         WindowTunnel* getTunnel() override final;
+        TextureFactory& getTextureFactory() final;
     private:
         struct FrameData
         {
@@ -74,7 +73,6 @@ namespace RenderEngine
 
         Device& _device;
         std::unique_ptr<RenderEngine> _render_engine;
-        std::unique_ptr<TransferEngine> _transfer_engine;
         GLFWwindow* _window{ nullptr };
         std::unique_ptr<SwapChain> _swap_chain;
         std::shared_ptr<CommandContext> _present_context;

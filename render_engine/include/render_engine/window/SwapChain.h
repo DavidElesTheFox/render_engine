@@ -2,25 +2,37 @@
 
 #include <volk.h>
 
-#include <GLFW/glfw3.h>
-#include <vector>
-
 #include <render_engine/LogicalDevice.h>
+
+#include <GLFW/glfw3.h>
+
+#include <memory>
+#include <vector>
 
 namespace RenderEngine
 {
     class RenderTarget;
+    class Texture;
+    class ITextureView;
+    class Device;
     class SwapChain
     {
     public:
         struct Details
         {
             VkSwapchainKHR swap_chain{ VK_NULL_HANDLE };
-            std::vector<VkImage> images;
-            std::vector<VkImageView> image_views;
+            std::vector<std::unique_ptr<Texture>> textures;
+            std::vector< std::unique_ptr<ITextureView>> texture_views;
             VkFormat image_format{ VK_FORMAT_UNDEFINED };
             VkExtent2D extent{};
             VkSurfaceKHR surface{ VK_NULL_HANDLE };
+            ~Details();
+            Details() = default;
+            Details(Details&&) = default;
+            Details(const Details&) = delete;
+
+            Details& operator=(Details&&) = default;
+            Details& operator=(const Details&) = delete;
         };
 
         struct CreateInfo
@@ -30,6 +42,7 @@ namespace RenderEngine
             VkPhysicalDevice physical_device{ VK_NULL_HANDLE };
             LogicalDevice* logical_device{ nullptr };
             VkSurfaceKHR surface{ VK_NULL_HANDLE };
+            Device* device{ nullptr };
             uint32_t graphics_family_index{ 0 };
             uint32_t present_family_index{ 0 };
             uint32_t back_buffer_size{ 0 };

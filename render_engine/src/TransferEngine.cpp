@@ -31,6 +31,6 @@ namespace RenderEngine
         submitInfo.commandBufferInfoCount = 1;
         submitInfo.pCommandBufferInfos = &command_buffer_info;
         sync_operations.fillInfo(submitInfo);
-        _transfer_context->getLogicalDevice()->vkQueueSubmit2(_transfer_context->getQueue(), 1, &submitInfo, *sync_operations.getFence());
+        _transfer_context->getLogicalDevice()->vkQueueSubmit2(_transfer_context->getQueue(), 1, &submitInfo, sync_operations.getFence());
     }
 }

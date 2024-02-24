@@ -20,7 +20,7 @@
 namespace RenderEngine
 {
     ForwardRenderer::ForwardRenderer(IWindow& window,
-                                     const RenderTarget& render_target,
+                                     RenderTarget render_target,
                                      bool last_renderer)
         try : SingleColorOutputRenderer(window)
     {
@@ -71,35 +71,38 @@ namespace RenderEngine
     void ForwardRenderer::addMesh(const MeshInstance* mesh_instance)
     {
         const auto* mesh = mesh_instance->getMesh();
-        const auto& material = mesh->getMaterial();
         const uint32_t material_instance_id = mesh_instance->getMaterialInstance()->getId();
-        const Geometry& geometry = mesh->getGeometry();
-
-        const Shader::MetaData& vertex_shader_meta_data = material.getVertexShader().getMetaData();
-        MeshBuffers mesh_buffers;
-        auto& transfer_engine = getWindow().getTransferEngine();
         auto& gpu_resource_manager = getWindow().getRenderEngine().getGpuResourceManager();
-        if (geometry.positions.empty() == false)
-        {
-            std::vector vertex_buffer = mesh->createVertexBuffer();
-            mesh_buffers.vertex_buffer = gpu_resource_manager.createAttributeBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                                                                                    vertex_buffer.size());
-            mesh_buffers.vertex_buffer->uploadUnmapped(std::span{ vertex_buffer.data(), vertex_buffer.size() },
-                                                       transfer_engine,
-                                                       &getWindow().getRenderEngine().getCommandContext(),
-                                                       SyncOperations{});
 
-        }
-        if (geometry.indexes.empty() == false)
+        if (_mesh_buffers.contains(mesh) == false)
         {
-            mesh_buffers.index_buffer = gpu_resource_manager.createAttributeBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                                                                                   geometry.indexes.size() * sizeof(int16_t));
-            mesh_buffers.index_buffer->uploadUnmapped(std::span{ geometry.indexes.data(), geometry.indexes.size() },
-                                                      transfer_engine,
-                                                      &getWindow().getRenderEngine().getCommandContext(),
-                                                      SyncOperations{});
+            const Geometry& geometry = mesh->getGeometry();
+            const auto& material = mesh->getMaterial();
+
+            const Shader::MetaData& vertex_shader_meta_data = material.getVertexShader().getMetaData();
+            MeshBuffers mesh_buffers;
+            if (geometry.positions.empty() == false)
+            {
+                std::vector vertex_buffer = mesh->createVertexBuffer();
+                mesh_buffers.vertex_buffer = gpu_resource_manager.createAttributeBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                                                                                        vertex_buffer.size());
+                getWindow().getDevice().getStagingArea().getScheduler().upload(mesh_buffers.vertex_buffer.get(),
+                                                                               std::span(vertex_buffer),
+                                                                               getWindow().getRenderEngine().getCommandContext(),
+                                                                               mesh_buffers.vertex_buffer->getResourceState().clone());
+
+            }
+            if (geometry.indexes.empty() == false)
+            {
+                mesh_buffers.index_buffer = gpu_resource_manager.createAttributeBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                                                                                       geometry.indexes.size() * sizeof(int16_t));
+                getWindow().getDevice().getStagingArea().getScheduler().upload(mesh_buffers.index_buffer.get(),
+                                                                               std::span(geometry.indexes),
+                                                                               getWindow().getRenderEngine().getCommandContext(),
+                                                                               mesh_buffers.index_buffer->getResourceState().clone());
+            }
+            _mesh_buffers[mesh] = std::move(mesh_buffers);
         }
-        _mesh_buffers[mesh_instance->getMesh()] = std::move(mesh_buffers);
         auto it = std::ranges::find_if(_meshes,
                                        [&](const auto& mesh_group) { return mesh_group.technique->getMaterialInstance().getId() == material_instance_id; });
         if (it != _meshes.end())
@@ -131,6 +134,8 @@ namespace RenderEngine
             throw std::runtime_error("failed to begin recording command buffer!");
         }
 
+        auto renderer_marker = _performance_markers.createMarker(frame_data.command_buffer,
+                                                                 "ForwardRenderer");
         auto render_area = getRenderArea();
         VkRenderPassBeginInfo render_pass_info{};
         render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -145,6 +150,9 @@ namespace RenderEngine
         getLogicalDevice()->vkCmdBeginRenderPass(frame_data.command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
         for (auto& mesh_group : _meshes)
         {
+            auto technique_marker = _performance_markers.createMarker(frame_data.command_buffer,
+                                                                      mesh_group.technique->getMaterialInstance().getMaterial().getName());
+
             MaterialInstance::UpdateContext material_update_context = mesh_group.technique->onFrameBegin(swap_chain_image_index, frame_data.command_buffer);
 
             getLogicalDevice()->vkCmdBindPipeline(frame_data.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_group.technique->getPipeline());
@@ -187,6 +195,7 @@ namespace RenderEngine
 
                 getLogicalDevice()->vkCmdDrawIndexed(frame_data.command_buffer, static_cast<uint32_t>(mesh_buffers.index_buffer->getDeviceSize() / sizeof(uint16_t)), 1, 0, 0, 0);
             }
+            technique_marker.finish();
         }
         getLogicalDevice()->vkCmdEndRenderPass(frame_data.command_buffer);
 

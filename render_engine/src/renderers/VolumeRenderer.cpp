@@ -100,12 +100,10 @@ namespace RenderEngine
         }
     }
 
-    VolumeRenderer::VolumeRenderer(IWindow& window, const RenderTarget& render_target, bool last_renderer)
+    VolumeRenderer::VolumeRenderer(IWindow& window, RenderTarget render_target, bool last_renderer)
         try : SingleColorOutputRenderer(window)
         , _render_target(render_target)
-        , _texture_factory(window.getTransferEngine(),
-                           { window.getRenderEngine().getCommandContext().getQueueFamilyIndex(), window.getTransferEngine().getTransferContext().getQueueFamilyIndex() },
-                           getPhysicalDevice(), getLogicalDevice())
+
     {
         std::array<VkAttachmentDescription, 3> attachments = {
             VkAttachmentDescription{},
@@ -261,27 +259,26 @@ namespace RenderEngine
 
         const Shader::MetaData& vertex_shader_meta_data = material.getVertexShader().getMetaData();
         MeshBuffers mesh_buffers;
-        auto& transfer_engine = getWindow().getTransferEngine();
         auto& gpu_resource_manager = getWindow().getRenderEngine().getGpuResourceManager();
         if (geometry.positions.empty() == false)
         {
             std::vector vertex_buffer = mesh->createVertexBuffer();
             mesh_buffers.vertex_buffer = gpu_resource_manager.createAttributeBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                                                                                     vertex_buffer.size());
-            mesh_buffers.vertex_buffer->uploadUnmapped(std::span{ vertex_buffer.data(), vertex_buffer.size() },
-                                                       transfer_engine,
-                                                       &getWindow().getRenderEngine().getCommandContext(),
-                                                       SyncOperations{});
+            getWindow().getDevice().getStagingArea().getScheduler().upload(mesh_buffers.vertex_buffer.get(),
+                                                                           std::span(vertex_buffer),
+                                                                           getWindow().getRenderEngine().getCommandContext(),
+                                                                           mesh_buffers.vertex_buffer->getResourceState().clone());
 
         }
         if (geometry.indexes.empty() == false)
         {
             mesh_buffers.index_buffer = gpu_resource_manager.createAttributeBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
                                                                                    geometry.indexes.size() * sizeof(int16_t));
-            mesh_buffers.index_buffer->uploadUnmapped(std::span{ geometry.indexes.data(), geometry.indexes.size() },
-                                                      transfer_engine,
-                                                      &getWindow().getRenderEngine().getCommandContext(),
-                                                      SyncOperations{});
+            getWindow().getDevice().getStagingArea().getScheduler().upload(mesh_buffers.index_buffer.get(),
+                                                                           std::span(geometry.indexes),
+                                                                           getWindow().getRenderEngine().getCommandContext(),
+                                                                           mesh_buffers.index_buffer->getResourceState().clone());
         }
         _mesh_buffers[mesh_instance->getMesh()] = std::move(mesh_buffers);
         if (mesh_instance->getVolumeMaterialInstance()->getVolumeMaterial().isRequireDistanceField())
@@ -325,7 +322,7 @@ namespace RenderEngine
         SyncOperations result;
         for (auto& mesh_group : _meshes_with_distance_field)
         {
-            result.unionWith(mesh_group.technique_data.synchronization_objects[image_index].getOperationsGroup(SyncGroups::kExternal));
+            result = result.createUnionWith(mesh_group.technique_data.synchronization_objects[image_index].getOperationsGroup(SyncGroups::kExternal));
         }
         return result;
     }
@@ -515,7 +512,6 @@ namespace RenderEngine
     void VolumeRenderer::initializeFrameBufferData(uint32_t back_buffer_count, const Image& ethalon_image, FrameBufferData* frame_buffer_data)
     {
         auto& window = getWindow();
-        auto& transfare_engine = window.getTransferEngine();
 
         frame_buffer_data->textures_per_back_buffer.clear();
         frame_buffer_data->texture_views_per_back_buffer.clear();
@@ -523,16 +519,12 @@ namespace RenderEngine
         Texture::SamplerData sampler_data{};
         for (uint32_t i = 0; i < back_buffer_count; ++i)
         {
-            frame_buffer_data->textures_per_back_buffer.push_back(_texture_factory.createNoUpload(ethalon_image,
-                                                                                                  VK_IMAGE_ASPECT_COLOR_BIT,
-                                                                                                  VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                                                                  VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT));
+            frame_buffer_data->textures_per_back_buffer.push_back(getTextureFactory().createNoUpload(ethalon_image,
+                                                                                                     VK_IMAGE_ASPECT_COLOR_BIT,
+                                                                                                     VK_SHADER_STAGE_FRAGMENT_BIT,
+                                                                                                     VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT));
             auto& texture = frame_buffer_data->textures_per_back_buffer.back();
-            auto texture_view = std::make_unique<TextureView>(*texture,
-                                                              Texture::ImageViewData{},
-                                                              sampler_data,
-                                                              getPhysicalDevice(),
-                                                              getLogicalDevice());
+            auto texture_view = texture->createTextureView(Texture::ImageViewData{}, sampler_data);
 
             frame_buffer_data->texture_views_per_back_buffer.push_back(std::move(texture_view));
         }
@@ -589,22 +581,20 @@ namespace RenderEngine
                                                                               VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
                                                                               DistanceFieldFinishedCallback::kReadyValue);
 
-                result.distance_field_textures.push_back(_texture_factory.createExternalNoUpload(distance_field_image,
-                                                                                                 VK_IMAGE_ASPECT_COLOR_BIT,
-                                                                                                 VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                                                                 VK_IMAGE_USAGE_SAMPLED_BIT
-                                                                                                 | VK_IMAGE_USAGE_TRANSFER_DST_BIT
-                                                                                                 | VK_IMAGE_USAGE_TRANSFER_SRC_BIT));
+                result.distance_field_textures.push_back(getTextureFactory().createExternalNoUpload(distance_field_image,
+                                                                                                    VK_IMAGE_ASPECT_COLOR_BIT,
+                                                                                                    VK_SHADER_STAGE_FRAGMENT_BIT,
+                                                                                                    VK_IMAGE_USAGE_SAMPLED_BIT
+                                                                                                    | VK_IMAGE_USAGE_TRANSFER_DST_BIT
+                                                                                                    | VK_IMAGE_USAGE_TRANSFER_SRC_BIT));
                 result.distance_field_texture_views.push_back(
-                    std::make_unique<TextureView>(*result.distance_field_textures.back(),
-                                                  Texture::ImageViewData{ },
-                                                  Texture::SamplerData{
-                                                      .mag_filter = VK_FILTER_NEAREST,
-                                                      .min_filter = VK_FILTER_NEAREST,
-                                                      .sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-                                                      .border_color = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE },
-                                                      getPhysicalDevice(),
-                                                      getLogicalDevice()));
+                    result.distance_field_textures.back()->createTextureView(
+                        Texture::ImageViewData{ },
+                        Texture::SamplerData{
+                            .mag_filter = VK_FILTER_NEAREST,
+                            .min_filter = VK_FILTER_NEAREST,
+                            .sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+                            .border_color = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE }));
                 {
                     cudaChannelFormatDesc channel_format{};
                     assert(distance_field_image.getFormat() == VK_FORMAT_R32_SFLOAT);
@@ -676,7 +666,7 @@ namespace RenderEngine
         auto& gpu_resource_manager = getWindow().getRenderEngine().getGpuResourceManager();
         const uint32_t back_buffer_size = gpu_resource_manager.getBackBufferSize();
 
-        initializeFrameBuffers(back_buffer_size, render_target.createImage());
+        initializeFrameBuffers(back_buffer_size, render_target.getImage(0));
         std::vector<AttachmentInfo> render_pass_attachments;
         for (uint32_t i = 0; i < back_buffer_size; ++i)
         {

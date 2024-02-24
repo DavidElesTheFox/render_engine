@@ -117,23 +117,26 @@ namespace RenderEngine
         }
 
         std::function<void(VkCommandBuffer)> createTextureNotUnifiedUploadCommand(Texture& texture,
-                                                                                  CommandContext* src_context)
+                                                                                  CommandContext* src_context,
+                                                                                  bool initial_transfer)
         {
-            auto upload_command = [&](VkCommandBuffer command_buffer)
+            auto upload_command = [&texture, src_context, initial_transfer](VkCommandBuffer command_buffer)
                 {
-                    ResourceStateMachine state_machine(src_context->getLogicalDevice());
-                    /* TODO: why is it needed ?
-                    * I.e.: If it is an
-                              - initial transfer memory availability is good
-                    *         - not initial transfer then queue ownership guarantees the proper stage and caches should be also good for all access flag
+                    /*
+                    * Image layout needs to be in dst optimal. When there is no queue ownership transformation
+                    * (i.e.: it is an initial transfer) the layout transformation needs to be done here.
                     */
-                    state_machine.recordStateChange(&texture,
-                                                    texture.getResourceState().clone()
-                                                    .setPipelineStage(VK_PIPELINE_STAGE_2_TRANSFER_BIT)
-                                                    .setAccessFlag(VK_ACCESS_2_TRANSFER_WRITE_BIT)
-                                                    .setImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
-                    );
-                    state_machine.commitChanges(command_buffer);
+                    if (initial_transfer)
+                    {
+                        ResourceStateMachine state_machine(src_context->getLogicalDevice());
+                        state_machine.recordStateChange(&texture,
+                                                        texture.getResourceState().clone()
+                                                        .setPipelineStage(VK_PIPELINE_STAGE_2_TRANSFER_BIT)
+                                                        .setAccessFlag(VK_ACCESS_2_TRANSFER_WRITE_BIT)
+                                                        .setImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+                        );
+                        state_machine.commitChanges(command_buffer);
+                    }
                     {
                         VkBufferImageCopy copy_region{};
                         copy_region.bufferOffset = 0;
@@ -166,7 +169,7 @@ namespace RenderEngine
         std::function<void(VkCommandBuffer)> createTextureNotUnifiedDownloadCommand(Texture& texture,
                                                                                     CommandContext& src_context)
         {
-            auto download_command = [&](VkCommandBuffer command_buffer)
+            auto download_command = [&texture, &src_context](VkCommandBuffer command_buffer)
                 {
                     VkBufferImageCopy copy_region{};
                     copy_region.bufferOffset = 0;
@@ -290,6 +293,12 @@ namespace RenderEngine
 #pragma endregion
 
 #pragma region Queue Transfer Commands
+
+        enum class DataTransferType
+        {
+            Upload,
+            Download
+        };
         [[nodiscard]]
         SyncObject unifiedQueueTransfer(
             SyncOperations sync_operations,
@@ -318,7 +327,8 @@ namespace RenderEngine
                                                                CommandContext& src_context,
                                                                CommandContext& dst_context,
                                                                TextureState final_state,
-                                                               std::function<void(VkCommandBuffer)> upload_command)
+                                                               std::function<void(VkCommandBuffer)> upload_command,
+                                                               DataTransferType transfer_type)
         {
             std::vector<SyncObject> result;
             const bool is_initial_transfer = texture.getResourceState().command_context.expired();
@@ -336,11 +346,14 @@ namespace RenderEngine
                                                          1);
             if (is_initial_transfer == false)
             {
+                VkImageLayout layout_for_copy = transfer_type == DataTransferType::Download
+                    ? VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
+                    : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
                 SyncObject sync_object_src_to_transfer = ResourceStateMachine::transferOwnership(&texture,
                                                                                                  texture.getResourceState().clone()
                                                                                                  .setPipelineStage(VK_PIPELINE_STAGE_2_TRANSFER_BIT)
                                                                                                  .setAccessFlag(0)
-                                                                                                 .setImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL),
+                                                                                                 .setImageLayout(layout_for_copy),
                                                                                                  texture.getResourceState().command_context.lock().get(),
                                                                                                  &transfer_engine.getTransferContext(),
                                                                                                  sync_operations.extract(SyncOperations::ExtractWaitOperations));
@@ -487,7 +500,8 @@ namespace RenderEngine
                                                           *src_context,
                                                           dst_context,
                                                           std::move(final_texture_state),
-                                                          createTextureNotUnifiedUploadCommand(*texture, src_context));
+                                                          createTextureNotUnifiedUploadCommand(*texture, src_context, is_initial_transfer),
+                                                          DataTransferType::Upload);
                 }
                 else
                 {
@@ -609,7 +623,8 @@ namespace RenderEngine
                                                           *src_context,
                                                           *src_context,
                                                           texture->getResourceState().clone(),
-                                                          createTextureNotUnifiedDownloadCommand(*texture, *src_context));
+                                                          createTextureNotUnifiedDownloadCommand(*texture, *src_context),
+                                                          DataTransferType::Download);
                 }
                 else
                 {

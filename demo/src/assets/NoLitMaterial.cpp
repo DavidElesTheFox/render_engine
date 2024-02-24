@@ -37,7 +37,7 @@ namespace Assets
         _material = std::make_unique<Material>(std::move(nolit_vertex_shader),
                                                std::move(nolit_fretment_shader),
                                                Material::CallbackContainer{
-                                                   .create_vertex_buffer = [](const Geometry& geometry, const Material& material)
+                                                   .create_vertex_buffer = [](const Geometry& geometry, const Material&)
                                                    {
                                                        std::vector<float> vertex_buffer_data;
                                                        vertex_buffer_data.reserve(geometry.positions.size() * 3);
@@ -60,7 +60,7 @@ namespace Assets
         using namespace RenderEngine;
         std::unique_ptr<Instance> result = std::make_unique<Instance>();
         result->_material_constants.fragment_values.instance_color = instance_color;
-        auto on_begin_frame = [material_constants = &result->_material_constants, scene](MaterialInstance::UpdateContext& update_context, uint32_t frame_count)
+        auto on_begin_frame = [material_constants = &result->_material_constants, scene](MaterialInstance::UpdateContext& update_context, uint32_t)
             {
                 material_constants->vertex_values.projection = scene->getActiveCamera()->getProjection();
                 {

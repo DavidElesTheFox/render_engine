@@ -67,8 +67,8 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
             double xpos, ypos;
             glfwGetCursorPos(window, &xpos, &ypos);
 
-            event_data.dragging_coordinates.x = -ypos;
-            event_data.dragging_coordinates.y = xpos;
+            event_data.dragging_coordinates.x = static_cast<float>(-ypos);
+            event_data.dragging_coordinates.y = static_cast<float>(xpos);
             event_data.is_dragging = true;
         }
         else if (action == GLFW_RELEASE)

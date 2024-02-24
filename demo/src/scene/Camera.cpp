@@ -24,7 +24,7 @@ namespace Scene
         new_lookup->registerCamera(this, this->getName());
     }
 
-    void Camera::onSceneChanged(Scene* new_scene, Scene* old_scene)
+    void Camera::onSceneChanged(Scene* new_scene, Scene*)
     {
         _scene_setup = new_scene->getSceneSetup();
     }

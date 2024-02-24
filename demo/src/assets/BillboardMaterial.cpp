@@ -40,7 +40,7 @@ namespace Assets
         _material = std::make_unique<Material>(std::move(vertex_shader),
                                                std::move(fretment_shader),
                                                Material::CallbackContainer{
-                                                   .create_vertex_buffer = [](const Geometry& geometry, const Material& material)
+                                                   .create_vertex_buffer = [](const Geometry& geometry, const Material&)
                                                    {
                                                        std::vector<float> vertex_buffer_data;
                                                        vertex_buffer_data.reserve(geometry.positions.size() * 5);
@@ -68,7 +68,7 @@ namespace Assets
         std::unordered_map<int32_t, std::unique_ptr<ITextureView>> texture_map;
         texture_map[1] = std::move(texture);
 
-        auto on_begin_frame = [material_constants = &result->_material_constants, scene](MaterialInstance::UpdateContext& update_context, uint32_t frame_count)
+        auto on_begin_frame = [material_constants = &result->_material_constants, scene](MaterialInstance::UpdateContext& update_context, uint32_t)
             {
                 material_constants->vertex_values.projection = scene->getActiveCamera()->getProjection();
                 {

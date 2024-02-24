@@ -33,32 +33,11 @@ namespace RenderEngine
             bool unnormalize_coordinate{ false };
         };
 
-
         ~Texture()
         {
             destroy();
         }
         bool isImageCompatible(const Image& image) const;
-
-        /*
-         * TODO: Textures needs to have only constant interface.These functions should be removed
-         *       It is because of the synchronization. Textures are owned by the application layer.
-         *       If they can be changed any time any where it makes impossible to synchronize the operation
-         *       with the renderer.
-         *       Probably the best solution if textures has a readonly interface. When a texture needs to be changed
-         *       it needs to be done via a material instance. Material instance is the connection between the asset-renderer world.
-         *       So, it makes sense to add there queued command to change textures and keeps the synchronization with the corresponding renders.
-         */
-         /*[[nodiscard]]
-         std::vector<SyncObject> upload(const Image& image,
-                                        SyncOperations sync_operations,
-                                        TransferEngine& transfer_engine,
-                                        CommandContext* dst_context);
-
-         [[nodiscard]]
-         std::vector<uint8_t> download(const SyncOperations& sync_operations,
-                                       TransferEngine& transfer_engine,
-                                       CommandContext* src_context);*/
 
         VkImageView createImageView(const ImageViewData& data);
         VkSampler createSampler(const SamplerData& data);
@@ -100,16 +79,6 @@ namespace RenderEngine
                 VkImageUsageFlags image_usage,
                 bool support_external_usage);
         void destroy() noexcept;
-        /*std::vector<SyncObject> notUnifiedQueueTransfer(const Image& image,
-                                                        SyncOperations sync_operations,
-                                                        TransferEngine& transfer_engine,
-                                                        CommandContext* src_context,
-                                                        CommandContext* dst_context);
-        std::vector<SyncObject> unifiedQueueTransfer(const Image& image,
-                                                     SyncOperations sync_operations,
-                                                     TransferEngine& transfer_engine,
-                                                     CommandContext* dst_context);*/
-
         VkPhysicalDevice _physical_device{ VK_NULL_HANDLE };
         LogicalDevice& _logical_device;
         VkImage _texture{ VK_NULL_HANDLE };

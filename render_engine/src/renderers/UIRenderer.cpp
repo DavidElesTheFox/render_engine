@@ -288,8 +288,6 @@ namespace RenderEngine
             ImGui_ImplGlfw_NewFrame();
             ImGui::NewFrame();
         }
-        // TODO remove reset
-        getLogicalDevice()->vkResetCommandBuffer(frame_data.command_buffer, /*VkCommandBufferResetFlagBits*/ 0);
         VkCommandBufferBeginInfo begin_info{};
         begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 

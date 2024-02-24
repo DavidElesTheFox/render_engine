@@ -278,7 +278,6 @@ namespace RenderEngine
             return {};
         }
         auto& texture = _texture_container[image_index];
-        // TODO: use texture's upload task.
         auto it = _upload_data.find(texture.get());
         if (it == _upload_data.end())
         {
@@ -313,7 +312,7 @@ namespace RenderEngine
             auto it = _upload_data.find(upload_texture.get());
             if (it == _upload_data.end())
             {
-                SyncObject sync_objcet = SyncObject::CreateWithFence(logical_device, 0);
+                SyncObject sync_objcet = SyncObject::CreateEmpty(logical_device);
 
                 sync_objcet.createSemaphore("copy-finished");
                 sync_objcet.addSignalOperationToGroup(SyncGroups::kInternal,
@@ -339,10 +338,6 @@ namespace RenderEngine
             }
             else
             {
-                // TODO: remove this fence. It shouldn't ever be a case that the previous frame's image is not uploaded. (Renderer Sync Operations should guarantee this)
-                it->second.synchronization_object.waitFence();
-                it->second.synchronization_object.resetFence();
-
                 getWindow().getDevice().getStagingArea().getScheduler().upload(upload_texture.get(),
                                                                                _image_cache,
                                                                                getWindow().getRenderEngine().getCommandContext(),

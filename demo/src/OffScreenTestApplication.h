@@ -36,5 +36,5 @@ private:
     std::unique_ptr<Ui::AssetBrowserUi> _asset_browser;
     DemoSceneBuilder::CreationResult _scene_resources;
     std::unique_ptr<RenderEngine::TextureFactory> _texture_factory;
-    bool _save_output = false;
+    bool _save_output = true;
 };

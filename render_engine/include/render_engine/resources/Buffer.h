@@ -31,13 +31,6 @@ namespace RenderEngine
 
         void uploadMapped(std::span<const uint8_t> data_view);
 
-        /*void uploadUnmapped(std::span<const uint8_t> data_view, TransferEngine& transfer_engine, CommandContext* dst_context, SyncOperations sync_operations);
-        template<typename T>
-        void uploadUnmapped(std::span<const T> data_view, TransferEngine& transfer_engine, CommandContext* dst_context, SyncOperations sync_operations)
-        {
-            uploadUnmapped(std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(data_view.data()), data_view.size() * sizeof(T)),
-                           transfer_engine, dst_context, sync_operations);
-        }*/
         VkBuffer getBuffer() const { return _buffer; }
         VkDeviceSize getDeviceSize() const { return _buffer_info.size; }
         const BufferState& getResourceState() const

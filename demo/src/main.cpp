@@ -28,7 +28,7 @@ void runOffScreenApplication()
 void runVolumeRendererDemo()
 {
     VolumeRendererDemo application;
-    constexpr bool use_ao = true;
+    constexpr bool use_ao = false;
     application.init(use_ao);
     application.run();
 }

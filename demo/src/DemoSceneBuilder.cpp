@@ -396,8 +396,9 @@ namespace
                                                                       RenderEngine::TextureState{}.setImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
                                                                       .setPipelineStage(VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT)
                                                                       .setAccessFlag(VK_ACCESS_2_SHADER_READ_BIT));
-            logical_device->vkWaitForFences(*logical_device, 1, sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal).getFence(), VK_TRUE, UINT64_MAX);
-            logical_device->vkWaitForFences(*logical_device, 1, sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal).getFence(), VK_TRUE, UINT64_MAX);
+            // TODO remove this and do proper synchronization with render graph
+            _device.getStagingArea().synchronizeStagingArea({});
+            sync_object.waitFence();
             _ct_texture = std::move(texture);
 
         }
@@ -413,7 +414,9 @@ namespace
                                                               RenderEngine::TextureState{}.setImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
                                                               .setPipelineStage(VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT)
                                                               .setAccessFlag(VK_ACCESS_2_SHADER_READ_BIT));
-            logical_device->vkWaitForFences(*logical_device, 1, sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal).getFence(), VK_TRUE, UINT64_MAX);
+            // TODO remove this and do proper synchronization with render graph
+            _device.getStagingArea().synchronizeStagingArea({});
+            sync_object.waitFence();
             _ct_texture = std::move(texture);
 
 

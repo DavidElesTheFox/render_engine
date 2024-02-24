@@ -75,8 +75,9 @@ See
  - [Object initialization](render_engine/documentation/object-initializations.md)
  - [Objects responsibility](render_engine/documentation/objects-responsibility.md)
  - [Singletons](render_engine/documentation/singletons.md)
+ - [Resource Uploader](render_engine/documentation/resource_uploader.md)
 
 Ongoing TODOs:
  - [Parallel Rendering](render_engine/documentation/todo/parallel_rendering.md)
  - [Render Graph](render_engine/documentation/todo/render_graph.md)
- - [Resource Uploader](render_engine/documentation/todo/resource_uploader.md.md)
+ - [Resource Batch Upload](render_engine/documentation/todo/resource_batch_upload.md)

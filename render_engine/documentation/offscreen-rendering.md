@@ -21,7 +21,7 @@ In this way all the computation load can be pushed into a powerfull GPU and UI r
 
 Create an OffScreenWindow and a WindowTunnel. WindowTunnel is the object that connects two Windows. (It even can be a chain of windows later).
 
-The RenderTarget class gonna be the abstraction above a SwapChain or banch of textures.
+The RenderTarget class gonna be the abstraction above a SwapChain or a set of textures.
 ## Consequences
 
 - Possible load distribution between gpus

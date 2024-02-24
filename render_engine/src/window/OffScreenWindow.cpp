@@ -27,11 +27,9 @@ namespace RenderEngine
 
     OffScreenWindow::OffScreenWindow(Device& device,
                                      std::unique_ptr<RenderEngine>&& render_engine,
-                                     std::unique_ptr<TransferEngine>&& transfer_engine,
                                      std::vector<std::unique_ptr<Texture>>&& textures)
         try : _device(device)
         , _render_engine(std::move(render_engine))
-        , _transfer_engine(std::move(transfer_engine))
         , _textures(std::move(textures))
         , _back_buffer()
         , _back_buffer_size(_textures.size())
@@ -132,7 +130,6 @@ namespace RenderEngine
         _renderers.clear();
 
         _render_engine.reset();
-        _transfer_engine.reset();
     }
 
     RenderTarget OffScreenWindow::createRenderTarget()
@@ -192,16 +189,19 @@ namespace RenderEngine
     }
     void OffScreenWindow::readBack(FrameData& frame)
     {
+        // Start reading back the current image
+        _device.getStagingArea().getScheduler().download(_textures[getCurrentImageIndex()].get(),
+                                                         _render_engine->getCommandContext());
         if (frame.contains_image == false)
         {
             return;
         }
 
-        std::vector<uint8_t> image_data = _textures[getOldestImageIndex()]->download(frame.synch_render.getOperationsGroup(SyncGroups::kPresent),
-                                                                                     *_transfer_engine,
-                                                                                     &_render_engine->getCommandContext());
+        auto download_task = _textures[getOldestImageIndex()]->clearDownloadTask();
+        assert(download_task != nullptr && "When the frame contains image it should have a download task");
 
-        _image_stream << std::move(image_data);
+        auto image = download_task->getImage();
+        _image_stream << std::move(std::get<std::vector<uint8_t>>(image.getData()));
     }
 
     void OffScreenWindow::registerTunnel(WindowTunnel& tunnel)
@@ -216,5 +216,10 @@ namespace RenderEngine
     WindowTunnel* OffScreenWindow::getTunnel()
     {
         return _tunnel;
+    }
+
+    TextureFactory& OffScreenWindow::getTextureFactory()
+    {
+        return _device.getTextureFactory();
     }
 }

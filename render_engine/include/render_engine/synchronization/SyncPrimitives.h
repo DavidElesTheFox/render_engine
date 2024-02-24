@@ -33,13 +33,18 @@ namespace RenderEngine
             return _semaphore_map.at(name);
         }
 
-        VkFence getFence() const { return _fence; }
+        const VkFence& getFence() const { return _fence; }
 
         LogicalDevice& getLogicalDevice() const { return *_logical_device; }
 
         uint64_t getTimelineOffset(const std::string& name)
         {
             return _timeline_data.at(name).timeline_offset;
+        }
+
+        uint64_t getTimelineWidth(const std::string& name)
+        {
+            return _timeline_data.at(name).timeline_width;
         }
 
         uint64_t stepTimeline(const std::string& name);

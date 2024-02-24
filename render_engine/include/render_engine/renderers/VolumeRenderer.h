@@ -81,7 +81,6 @@ namespace RenderEngine
         FrameBufferData _back_face_frame_buffer;
         std::map<const Mesh*, MeshBuffers> _mesh_buffers;
         PerformanceMarkerFactory _performance_markers;
-        TextureFactory _texture_factory;
 
     };
 }

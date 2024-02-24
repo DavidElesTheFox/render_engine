@@ -1,5 +1,6 @@
 #include <render_engine/renderers/ExampleRenderer.h>
 
+#include <render_engine/DataTransferScheduler.h>
 #include <render_engine/Device.h>
 #include <render_engine/GpuResourceManager.h>
 #include <render_engine/resources/RenderTarget.h>
@@ -396,16 +397,19 @@ namespace RenderEngine
         {
             VkDeviceSize size = sizeof(Vertex) * vertices.size();
             _vertex_buffer = _window.getRenderEngine().getGpuResourceManager().createAttributeBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, size);
-            _vertex_buffer->uploadUnmapped(std::span<const Vertex>{vertices.data(), vertices.size()},
-                                           _window.getTransferEngine(), & _window.getRenderEngine().getCommandContext(), SyncOperations{});
+
+            _window.getDevice().getStagingArea().getScheduler().upload(_vertex_buffer.get(),
+                                                                       std::span(vertices),
+                                                                       _window.getRenderEngine().getCommandContext(),
+                                                                       _vertex_buffer->getResourceState().clone());
         }
         {
             VkDeviceSize size = sizeof(uint16_t) * indicies.size();
             _index_buffer = _window.getRenderEngine().getGpuResourceManager().createAttributeBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, size);
-            _index_buffer->uploadUnmapped(std::span<const uint16_t>{indicies.data(), indicies.size()},
-                                          _window.getTransferEngine(),
-                                          & _window.getRenderEngine().getCommandContext(),
-                                          SyncOperations{});
+            _window.getDevice().getStagingArea().getScheduler().upload(_index_buffer.get(),
+                                                                       std::span(indicies),
+                                                                       _window.getRenderEngine().getCommandContext(),
+                                                                       _vertex_buffer->getResourceState().clone());
         }
 
         std::vector<Buffer*> created_buffers;

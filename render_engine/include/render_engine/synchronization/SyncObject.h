@@ -88,6 +88,12 @@ namespace RenderEngine
             SyncOperations _operations;
         };
 
+        SyncObject(const SyncObject&) = delete;
+        SyncObject(SyncObject&&) = default;
+
+        SyncObject& operator=(const SyncObject&) = delete;
+        SyncObject& operator=(SyncObject&&) = default;
+
         static SyncObject CreateEmpty(LogicalDevice& logical_device)
         {
             return SyncObject(logical_device, false);
@@ -108,6 +114,10 @@ namespace RenderEngine
         void signalSemaphore(const std::string& name, uint64_t value);
 
         void waitSemaphore(const std::string& name, uint64_t value);
+        uint64_t getSemaphoreValue(const std::string& name);
+
+        void waitFence();
+        void resetFence();
 
         const SyncPrimitives& getPrimitives() const { return _primitives; }
 

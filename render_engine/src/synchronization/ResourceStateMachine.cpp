@@ -46,17 +46,12 @@ namespace RenderEngine
                                                            CommandContext* dst,
                                                            const SyncOperations& sync_operations)
     {
-        const std::string kTransferFinishedSemaphore = "TransferFinished";
         auto src_command_buffer = src->createCommandBuffer(CommandContext::Usage::SingleSubmit);
         auto dst_command_buffer = dst->createCommandBuffer(CommandContext::Usage::SingleSubmit);
 
         assert(*src->getLogicalDevice() == *dst->getLogicalDevice());
         assert(dst->isPipelineStageSupported(new_state.pipeline_stage));
         SyncObject sync_object = SyncObject::CreateEmpty(src->getLogicalDevice());
-
-        sync_object.createTimelineSemaphore(kTransferFinishedSemaphore, 0, 2);
-        sync_object.addSignalOperationToGroup(SyncGroups::kInternal, kTransferFinishedSemaphore, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, 1);
-        sync_object.addWaitOperationToGroup(SyncGroups::kExternal, kTransferFinishedSemaphore, VK_PIPELINE_STAGE_2_NONE, 1);
 
         const std::string texture_semaphore_name = std::format("{:#x}", reinterpret_cast<intptr_t>(resource));
         sync_object.createTimelineSemaphore(texture_semaphore_name, 0, 2);
@@ -234,43 +229,43 @@ namespace RenderEngine
                                      sync_operations);
     }
 
-    SyncObject ResourceStateMachine::barrier(Texture* texture, CommandContext* src, const SyncOperations& sync_operations)
+    SyncObject ResourceStateMachine::barrier(Texture& texture, CommandContext& src, const SyncOperations& sync_operations)
     {
         return barrierImpl(texture, src, sync_operations);
     }
     SyncObject ResourceStateMachine::barrier(Buffer* buffer, CommandContext* src, const SyncOperations& sync_operations)
     {
-        return barrierImpl(buffer, src, sync_operations);
+        return barrierImpl(*buffer, *src, sync_operations);
     }
-    SyncObject ResourceStateMachine::barrierImpl(ResourceStateHolder auto* resource,
-                                                 CommandContext* src,
+    SyncObject ResourceStateMachine::barrierImpl(ResourceStateHolder auto& resource,
+                                                 CommandContext& src,
                                                  const SyncOperations& sync_operations)
     {
-        SyncObject result = SyncObject::CreateEmpty(src->getLogicalDevice());
+        SyncObject result = SyncObject::CreateEmpty(src.getLogicalDevice());
         result.createTimelineSemaphore("BarrierFinished", 0, 2);
         result.addSignalOperationToGroup(SyncGroups::kInternal,
                                          "BarrierFinished",
-                                         resource->getResourceState().pipeline_stage,
+                                         resource.getResourceState().pipeline_stage,
                                          1);
         result.addWaitOperationToGroup(SyncGroups::kExternal,
                                        "BarrierFinished",
-                                       resource->getResourceState().pipeline_stage,
+                                       resource.getResourceState().pipeline_stage,
                                        1);
 
-        auto command_buffer = src->createCommandBuffer(CommandContext::Usage::SingleSubmit);
+        auto command_buffer = src.createCommandBuffer(CommandContext::Usage::SingleSubmit);
         VkCommandBufferBeginInfo begin_info{};
         begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
-        src->getLogicalDevice()->vkBeginCommandBuffer(command_buffer, &begin_info);
+        src.getLogicalDevice()->vkBeginCommandBuffer(command_buffer, &begin_info);
 
         VkDependencyInfo dependency{};
         dependency.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
         dependency.imageMemoryBarrierCount = 0;
         dependency.bufferMemoryBarrierCount = 0;
-        src->getLogicalDevice()->vkCmdPipelineBarrier2(command_buffer, &dependency);
+        src.getLogicalDevice()->vkCmdPipelineBarrier2(command_buffer, &dependency);
 
-        src->getLogicalDevice()->vkEndCommandBuffer(command_buffer);
+        src.getLogicalDevice()->vkEndCommandBuffer(command_buffer);
 
         VkCommandBufferSubmitInfo command_buffer_info{};
         command_buffer_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
@@ -286,7 +281,7 @@ namespace RenderEngine
             .select(SyncGroups::kInternal)
             .join(sync_operations.extract(SyncOperations::ExtractWaitOperations)).get();
         operations.fillInfo(submit_info);
-        src->getLogicalDevice()->vkQueueSubmit2(src->getQueue(), 1, &submit_info, VK_NULL_HANDLE);
+        src.getLogicalDevice()->vkQueueSubmit2(src.getQueue(), 1, &submit_info, VK_NULL_HANDLE);
         return result;
     }
 

@@ -21,12 +21,12 @@ public:
     };
     CreationResult buildSceneOfQuads(Assets::AssetDatabase& assets,
                                      Scene::Scene& scene,
-                                     RenderEngine::TextureFactory& texture_factory,
+                                     RenderEngine::Device& device,
                                      RenderEngine::RenderEngine& render_engine);
 
     CreationResult buildVolumetricScene(Assets::AssetDatabase& assets,
                                         Scene::Scene& scene,
-                                        RenderEngine::TextureFactory& texture_factory,
+                                        RenderEngine::Device& device,
                                         RenderEngine::RenderEngine& render_engine,
                                         bool use_ao);
 };

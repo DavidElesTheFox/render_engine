@@ -1,6 +1,7 @@
 #include "render_engine/assets/Image.h"
 
 #include <render_engine/containers/VariantOverloaded.h>
+#include <render_engine/resources/Buffer.h>
 
 #include <fstream>
 #define STB_IMAGE_IMPLEMENTATION

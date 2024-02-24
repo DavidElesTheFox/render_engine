@@ -49,6 +49,7 @@ namespace RenderEngine
         VkRenderPass getRenderPass() { return _render_pass; }
         VkFramebuffer getFrameBuffer(uint32_t swap_chain_image_index) { return _frame_buffers[swap_chain_image_index]; }
         const VkRect2D& getRenderArea() const { return _render_area; }
+        TextureFactory& getTextureFactory() { return getWindow().getTextureFactory(); }
     private:
         void createFrameBuffers(const RenderTarget&, const std::vector<AttachmentInfo>& render_pass_attachments);
         bool createFrameBuffer(const RenderTarget& render_target, uint32_t frame_buffer_index, const AttachmentInfo& render_pass_attachments);

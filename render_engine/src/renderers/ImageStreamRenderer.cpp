@@ -207,19 +207,12 @@ namespace RenderEngine
         }
         initializeRendererOutput(render_target, render_pass, window.getRenderEngine().getGpuResourceManager().getBackBufferSize());
 
-        auto& transfare_engine = window.getTransferEngine();
-        TextureFactory texture_factory(transfare_engine,
-                                       { transfare_engine.getTransferContext().getQueueFamilyIndex(), window.getRenderEngine().getCommandContext().getQueueFamilyIndex() },
-                                       window.getDevice().getPhysicalDevice(),
-                                       window.getDevice().getLogicalDevice());
-
-
         for (uint32_t i = 0; i < back_buffer_size; ++i)
         {
-            _texture_container.push_back(texture_factory.createNoUpload(_image_cache,
-                                                                        VK_IMAGE_ASPECT_COLOR_BIT,
-                                                                        VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                                        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT));
+            _texture_container.push_back(getWindow().getTextureFactory().createNoUpload(_image_cache,
+                                                                                        VK_IMAGE_ASPECT_COLOR_BIT,
+                                                                                        VK_SHADER_STAGE_FRAGMENT_BIT,
+                                                                                        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT));
         }
         {
             Shader::MetaData fragment_metadata{ .samplers = {{0, {.binding = 0, .update_frequency = Shader::MetaData::UpdateFrequency::PerFrame }}} };
@@ -284,6 +277,7 @@ namespace RenderEngine
             return {};
         }
         auto& texture = _texture_container[image_index];
+        // TODO: use texture's upload task.
         auto it = _upload_data.find(texture.get());
         if (it == _upload_data.end())
         {
@@ -330,30 +324,32 @@ namespace RenderEngine
                                                     "copy-finished",
                                                     VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT); // TODO add as pipeline dependency
 
-                auto sync_object_for_upload = upload_texture->upload(_image_cache,
-                                                                     sync_objcet.getOperationsGroup(SyncGroups::kInternal),
-                                                                     getWindow().getTransferEngine(),
-                                                                     &getWindow().getRenderEngine().getCommandContext());
+                getWindow().getDevice().getStagingArea().getScheduler().upload(upload_texture.get(),
+                                                                               _image_cache,
+                                                                               getWindow().getRenderEngine().getCommandContext(),
+                                                                               upload_texture->getResourceState().clone()
+                                                                               .setPipelineStage(VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT)
+                                                                               .setAccessFlag(VK_ACCESS_2_SHADER_READ_BIT)
+                                                                               .setImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+                                                                               sync_objcet.getOperationsGroup(SyncGroups::kInternal));
+
                 _upload_data.insert(std::make_pair(upload_texture.get(),
                                                    UploadData(std::move(sync_objcet))));
-                for (auto&& sync_object : sync_object_for_upload)
-                {
-                    RenderContext::context().addGarbage(std::move(sync_object));
-                }
             }
             else
             {
-                logical_device->vkWaitForFences(*logical_device, 1, it->second.synchronization_object.getOperationsGroup(SyncGroups::kInternal).getFence(), VK_TRUE, UINT64_MAX);
-                logical_device->vkResetFences(*logical_device, 1, it->second.synchronization_object.getOperationsGroup(SyncGroups::kInternal).getFence());
+                // TODO: remove this fence. It shouldn't ever be a case that the previous frame's image is not uploaded. (Renderer Sync Operations should guarantee this)
+                it->second.synchronization_object.waitFence();
+                it->second.synchronization_object.resetFence();
 
-                auto sync_object_for_upload = upload_texture->upload(_image_cache,
-                                                                     it->second.synchronization_object.getOperationsGroup(SyncGroups::kInternal),
-                                                                     getWindow().getTransferEngine(),
-                                                                     &getWindow().getRenderEngine().getCommandContext());
-                for (auto&& sync_object : sync_object_for_upload)
-                {
-                    RenderContext::context().addGarbage(std::move(sync_object));
-                }
+                getWindow().getDevice().getStagingArea().getScheduler().upload(upload_texture.get(),
+                                                                               _image_cache,
+                                                                               getWindow().getRenderEngine().getCommandContext(),
+                                                                               upload_texture->getResourceState().clone()
+                                                                               .setPipelineStage(VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT)
+                                                                               .setAccessFlag(VK_ACCESS_2_SHADER_READ_BIT)
+                                                                               .setImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+                                                                               it->second.synchronization_object.getOperationsGroup(SyncGroups::kInternal));
             }
         }
         _draw_call_recorded = false;

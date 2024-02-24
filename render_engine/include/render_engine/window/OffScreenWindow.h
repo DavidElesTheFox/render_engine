@@ -15,7 +15,6 @@ namespace RenderEngine
     public:
         OffScreenWindow(Device& device,
                         std::unique_ptr<RenderEngine>&& render_engine,
-                        std::unique_ptr<TransferEngine>&& transfer_engine,
                         std::vector<std::unique_ptr<Texture>>&& textures);
         ~OffScreenWindow();
         void update() override final;
@@ -24,7 +23,6 @@ namespace RenderEngine
         void enableRenderdocCapture() override final;
         void disableRenderdocCapture() override final;
         RenderEngine& getRenderEngine()  override final { return *_render_engine; }
-        TransferEngine& getTransferEngine()  override final { return *_transfer_engine; }
         bool isClosed() const override final { return false; }
 
         template<typename T>
@@ -42,6 +40,8 @@ namespace RenderEngine
         uint32_t getFrameCounter() const { return _frame_counter; }
         void registerTunnel(WindowTunnel& tunnel) override final;
         WindowTunnel* getTunnel() override final;
+
+        TextureFactory& getTextureFactory() final;
     private:
         struct FrameData
         {
@@ -59,7 +59,6 @@ namespace RenderEngine
 
         Device& _device;
         std::unique_ptr<RenderEngine> _render_engine;
-        std::unique_ptr<TransferEngine> _transfer_engine;
         std::vector<std::unique_ptr<Texture>> _textures;
         std::vector<std::unique_ptr<TextureView>> _texture_views;
 

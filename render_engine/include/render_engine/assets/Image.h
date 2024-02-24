@@ -3,13 +3,13 @@
 #include <volk.h>
 
 #include <filesystem>
+#include <functional>
 #include <variant>
-
-#include <render_engine/resources/Buffer.h>
 
 #include <glm/vec4.hpp>
 namespace RenderEngine
 {
+    struct BufferInfo;
     class ImageProcessor;
     class Image
     {

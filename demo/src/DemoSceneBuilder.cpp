@@ -30,11 +30,11 @@ namespace
     public:
         QuadSceneBuilder(Assets::AssetDatabase& assets,
                          Scene::Scene& scene,
-                         RenderEngine::TextureFactory& texture_factory,
+                         RenderEngine::Device& device,
                          RenderEngine::RenderEngine& render_engine)
             : _assets(assets)
             , _scene(scene)
-            , _texture_factory(texture_factory)
+            , _device(device)
             , _render_engine(render_engine)
         {
             createAssets();
@@ -64,7 +64,7 @@ namespace
 
         Assets::AssetDatabase& _assets;
         Scene::Scene& _scene;
-        RenderEngine::TextureFactory& _texture_factory;
+        RenderEngine::Device& _device;
         std::unique_ptr<RenderEngine::Texture> _statue_texture;
         RenderEngine::RenderEngine& _render_engine;
     };
@@ -188,18 +188,22 @@ namespace
         }
         {
             {
-                auto& device = RenderEngine::RenderContext::context().getDevice(0);
-                auto& logical_device = device.getLogicalDevice();
-                auto physical_device = device.getPhysicalDevice();
+                auto& logical_device = _device.getLogicalDevice();
+                auto physical_device = _device.getPhysicalDevice();
                 RenderEngine::SyncObject sync_object =
                     RenderEngine::SyncObject::CreateWithFence(logical_device, 0);
                 RenderEngine::Image image(std::filesystem::path{ IMAGE_BASE } / "statue.jpg");
-                auto texture = _texture_factory.create(image, VK_IMAGE_ASPECT_COLOR_BIT,
-                                                       VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                       sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal),
-                                                       &_render_engine.getCommandContext(),
-                                                       VK_IMAGE_USAGE_SAMPLED_BIT);
-                logical_device->vkWaitForFences(*logical_device, 1, sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal).getFence(), VK_TRUE, UINT64_MAX);
+                auto texture = _device.getTextureFactory().create(image, VK_IMAGE_ASPECT_COLOR_BIT,
+                                                                  VK_SHADER_STAGE_FRAGMENT_BIT,
+                                                                  sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal),
+                                                                  &_render_engine.getCommandContext(),
+                                                                  VK_IMAGE_USAGE_SAMPLED_BIT,
+                                                                  RenderEngine::TextureState{}.setImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+                                                                  .setPipelineStage(VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT)
+                                                                  .setAccessFlag(VK_ACCESS_2_SHADER_READ_BIT));
+                // TODO remove this and do proper synchronization with render graph
+                _device.getStagingArea().synchronizeStagingArea({});
+                sync_object.waitFence();
 
                 auto billboard_material = _assets.getBaseMaterial<Assets::BillboardMaterial>();
                 _statue_texture = std::move(texture);
@@ -263,12 +267,12 @@ namespace
     public:
         VolumetricSceneBuilder(Assets::AssetDatabase& assets,
                                Scene::Scene& scene,
-                               RenderEngine::TextureFactory& texture_factory,
+                               RenderEngine::Device& device,
                                RenderEngine::RenderEngine& render_engine,
                                bool use_ao)
             : _assets(assets)
             , _scene(scene)
-            , _texture_factory(texture_factory)
+            , _device(device)
             , _render_engine(render_engine)
             , _use_ao(use_ao)
         {
@@ -298,7 +302,7 @@ namespace
 
         Assets::AssetDatabase& _assets;
         Scene::Scene& _scene;
-        RenderEngine::TextureFactory& _texture_factory;
+        RenderEngine::Device& _device;
         std::unique_ptr<RenderEngine::Texture> _ct_texture;
         RenderEngine::RenderEngine& _render_engine;
         bool _use_ao{ false };
@@ -365,10 +369,8 @@ namespace
 
         const auto& image_data = ct_image_container[1];
 
-        // TODO remove all direct getDevice reference
-        auto& device = RenderEngine::RenderContext::context().getDevice(0);
-        auto& logical_device = device.getLogicalDevice();
-        auto physical_device = device.getPhysicalDevice();
+        auto& logical_device = _device.getLogicalDevice();
+        auto physical_device = _device.getPhysicalDevice();
         auto ct_material = _assets.getBaseMaterial<Assets::CtVolumeMaterial>();
 
         std::filesystem::path ct_base_path{ IMAGE_BASE };
@@ -386,11 +388,15 @@ namespace
 
         if (_use_ao)
         {
-            auto texture = _texture_factory.createExternal(image_3d, VK_IMAGE_ASPECT_COLOR_BIT,
-                                                           VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                           sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal),
-                                                           &_render_engine.getCommandContext(),
-                                                           VK_IMAGE_USAGE_SAMPLED_BIT);
+            auto texture = _device.getTextureFactory().createExternal(image_3d, VK_IMAGE_ASPECT_COLOR_BIT,
+                                                                      VK_SHADER_STAGE_FRAGMENT_BIT,
+                                                                      sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal),
+                                                                      &_render_engine.getCommandContext(),
+                                                                      VK_IMAGE_USAGE_SAMPLED_BIT,
+                                                                      RenderEngine::TextureState{}.setImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+                                                                      .setPipelineStage(VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT)
+                                                                      .setAccessFlag(VK_ACCESS_2_SHADER_READ_BIT));
+            logical_device->vkWaitForFences(*logical_device, 1, sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal).getFence(), VK_TRUE, UINT64_MAX);
             logical_device->vkWaitForFences(*logical_device, 1, sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal).getFence(), VK_TRUE, UINT64_MAX);
             _ct_texture = std::move(texture);
 
@@ -399,11 +405,14 @@ namespace
         {
             ct_material->processImage(&image_3d);
 
-            auto texture = _texture_factory.create(image_3d, VK_IMAGE_ASPECT_COLOR_BIT,
-                                                   VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                   sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal),
-                                                   &_render_engine.getCommandContext(),
-                                                   VK_IMAGE_USAGE_SAMPLED_BIT);
+            auto texture = _device.getTextureFactory().create(image_3d, VK_IMAGE_ASPECT_COLOR_BIT,
+                                                              VK_SHADER_STAGE_FRAGMENT_BIT,
+                                                              sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal),
+                                                              &_render_engine.getCommandContext(),
+                                                              VK_IMAGE_USAGE_SAMPLED_BIT,
+                                                              RenderEngine::TextureState{}.setImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+                                                              .setPipelineStage(VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT)
+                                                              .setAccessFlag(VK_ACCESS_2_SHADER_READ_BIT));
             logical_device->vkWaitForFences(*logical_device, 1, sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal).getFence(), VK_TRUE, UINT64_MAX);
             _ct_texture = std::move(texture);
 
@@ -438,21 +447,21 @@ namespace
 
 DemoSceneBuilder::CreationResult DemoSceneBuilder::buildSceneOfQuads(Assets::AssetDatabase& assets,
                                                                      Scene::Scene& scene,
-                                                                     RenderEngine::TextureFactory& texture_factory,
+                                                                     RenderEngine::Device& device,
                                                                      RenderEngine::RenderEngine& render_engine)
 {
-    QuadSceneBuilder scene_builder(assets, scene, texture_factory, render_engine);
+    QuadSceneBuilder scene_builder(assets, scene, device, render_engine);
 
     return scene_builder.release();
 }
 
 DemoSceneBuilder::CreationResult DemoSceneBuilder::buildVolumetricScene(Assets::AssetDatabase& assets,
                                                                         Scene::Scene& scene,
-                                                                        RenderEngine::TextureFactory& texture_factory,
+                                                                        RenderEngine::Device& device,
                                                                         RenderEngine::RenderEngine& render_engine,
                                                                         bool use_ao)
 {
-    VolumetricSceneBuilder scene_builder(assets, scene, texture_factory, render_engine, use_ao);
+    VolumetricSceneBuilder scene_builder(assets, scene, device, render_engine, use_ao);
 
     return scene_builder.release();
 }

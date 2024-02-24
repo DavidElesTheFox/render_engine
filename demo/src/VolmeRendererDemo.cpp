@@ -29,14 +29,10 @@ void VolumeRendererDemo::init(bool use_ao)
     createWindowSetup();
 
     createScene();
-    _texture_factory = RenderContext::context().getDevice(0).createTextureFactory(
-        getRenderingWindow().getTransferEngine(),
-        { getRenderingWindow().getTransferEngine().getTransferContext().getQueueFamilyIndex(), getRenderingWindow().getRenderEngine().getCommandContext().getQueueFamilyIndex() }
-    );
     DemoSceneBuilder demoSceneBuilder;
     _scene_resources = demoSceneBuilder.buildVolumetricScene(_assets,
                                                              *_scene,
-                                                             *_texture_factory,
+                                                             getRenderingWindow().getDevice(),
                                                              getRenderingWindow().getRenderEngine(),
                                                              use_ao);
 

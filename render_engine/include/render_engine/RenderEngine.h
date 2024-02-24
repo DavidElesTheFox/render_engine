@@ -36,7 +36,10 @@ namespace RenderEngine
                     uint32_t image_index)
         {
             std::vector<VkCommandBufferSubmitInfo> command_buffer_infos = executeDrawCalls(renderers, image_index);
-            auto all_sync_operations = addWaitSemaphoresFromRenderers(renderers, sync_operations, image_index);
+            // TODO: Do not synchronize per window draw rather once per all widnow draw. Currently it is necessary to start the uploads properly.
+            _device.getStagingArea().synchronizeStagingArea({});
+
+            auto all_sync_operations = collectSynchronizationOperations(renderers, sync_operations, image_index);
             if (command_buffer_infos.empty() == false)
             {
                 submitDrawCalls(command_buffer_infos, all_sync_operations);
@@ -72,9 +75,9 @@ namespace RenderEngine
             return command_buffers;
         }
 
-        SyncOperations addWaitSemaphoresFromRenderers(const std::ranges::input_range auto& renderers,
-                                                      const SyncOperations& sync_operations,
-                                                      uint32_t image_index)
+        SyncOperations collectSynchronizationOperations(const std::ranges::input_range auto& renderers,
+                                                        const SyncOperations& sync_operations,
+                                                        uint32_t image_index)
         {
             SyncOperations result = sync_operations;
             for (AbstractRenderer* drawer : renderers)

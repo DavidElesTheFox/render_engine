@@ -71,35 +71,38 @@ namespace RenderEngine
     void ForwardRenderer::addMesh(const MeshInstance* mesh_instance)
     {
         const auto* mesh = mesh_instance->getMesh();
-        const auto& material = mesh->getMaterial();
         const uint32_t material_instance_id = mesh_instance->getMaterialInstance()->getId();
-        const Geometry& geometry = mesh->getGeometry();
-
-        const Shader::MetaData& vertex_shader_meta_data = material.getVertexShader().getMetaData();
-        MeshBuffers mesh_buffers;
-        auto& transfer_engine = getWindow().getTransferEngine();
         auto& gpu_resource_manager = getWindow().getRenderEngine().getGpuResourceManager();
-        if (geometry.positions.empty() == false)
-        {
-            std::vector vertex_buffer = mesh->createVertexBuffer();
-            mesh_buffers.vertex_buffer = gpu_resource_manager.createAttributeBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                                                                                    vertex_buffer.size());
-            mesh_buffers.vertex_buffer->uploadUnmapped(std::span{ vertex_buffer.data(), vertex_buffer.size() },
-                                                       transfer_engine,
-                                                       &getWindow().getRenderEngine().getCommandContext(),
-                                                       SyncOperations{});
 
-        }
-        if (geometry.indexes.empty() == false)
+        if (_mesh_buffers.contains(mesh) == false)
         {
-            mesh_buffers.index_buffer = gpu_resource_manager.createAttributeBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                                                                                   geometry.indexes.size() * sizeof(int16_t));
-            mesh_buffers.index_buffer->uploadUnmapped(std::span{ geometry.indexes.data(), geometry.indexes.size() },
-                                                      transfer_engine,
-                                                      &getWindow().getRenderEngine().getCommandContext(),
-                                                      SyncOperations{});
+            const Geometry& geometry = mesh->getGeometry();
+            const auto& material = mesh->getMaterial();
+
+            const Shader::MetaData& vertex_shader_meta_data = material.getVertexShader().getMetaData();
+            MeshBuffers mesh_buffers;
+            if (geometry.positions.empty() == false)
+            {
+                std::vector vertex_buffer = mesh->createVertexBuffer();
+                mesh_buffers.vertex_buffer = gpu_resource_manager.createAttributeBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                                                                                        vertex_buffer.size());
+                getWindow().getDevice().getStagingArea().getScheduler().upload(mesh_buffers.vertex_buffer.get(),
+                                                                               std::span(vertex_buffer),
+                                                                               getWindow().getRenderEngine().getCommandContext(),
+                                                                               mesh_buffers.vertex_buffer->getResourceState().clone());
+
+            }
+            if (geometry.indexes.empty() == false)
+            {
+                mesh_buffers.index_buffer = gpu_resource_manager.createAttributeBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                                                                                       geometry.indexes.size() * sizeof(int16_t));
+                getWindow().getDevice().getStagingArea().getScheduler().upload(mesh_buffers.index_buffer.get(),
+                                                                               std::span(geometry.indexes),
+                                                                               getWindow().getRenderEngine().getCommandContext(),
+                                                                               mesh_buffers.index_buffer->getResourceState().clone());
+            }
+            _mesh_buffers[mesh] = std::move(mesh_buffers);
         }
-        _mesh_buffers[mesh_instance->getMesh()] = std::move(mesh_buffers);
         auto it = std::ranges::find_if(_meshes,
                                        [&](const auto& mesh_group) { return mesh_group.technique->getMaterialInstance().getId() == material_instance_id; });
         if (it != _meshes.end())

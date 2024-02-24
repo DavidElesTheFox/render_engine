@@ -3,6 +3,7 @@
 #include <render_engine/Device.h>
 #include <render_engine/GpuResourceManager.h>
 #include <render_engine/RenderContext.h>
+#include <render_engine/resources/Texture.h>
 
 #include <data_config.h>
 
@@ -30,13 +31,11 @@ namespace RenderEngine
 {
     Window::Window(Device& device,
                    std::unique_ptr<RenderEngine>&& render_engine,
-                   std::unique_ptr<TransferEngine>&& transfer_engine,
                    GLFWwindow* window,
                    std::unique_ptr<SwapChain> swap_chain,
                    std::shared_ptr<CommandContext>&& present_context)
         try : _device(device)
         , _render_engine(std::move(render_engine))
-        , _transfer_engine(std::move(transfer_engine))
         , _window(window)
         , _swap_chain(std::move(swap_chain))
         , _present_context(std::move(present_context))
@@ -166,7 +165,6 @@ namespace RenderEngine
         _renderers.clear();
 
         _render_engine.reset();
-        _transfer_engine.reset();
         glfwDestroyWindow(_window);
 
         _window = nullptr;
@@ -249,6 +247,11 @@ namespace RenderEngine
     WindowTunnel* Window::getTunnel()
     {
         return _tunnel;
+    }
+
+    TextureFactory& Window::getTextureFactory()
+    {
+        return _device.getTextureFactory();
     }
 
 }

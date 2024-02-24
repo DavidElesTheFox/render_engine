@@ -68,9 +68,33 @@ namespace RenderEngine
         wait_info.pValues = &value_to_wait;
         if (_primitives.getLogicalDevice()->vkWaitSemaphores(*_primitives.getLogicalDevice(), &wait_info, UINT64_MAX) != VK_SUCCESS)
         {
-            throw std::runtime_error("Couldn't signal semaphore: " + name);
+            throw std::runtime_error("Couldn't wait semaphore: " + name);
         }
     }
+
+    uint64_t RenderEngine::SyncObject::getSemaphoreValue(const std::string& name)
+    {
+        auto semaphore = _primitives.getSemaphore(name);
+
+        uint64_t value = 0;
+        if (_primitives.getLogicalDevice()->vkGetSemaphoreCounterValue(*_primitives.getLogicalDevice(), semaphore, &value) != VK_SUCCESS)
+        {
+            throw std::runtime_error("Couldn't read semaphore value");
+        }
+        return value % _primitives.getTimelineWidth(name);
+    }
+
+    void SyncObject::waitFence()
+    {
+        _primitives.getLogicalDevice()->vkWaitForFences(*_primitives.getLogicalDevice(), 1, &_primitives.getFence(), VK_TRUE, UINT64_MAX);
+    }
+    void SyncObject::resetFence()
+    {
+        _primitives.getLogicalDevice()->vkResetFences(*_primitives.getLogicalDevice(), 1, &_primitives.getFence());
+
+    }
+
+
     void SyncObject::createSemaphore(std::string name)
     {
         _primitives.createSemaphore(std::move(name));

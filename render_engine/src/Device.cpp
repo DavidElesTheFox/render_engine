@@ -153,6 +153,33 @@ namespace RenderEngine
         _command_buffer = VK_NULL_HANDLE;
     }
 
+    Device::StagingArea::StagingArea(std::unique_ptr<TransferEngine> transfer_engine,
+                                     std::set<uint32_t> queue_family_indexes,
+                                     VkPhysicalDevice physical_device,
+                                     LogicalDevice& logical_device)
+        : _scheduler(std::make_unique<DataTransferScheduler>())
+        , _transfer_engine(std::move(transfer_engine))
+        , _texture_factory(std::make_unique<TextureFactory>(*_transfer_engine,
+                                                            *_scheduler,
+                                                            std::move(queue_family_indexes),
+                                                            physical_device,
+                                                            logical_device))
+    {
+
+    }
+    void Device::StagingArea::destroy()
+    {
+        _scheduler.reset();
+        _transfer_engine.reset();
+        _texture_factory.reset();
+    }
+    void Device::StagingArea::synchronizeStagingArea(SyncOperations sync_operations)
+    {
+        _scheduler->executeJobs(sync_operations, *_transfer_engine);
+    }
+
+    Device::StagingArea::~StagingArea() = default;
+
     Device::Device(VkInstance instance,
                    VkPhysicalDevice physical_device,
                    uint32_t queue_family_index_graphics,
@@ -175,6 +202,10 @@ namespace RenderEngine
         , _queue_family_transfer(queue_family_index_transfer)
         , _cuda_device(CudaCompute::CudaDevice::createDeviceForUUID(std::span{ &getDeviceUUID(physical_device).deviceUUID[0], VK_UUID_SIZE }, k_num_of_cuda_streams))
         , _device_info(std::move(device_info))
+        , _staging_area(createTransferEngine(),
+                        std::set{ _queue_family_transfer, _queue_family_graphics },
+                        _physical_device,
+                        _logical_device)
     {}
 
     Device::~Device()
@@ -183,7 +214,8 @@ namespace RenderEngine
     }
     void Device::destroy() noexcept
     {
-
+        _cuda_device.reset();
+        _staging_area.destroy();
     }
     std::unique_ptr<Window> Device::createWindow(std::string_view name, uint32_t back_buffer_size)
     {
@@ -207,9 +239,11 @@ namespace RenderEngine
         {
             std::unique_ptr<SwapChain> swap_chain = std::make_unique<SwapChain>(SwapChain::CreateInfo{ window, _instance, _physical_device, &_logical_device, std::move(surface), _queue_family_graphics, _queue_family_present, back_buffer_size });
             std::unique_ptr<RenderEngine> render_engine = createRenderEngine(back_buffer_size);
-            std::unique_ptr<TransferEngine> transfer_engine = createTransferEngine();
             auto command_context = CommandContext::create(_logical_device, _queue_family_present, _device_info.queue_families[_queue_family_present]);
-            return std::make_unique<Window>(*this, std::move(render_engine), std::move(transfer_engine), window, std::move(swap_chain), std::move(command_context));
+            return std::make_unique<Window>(*this, std::move(render_engine),
+                                            window,
+                                            std::move(swap_chain)
+                                            , std::move(command_context));
         }
         catch (const std::runtime_error& error)
         {
@@ -228,26 +262,19 @@ namespace RenderEngine
         constexpr auto width = 1024;
         constexpr auto height = 764;
 
-
-
         std::unique_ptr<RenderEngine> render_engine = createRenderEngine(back_buffer_size);
-        std::unique_ptr<TransferEngine> transfer_engine = createTransferEngine();
-        TextureFactory texture_factory(*transfer_engine,
-                                       { render_engine->getCommandContext().getQueueFamilyIndex(), transfer_engine->getTransferContext().getQueueFamilyIndex() },
-                                       _physical_device,
-                                       _logical_device);
+
         Image render_target_image(width, height, VK_FORMAT_R8G8B8A8_SRGB);
         std::vector<std::unique_ptr<Texture>> render_target_textures;
         for (size_t i = 0; i < back_buffer_size; ++i)
         {
-            render_target_textures.push_back(texture_factory.createNoUpload(render_target_image,
-                                                                            VK_IMAGE_ASPECT_COLOR_BIT,
-                                                                            VK_SHADER_STAGE_ALL,
-                                                                            VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT));
+            render_target_textures.push_back(getTextureFactory().createNoUpload(render_target_image,
+                                                                                VK_IMAGE_ASPECT_COLOR_BIT,
+                                                                                VK_SHADER_STAGE_ALL,
+                                                                                VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT));
         }
         return std::make_unique<OffScreenWindow>(*this,
                                                  std::move(render_engine),
-                                                 std::move(transfer_engine),
                                                  std::move(render_target_textures));
     }
 
@@ -261,15 +288,9 @@ namespace RenderEngine
         return std::make_unique<TransferEngine>(CommandContext::create(_logical_device, _queue_family_transfer, _device_info.queue_families[_queue_family_transfer]));
     }
 
-    std::unique_ptr<TextureFactory> Device::createTextureFactory(TransferEngine& transfer_engine, std::set<uint32_t> compatible_queue_family_indexes)
-    {
-        return std::make_unique<TextureFactory>(transfer_engine,
-                                                std::move(compatible_queue_family_indexes),
-                                                _physical_device,
-                                                _logical_device);
-    }
     void Device::waitIdle()
     {
         _logical_device->vkDeviceWaitIdle(*_logical_device);
     }
+
 }

@@ -28,14 +28,11 @@ void DemoApplication::init()
     createWindowSetup();
 
     createScene();
-    _texture_factory = RenderContext::context().getDevice(0).createTextureFactory(
-        getRenderingWindow().getTransferEngine(),
-        { getRenderingWindow().getTransferEngine().getTransferContext().getQueueFamilyIndex(), getRenderingWindow().getRenderEngine().getCommandContext().getQueueFamilyIndex() }
-    );
+
     DemoSceneBuilder demoSceneBuilder;
     _scene_resources = demoSceneBuilder.buildSceneOfQuads(_assets,
                                                           *_scene,
-                                                          *_texture_factory,
+                                                          getRenderingWindow().getDevice(),
                                                           getRenderingWindow().getRenderEngine());
 
     ApplicationContext::instance().init(_scene.get(), getUiWindow().getWindowHandle());

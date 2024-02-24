@@ -17,7 +17,7 @@ namespace RenderEngine
         virtual void enableRenderdocCapture() = 0;
         virtual void disableRenderdocCapture() = 0;
         virtual RenderEngine& getRenderEngine() = 0;
-        virtual TransferEngine& getTransferEngine() = 0;
+        virtual TextureFactory& getTextureFactory() = 0;
         virtual AbstractRenderer* findRenderer(uint32_t renderer_id) const = 0;
         virtual WindowTunnel* getTunnel() = 0;
         virtual void registerTunnel(WindowTunnel&) = 0;

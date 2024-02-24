@@ -88,7 +88,7 @@ namespace RenderEngine
         VkFramebufferCreateInfo framebuffer_info{};
         framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
         framebuffer_info.renderPass = _render_pass;
-        framebuffer_info.attachmentCount = attachments.size();
+        framebuffer_info.attachmentCount = static_cast<uint32_t>(attachments.size());
         framebuffer_info.pAttachments = attachments.data();
         framebuffer_info.width = render_target.getWidth();
         framebuffer_info.height = render_target.getHeight();
@@ -98,7 +98,8 @@ namespace RenderEngine
     }
     void SingleColorOutputRenderer::createCommandBuffer()
     {
-        std::vector<VkCommandBuffer> command_buffers = _window.getRenderEngine().getCommandContext().createCommandBuffers(_back_buffer.size(), CommandContext::Usage::MultipleSubmit);
+        std::vector<VkCommandBuffer> command_buffers = _window.getRenderEngine().getCommandContext().createCommandBuffers(static_cast<uint32_t>(_back_buffer.size()),
+                                                                                                                          CommandContext::Usage::MultipleSubmit);
         for (uint32_t i = 0; i < _back_buffer.size(); ++i)
         {
             _back_buffer[i].command_buffer = command_buffers[i];

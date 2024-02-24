@@ -161,13 +161,13 @@ namespace RenderEngine
             }
         }
 
-        create_info.enabledExtensionCount = instance_extensions.size();
+        create_info.enabledExtensionCount = static_cast<uint32_t>(instance_extensions.size());
         create_info.ppEnabledExtensionNames = instance_extensions.data();
         VkDebugUtilsMessengerCreateInfoEXT debug_create_info{};
         std::vector<const char*> enabled_layers(init_info.enabled_layers.size(), nullptr);
         std::ranges::transform(init_info.enabled_layers, enabled_layers.begin(),
                                [](const std::string& str) { return str.c_str(); });
-        create_info.enabledLayerCount = enabled_layers.size();
+        create_info.enabledLayerCount = static_cast<uint32_t>(enabled_layers.size());
         create_info.ppEnabledLayerNames = enabled_layers.data();
         if (init_info.enable_validation_layers)
         {
@@ -247,4 +247,4 @@ namespace RenderEngine
 #endif
     }
 
-    }
+}

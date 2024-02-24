@@ -296,9 +296,9 @@ namespace RenderEngine
         {
             VkDependencyInfo dependency{};
             dependency.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
-            dependency.imageMemoryBarrierCount = image_barriers.size();
+            dependency.imageMemoryBarrierCount = static_cast<uint32_t>(image_barriers.size());
             dependency.pImageMemoryBarriers = image_barriers.data();
-            dependency.bufferMemoryBarrierCount = buffer_barriers.size();
+            dependency.bufferMemoryBarrierCount = static_cast<uint32_t>(buffer_barriers.size());
             dependency.pBufferMemoryBarriers = buffer_barriers.data();
             _logical_device->vkCmdPipelineBarrier2(command_buffer, &dependency);
         }

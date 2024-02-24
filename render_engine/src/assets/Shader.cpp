@@ -19,7 +19,7 @@ namespace
         }
 
         size_t fileSize = file.tellg();
-        std::vector<uint32_t> buffer(std::ceil(fileSize / 4.0));
+        std::vector<uint32_t> buffer(static_cast<uint32_t>(std::ceil(fileSize / 4.0)));
 
         file.seekg(0);
         file.read(reinterpret_cast<char*>(buffer.data()), fileSize);

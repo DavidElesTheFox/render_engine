@@ -41,12 +41,12 @@ namespace RenderEngine
         void onFrameBegin(uint32_t image_index) override;
         void addMesh(const MeshInstance* mesh_instance);
         void draw(uint32_t swap_chain_image_index) override;
-        SyncOperations getSyncOperations(uint32_t image_index) final
+        SyncOperations getSyncOperations(uint32_t) final
         {
             return {};
         }
     private:
-        std::vector<AttachmentInfo> reinitializeAttachments(const RenderTarget& render_target) override final { return {}; }
+        std::vector<AttachmentInfo> reinitializeAttachments(const RenderTarget&) override final { return {}; }
 
         std::vector<MeshGroup> _meshes;
         std::map<const Mesh*, MeshBuffers> _mesh_buffers;

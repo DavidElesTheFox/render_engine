@@ -24,10 +24,10 @@
 namespace
 {
     // TODO support multiple queue count
-    constexpr size_t k_supported_queue_count = 1;
-    constexpr size_t k_num_of_cuda_streams = 8;
+    constexpr uint32_t k_supported_queue_count = 1;
+    constexpr uint32_t k_num_of_cuda_streams = 8;
 
-    VkDevice createVulkanLogicalDevice(size_t queue_count,
+    VkDevice createVulkanLogicalDevice(uint32_t queue_count,
                                        VkPhysicalDevice physical_device,
                                        uint32_t queue_family_index_graphics,
                                        uint32_t queue_family_index_presentation,
@@ -94,11 +94,11 @@ namespace
         create_info.pNext = &device_features;
 
         create_info.pQueueCreateInfos = queue_create_infos.data();
-        create_info.queueCreateInfoCount = queue_create_infos.size();
+        create_info.queueCreateInfoCount = static_cast<uint32_t>(queue_create_infos.size());
 
         create_info.pEnabledFeatures = VK_NULL_HANDLE;
 
-        create_info.enabledExtensionCount = device_extensions.size();
+        create_info.enabledExtensionCount = static_cast<uint32_t>(device_extensions.size());
         create_info.ppEnabledExtensionNames = device_extensions.data();
 
 
@@ -108,7 +108,7 @@ namespace
         }
         else
         {
-            create_info.enabledLayerCount = validation_layers.size();
+            create_info.enabledLayerCount = static_cast<uint32_t>(validation_layers.size());
             create_info.ppEnabledLayerNames = validation_layers.data();
         }
         VkDevice device{ VK_NULL_HANDLE };
@@ -258,14 +258,14 @@ namespace RenderEngine
                                             std::move(swap_chain)
                                             , std::move(command_context));
         }
-        catch (const std::runtime_error& error)
+        catch (const std::runtime_error&)
         {
             glfwDestroyWindow(window);
             throw;
         }
     }
 
-    std::unique_ptr<OffScreenWindow> Device::createOffScreenWindow(std::string_view name, size_t back_buffer_size)
+    std::unique_ptr<OffScreenWindow> Device::createOffScreenWindow(uint32_t back_buffer_size)
     {
         VkQueue render_queue;
         VkQueue present_queue;
@@ -279,7 +279,7 @@ namespace RenderEngine
 
         Image render_target_image(width, height, VK_FORMAT_R8G8B8A8_SRGB);
         std::vector<std::unique_ptr<Texture>> render_target_textures;
-        for (size_t i = 0; i < back_buffer_size; ++i)
+        for (uint32_t i = 0; i < back_buffer_size; ++i)
         {
             render_target_textures.push_back(getTextureFactory().createNoUpload(render_target_image,
                                                                                 VK_IMAGE_ASPECT_COLOR_BIT,
@@ -291,9 +291,13 @@ namespace RenderEngine
                                                  std::move(render_target_textures));
     }
 
-    std::unique_ptr<RenderEngine> Device::createRenderEngine(size_t back_buffer_size)
+    std::unique_ptr<RenderEngine> Device::createRenderEngine(uint32_t back_buffer_size)
     {
-        return std::make_unique<RenderEngine>(*this, CommandContext::create(_logical_device, _queue_family_graphics, _device_info.queue_families[_queue_family_graphics]), back_buffer_size);
+        return std::make_unique<RenderEngine>(*this,
+                                              CommandContext::create(_logical_device,
+                                                                     _queue_family_graphics,
+                                                                     _device_info.queue_families[_queue_family_graphics]),
+                                              back_buffer_size);
     }
 
     std::unique_ptr<TransferEngine> Device::createTransferEngine()

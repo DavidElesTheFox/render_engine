@@ -32,7 +32,7 @@ namespace RenderEngine
         {
             std::vector<ITextureView*> attachments;
         };
-        virtual bool skipDrawCall(uint32_t image_index) const { return false; }
+        virtual bool skipDrawCall(uint32_t) const { return false; }
         void initializeRendererOutput(RenderTarget& render_target,
                                       VkRenderPass render_pass,
                                       size_t back_buffer_size,

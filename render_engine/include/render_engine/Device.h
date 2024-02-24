@@ -37,14 +37,14 @@ namespace RenderEngine
 
         public:
             Marker(const Marker&) = delete;
-            Marker(Marker&& o)
+            Marker(Marker&& o) noexcept
                 : _command_buffer(o._command_buffer)
             {
                 o._command_buffer = VK_NULL_HANDLE;
             }
 
             Marker& operator=(const Marker&) = delete;
-            Marker& operator=(Marker&& o)
+            Marker& operator=(Marker&& o) noexcept
             {
                 std::swap(_command_buffer, o._command_buffer);
                 return *this;
@@ -107,8 +107,8 @@ namespace RenderEngine
 
         ~Device();
         std::unique_ptr<Window> createWindow(std::string_view name, uint32_t back_buffer_size);
-        std::unique_ptr<OffScreenWindow> createOffScreenWindow(std::string_view name, size_t back_buffer_size);
-        std::unique_ptr<RenderEngine> createRenderEngine(size_t back_buffer_size);
+        std::unique_ptr<OffScreenWindow> createOffScreenWindow(uint32_t back_buffer_size);
+        std::unique_ptr<RenderEngine> createRenderEngine(uint32_t back_buffer_size);
         std::unique_ptr<TransferEngine> createTransferEngine();
 
         LogicalDevice& getLogicalDevice() { return _logical_device; }

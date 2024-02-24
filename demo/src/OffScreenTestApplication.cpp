@@ -103,7 +103,7 @@ void OffScreenTestApplication::createWindow()
 {
     using namespace RenderEngine;
 
-    _window = RenderContext::context().getDevice(0).createOffScreenWindow("Offscreen window", 3);
+    _window = RenderContext::context().getDevice(0).createOffScreenWindow(3);
     _window->registerRenderers({ ForwardRenderer::kRendererId });
 
 }

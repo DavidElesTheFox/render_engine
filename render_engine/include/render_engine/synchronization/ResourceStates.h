@@ -31,24 +31,24 @@ namespace RenderEngine
         */
         std::weak_ptr<CommandContext> command_context{ };
 
-        TextureState&& setPipelineStage(VkPipelineStageFlagBits2 pipeline_stage)&&
+        TextureState&& setPipelineStage(VkPipelineStageFlagBits2 value)&&
         {
-            this->pipeline_stage = pipeline_stage;
+            this->pipeline_stage = value;
             return std::move(*this);
         }
-        TextureState&& setAccessFlag(VkAccessFlags2 access_flag)&&
+        TextureState&& setAccessFlag(VkAccessFlags2 value)&&
         {
-            this->access_flag = access_flag;
+            this->access_flag = value;
             return std::move(*this);
         }
-        TextureState&& setImageLayout(VkImageLayout layout)&&
+        TextureState&& setImageLayout(VkImageLayout value)&&
         {
-            this->layout = layout;
+            this->layout = value;
             return std::move(*this);
         }
-        TextureState&& setCommandContext(std::weak_ptr<CommandContext> command_context)&&
+        TextureState&& setCommandContext(std::weak_ptr<CommandContext> value)&&
         {
-            this->command_context = command_context;
+            this->command_context = value;
             return std::move(*this);
         }
 
@@ -89,22 +89,22 @@ namespace RenderEngine
         // TODO: Implement borrow_ptr.
         std::weak_ptr<CommandContext> command_context{ };
 
-        BufferState&& setPipelineStage(VkPipelineStageFlagBits2 pipeline_stage)&&
+        BufferState&& setPipelineStage(VkPipelineStageFlagBits2 value)&&
         {
-            this->pipeline_stage = pipeline_stage;
+            this->pipeline_stage = value;
             return std::move(*this);
         }
 
-        BufferState&& setAccessFlag(VkAccessFlags2 access_flag)&&
+        BufferState&& setAccessFlag(VkAccessFlags2 value)&&
         {
-            this->access_flag = access_flag;
+            this->access_flag = value;
             return std::move(*this);
         }
 
 
-        BufferState&& setCommandContext(std::weak_ptr<CommandContext> command_context)&&
+        BufferState&& setCommandContext(std::weak_ptr<CommandContext> value)&&
         {
-            this->command_context = command_context;
+            this->command_context = value;
             return std::move(*this);
         }
 

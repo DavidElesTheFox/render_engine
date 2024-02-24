@@ -216,7 +216,7 @@ add_library(RenderEngine STATIC ${RENDER_ENGINE_SRC} ${RENDER_ENGINE_HEADERS})
 set_property(TARGET RenderEngine PROPERTY CXX_STANDARD 23)
 
 target_compile_options(RenderEngine PRIVATE
-  $<$<CXX_COMPILER_ID:MSVC>:/W4>
+  $<$<CXX_COMPILER_ID:MSVC>:/W4 /WX>
 )
 
 #####################
@@ -239,6 +239,13 @@ source_group(imgui_src FILES ${RENDER_ENGINE_IMGUI_SOURCES})
 target_sources(RenderEngine 
 	PRIVATE
 		${RENDER_ENGINE_IMGUI_SOURCES}
+)
+
+# disable all warnings from IMGUI
+set_source_files_properties(
+  ${RENDER_ENGINE_IMGUI_SOURCES}
+  PROPERTIES
+  COMPILE_FLAGS "/w"
 )
 ########################
 # Modules              #
@@ -278,7 +285,11 @@ target_include_directories(RenderEngine
         ${CMAKE_CURRENT_SOURCE_DIR}/src/
 	PUBLIC
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-		$<INSTALL_INTERFACE:include>
+		$<INSTALL_INTERFACE:include>)
+
+# Disable warnings from included external files
+target_include_directories(RenderEngine SYSTEM
+	PUBLIC
 		${GENERATED_INCLUDE_DIR}
 		${IMGUI_SRC}
 		${RENDERDOC_PATH}

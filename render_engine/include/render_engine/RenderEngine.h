@@ -21,7 +21,7 @@ namespace RenderEngine
     {
     public:
 
-        RenderEngine(Device& device, std::shared_ptr<CommandContext>&& command_context, size_t back_buffer_count);
+        RenderEngine(Device& device, std::shared_ptr<CommandContext>&& command_context, uint32_t back_buffer_count);
 
         void onFrameBegin(const std::ranges::input_range auto& renderers, uint32_t image_index)
         {

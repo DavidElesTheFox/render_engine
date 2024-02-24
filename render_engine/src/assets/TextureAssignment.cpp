@@ -38,7 +38,7 @@ namespace RenderEngine
             if (it != _slots.end())
             {
                 std::visit(overloaded{
-                    [](const Shader::MetaData::Sampler& sampler) { throw std::runtime_error("Uniform buffer is already bounded as image sampler"); },
+                    [](const Shader::MetaData::Sampler&) { throw std::runtime_error("Uniform buffer is already bounded as image sampler"); },
                     [](const Shader::MetaData::InputAttachment&) { throw std::runtime_error("Uniform buffer is already bounded as image sampler"); },
                     [&](const Shader::MetaData::UniformBuffer& buffer) { if (buffer.size != uniform_buffer.size) { throw std::runtime_error("Uniform buffer perviously used a different size"); } }
                            }, it->data);

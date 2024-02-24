@@ -174,7 +174,7 @@ namespace RenderEngine
 
         subpass_descriptions[2].colorAttachmentCount = 1;
         subpass_descriptions[2].pColorAttachments = &color_reference;
-        subpass_descriptions[2].inputAttachmentCount = input_references.size();
+        subpass_descriptions[2].inputAttachmentCount = static_cast<uint32_t>(input_references.size());
         subpass_descriptions[2].pInputAttachments = input_references.data();
         subpass_descriptions[2].pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 
@@ -209,11 +209,11 @@ namespace RenderEngine
 
         VkRenderPassCreateInfo renderPassInfo{};
         renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-        renderPassInfo.attachmentCount = attachments.size();
+        renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
         renderPassInfo.pAttachments = attachments.data();
-        renderPassInfo.subpassCount = subpass_descriptions.size();
+        renderPassInfo.subpassCount = static_cast<uint32_t>(subpass_descriptions.size());
         renderPassInfo.pSubpasses = subpass_descriptions.data();
-        renderPassInfo.dependencyCount = dependencies.size();
+        renderPassInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());
         renderPassInfo.pDependencies = dependencies.data();
 
         auto& logical_device = window.getDevice().getLogicalDevice();
@@ -252,12 +252,10 @@ namespace RenderEngine
     void VolumeRenderer::addVolumeObject(const VolumetricObjectInstance* mesh_instance)
     {
         const auto* mesh = mesh_instance->getMesh();
-        const auto& material = mesh->getMaterial();
         const uint32_t material_instance_id = mesh_instance->getMaterialInstance()->getId();
         const Geometry& geometry = mesh->getGeometry();
 
 
-        const Shader::MetaData& vertex_shader_meta_data = material.getVertexShader().getMetaData();
         MeshBuffers mesh_buffers;
         auto& gpu_resource_manager = getWindow().getRenderEngine().getGpuResourceManager();
         if (geometry.positions.empty() == false)
@@ -351,7 +349,7 @@ namespace RenderEngine
             VkClearValue{{0.0f, 0.0f, 0.0f, 1.0f}},
             VkClearValue{{0.0f, 0.0f, 0.0f, 1.0f}}
         };
-        render_pass_info.clearValueCount = clearColors.size();
+        render_pass_info.clearValueCount = static_cast<uint32_t>(clearColors.size());
         render_pass_info.pClearValues = clearColors.data();
         for (auto& mesh_group : _meshes_with_distance_field)
         {
@@ -485,8 +483,10 @@ namespace RenderEngine
                                                         VK_PIPELINE_BIND_POINT_GRAPHICS,
                                                         technique.getPipelineLayout(),
                                                         0,
-                                                        descriptor_sets.size(),
-                                                        descriptor_sets.data(), 0, nullptr);
+                                                        static_cast<uint32_t>(descriptor_sets.size()),
+                                                        descriptor_sets.data(),
+                                                        0,
+                                                        nullptr);
         }
 
         for (auto& mesh_instance : meshes)
@@ -511,8 +511,6 @@ namespace RenderEngine
     }
     void VolumeRenderer::initializeFrameBufferData(uint32_t back_buffer_count, const Image& ethalon_image, FrameBufferData* frame_buffer_data)
     {
-        auto& window = getWindow();
-
         frame_buffer_data->textures_per_back_buffer.clear();
         frame_buffer_data->texture_views_per_back_buffer.clear();
 

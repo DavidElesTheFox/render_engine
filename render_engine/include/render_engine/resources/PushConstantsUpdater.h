@@ -24,7 +24,7 @@ namespace RenderEngine
         PushConstantsUpdater& operator=(const PushConstantsUpdater&) = delete;
         PushConstantsUpdater& operator=(PushConstantsUpdater&&) = default;
 
-        void update(VkShaderStageFlags shader_stages, size_t offset, std::span<const uint8_t> data);
+        void update(VkShaderStageFlags shader_stages, uint32_t offset, std::span<const uint8_t> data);
     private:
         LogicalDevice& _logical_device;
         VkCommandBuffer _command_buffer{ VK_NULL_HANDLE };

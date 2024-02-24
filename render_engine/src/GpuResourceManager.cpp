@@ -36,7 +36,7 @@ namespace RenderEngine
 
         VkDescriptorPoolCreateInfo poolInfo{};
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-        poolInfo.poolSizeCount = pool_sizes.size();
+        poolInfo.poolSizeCount = static_cast<uint32_t>(pool_sizes.size());
         poolInfo.pPoolSizes = pool_sizes.data();
         poolInfo.maxSets = back_buffer_size * max_num_of_resources;
 

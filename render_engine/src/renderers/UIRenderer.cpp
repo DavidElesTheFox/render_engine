@@ -90,11 +90,11 @@ namespace RenderEngine
             LogicalDevice& logical_device = *reinterpret_cast<LogicalDevice*>(user_data);
 #define _MAP_FUNCTION(name) if(strcmp(function_name, ###name) == 0) return reinterpret_cast<PFN_vkVoidFunction>(logical_device->name);
             IMGUI_VULKAN_FUNC_MAP(_MAP_FUNCTION);
-#undef __MAP_FUNCTION
+#undef _MAP_FUNCTION
 
 #define _MAP_FUNCTION(name) if(strcmp(function_name, ###name) == 0) return reinterpret_cast<PFN_vkVoidFunction>(name);
             IMGUI_VULKAN_INSTANCE_FUNC_MAP(_MAP_FUNCTION);
-#undef __MAP_FUNCTION
+#undef _MAP_FUNCTION
             return nullptr;
         }
 
@@ -167,7 +167,7 @@ namespace RenderEngine
             pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
             pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
             pool_info.maxSets = 1000;
-            pool_info.poolSizeCount = std::size(pool_sizes);
+            pool_info.poolSizeCount = static_cast<uint32_t>(std::size(pool_sizes));
             pool_info.pPoolSizes = pool_sizes;
 
             VkDescriptorPool result;
@@ -333,7 +333,7 @@ namespace RenderEngine
     }
     void UIRenderer::loadVulkanPrototypes()
     {
-        const bool functions_loaded = ImGui_ImplVulkan_LoadFunctions(&loadVulkanFunction, &getLogicalDevice());
+        [[maybe_unused]] const bool functions_loaded = ImGui_ImplVulkan_LoadFunctions(&loadVulkanFunction, &getLogicalDevice());
         assert(functions_loaded);
     }
 

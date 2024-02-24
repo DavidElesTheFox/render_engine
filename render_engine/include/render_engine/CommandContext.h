@@ -5,6 +5,7 @@
 #include <render_engine/DeviceLookup.h>
 #include <render_engine/LogicalDevice.h>
 
+#include <cassert>
 #include <memory>
 #include <vector>
 namespace RenderEngine
@@ -31,10 +32,10 @@ namespace RenderEngine
                        DeviceLookup::QueueFamilyInfo queue_family_info,
                        CreationToken);
 
-        CommandContext(CommandContext&&);
+        CommandContext(CommandContext&&) noexcept;
         CommandContext(const CommandContext&) = delete;
 
-        CommandContext& operator=(CommandContext&&);
+        CommandContext& operator=(CommandContext&&) noexcept;
         CommandContext& operator=(const CommandContext&) = delete;
 
         ~CommandContext();
@@ -66,9 +67,9 @@ namespace RenderEngine
                     return _transient_command_pool;
                 case CommandContext::Usage::MultipleSubmit:
                     return _command_pool;
-                default:
-                    break;
             }
+            assert(false && "Unhandled buffer usage");
+            return VK_NULL_HANDLE;
         }
 
         LogicalDevice* _logical_device{ nullptr };

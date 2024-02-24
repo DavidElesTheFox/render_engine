@@ -80,7 +80,7 @@ namespace RenderEngine
         _width = loaded_images[0].width;
         _height = loaded_images[0].height;
         _format = VK_FORMAT_R8G8B8A8_SRGB;
-        _depth = path_container.size();
+        _depth = static_cast<uint32_t>(path_container.size());
         std::vector<uint8_t> image_row_data;
 
         image_row_data.resize(getSize());

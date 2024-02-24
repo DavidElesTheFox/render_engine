@@ -22,7 +22,7 @@ namespace RenderEngine
         uint32_t back_buffer_size = gpu_resource_manager.getBackBufferSize();
         auto descriptor_pool = gpu_resource_manager.getDescriptorPool();
         // Create resources' layout
-        const int32_t num_of_bindings = binding_slots.size();
+        const uint32_t num_of_bindings = static_cast<uint32_t>(binding_slots.size());
 
         VkDescriptorSetLayoutCreateInfo layout_info{};
         layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -83,7 +83,7 @@ namespace RenderEngine
                 back_buffer[i].descriptor_set = descriptor_sets[i];
 
                 std::visit(overloaded{
-                    [&](const Shader::MetaData::Sampler& sampler)
+                    [&](const Shader::MetaData::Sampler&)
                     {
                         back_buffer[i].texture = &slot.texture_views[i]->getTexture();
                         {
@@ -125,7 +125,7 @@ namespace RenderEngine
 
                         descriptor_writers.emplace_back(std::move(writer));
                     },
-                    [&](const Shader::MetaData::InputAttachment& input_attachment)
+                    [&](const Shader::MetaData::InputAttachment&)
                     {
                         back_buffer[i].texture = &slot.texture_views[i]->getTexture();
                         {
@@ -151,11 +151,13 @@ namespace RenderEngine
             uniform_buffer_creation_data.emplace_back(std::move(back_buffer), slot.binding);
         }
         getLogicalDevice()->vkUpdateDescriptorSets(*getLogicalDevice(),
-                                                   descriptor_writers.size(), descriptor_writers.data(), 0, nullptr);
-        for (auto& [back_buffer, binding] : uniform_buffer_creation_data)
+                                                   static_cast<uint32_t>(descriptor_writers.size()),
+                                                   descriptor_writers.data(),
+                                                   0,
+                                                   nullptr);
+        for (auto& [created_back_buffer, binding] : uniform_buffer_creation_data)
         {
-            _resources.emplace_back(std::make_unique<UniformBinding>(_resource_layout,
-                                                                     std::move(back_buffer),
+            _resources.emplace_back(std::make_unique<UniformBinding>(std::move(created_back_buffer),
                                                                      binding,
                                                                      gpu_resource_manager.getLogicalDevice()));
         }

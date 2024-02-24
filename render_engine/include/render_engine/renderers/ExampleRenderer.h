@@ -36,7 +36,7 @@ namespace RenderEngine
                         bool last_ExampleRenderer);
 
         void init(const std::vector<Vertex>& vertices, const std::vector<uint16_t>& indicies);
-        void onFrameBegin(uint32_t frame_number) override  final {}
+        void onFrameBegin(uint32_t) override  final {}
         void draw(uint32_t swap_chain_image_index) override final
         {
             draw(_frame_buffers[swap_chain_image_index], getFrameData(swap_chain_image_index));
@@ -50,7 +50,7 @@ namespace RenderEngine
 
         ~ExampleRenderer() override;
 
-        SyncOperations getSyncOperations(uint32_t image_index) override final
+        SyncOperations getSyncOperations(uint32_t) override final
         {
             return {};
         }

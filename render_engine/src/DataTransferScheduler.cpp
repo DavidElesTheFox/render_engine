@@ -393,7 +393,6 @@ namespace RenderEngine
 
         [[nodiscard]]
         std::vector<SyncObject> bufferNotUnifiedQueueTransfer(Buffer& buffer,
-                                                              VkBuffer staging_buffer,
                                                               SyncOperations sync_operations,
                                                               TransferEngine& transfer_engine,
                                                               CommandContext& src_context,
@@ -401,7 +400,6 @@ namespace RenderEngine
                                                               BufferState final_buffer_state,
                                                               std::function<void(VkCommandBuffer)> upload_command)
         {
-            const auto device_size = buffer.getDeviceSize();
             std::vector<SyncObject> result;
 
             SyncObject transfer_sync_object = SyncObject::CreateEmpty(src_context.getLogicalDevice());
@@ -555,7 +553,6 @@ namespace RenderEngine
                     || src_context->getQueueFamilyIndex() != transfer_engine.getTransferContext().getQueueFamilyIndex())
                 {
                     result = bufferNotUnifiedQueueTransfer(*buffer,
-                                                           staging_buffer,
                                                            sync_operations,
                                                            transfer_engine,
                                                            *src_context,

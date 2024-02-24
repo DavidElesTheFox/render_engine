@@ -79,10 +79,6 @@ namespace RenderEngine
                                                          _buffer_info.size,
                                                          _buffer_info.usage,
                                                          _buffer_info.memory_properties);
-        if (isMapped())
-        {
-            _logical_device->vkMapMemory(*_logical_device, _buffer_memory, 0, getDeviceSize(), 0, &_mapped_memory);
-        }
     }
 
     Buffer::~Buffer()
@@ -120,11 +116,7 @@ namespace RenderEngine
         _buffer_state.command_context = command_context;
     }
 
-    void Buffer::uploadMapped(std::span<const uint8_t> data_view)
-    {
-        assert(isMapped());
-        memcpy(_mapped_memory, data_view.data(), data_view.size());
-    }
+
 
     std::shared_ptr<DownloadTask> Buffer::clearDownloadTask()
     {
@@ -133,4 +125,30 @@ namespace RenderEngine
         return result;
     }
 
+
+    CoherentBuffer::CoherentBuffer(VkPhysicalDevice physical_device,
+                                   LogicalDevice& logical_device,
+                                   BufferInfo&& buffer_info)
+        : _physical_device(physical_device)
+        , _logical_device(logical_device)
+        , _buffer_info(std::move(buffer_info))
+    {
+        std::tie(_buffer, _buffer_memory) = createBuffer(_physical_device,
+                                                         _logical_device,
+                                                         _buffer_info.size,
+                                                         _buffer_info.usage,
+                                                         _buffer_info.memory_properties);
+        _logical_device->vkMapMemory(*_logical_device, _buffer_memory, 0, getDeviceSize(), 0, &_mapped_memory);
+    }
+
+    CoherentBuffer::~CoherentBuffer()
+    {
+        _logical_device->vkDestroyBuffer(*_logical_device, _buffer, nullptr);
+        _logical_device->vkFreeMemory(*_logical_device, _buffer_memory, nullptr);
+    }
+
+    void CoherentBuffer::upload(std::span<const uint8_t> data_view)
+    {
+        memcpy(_mapped_memory, data_view.data(), data_view.size());
+    }
 }

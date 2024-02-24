@@ -17,7 +17,7 @@ namespace RenderEngine
         struct FrameData
         {
             VkDescriptorSet descriptor_set{ VK_NULL_HANDLE };
-            std::unique_ptr<Buffer> buffer{};
+            std::unique_ptr<CoherentBuffer> coherent_buffer{};
             Texture* texture{ nullptr };
         };
 
@@ -35,9 +35,9 @@ namespace RenderEngine
         UniformBinding& operator=(const UniformBinding&) = delete;
         UniformBinding& operator=(UniformBinding&&) = default;
 
-        Buffer& getBuffer(size_t frame_number) const
+        CoherentBuffer& getBuffer(size_t frame_number) const
         {
-            return *_back_buffer[frame_number].buffer;
+            return *_back_buffer[frame_number].coherent_buffer;
         }
         VkDescriptorSet getDescriptorSet(size_t frame_number) const
         {

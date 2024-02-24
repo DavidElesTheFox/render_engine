@@ -180,7 +180,7 @@ namespace
                                                       VkDescriptorPool pool,
                                                       VkDescriptorSetLayout layout,
                                                       uint32_t backbuffer_size,
-                                                      std::vector<Buffer*> uniform_buffers)
+                                                      std::vector<CoherentBuffer*> uniform_buffers)
     {
         std::vector<VkDescriptorSetLayout> layouts(backbuffer_size, layout);
         VkDescriptorSetAllocateInfo allocInfo{};
@@ -413,7 +413,7 @@ namespace RenderEngine
                                                                        _vertex_buffer->getResourceState().clone());
         }
 
-        std::vector<Buffer*> created_buffers;
+        std::vector<CoherentBuffer*> created_buffers;
         for (auto& frame_data : _back_buffer)
         {
             frame_data.color_offset = _window.getRenderEngine().getGpuResourceManager().createUniformBuffer(sizeof(ColorOffset));
@@ -434,7 +434,7 @@ namespace RenderEngine
 
     void ExampleRenderer::draw(const VkFramebuffer& frame_buffer, FrameData& frame_data)
     {
-        frame_data.color_offset->uploadMapped(std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(&_color_offset), sizeof(ColorOffset)));
+        frame_data.color_offset->upload(std::span(&_color_offset, 1));
 
         getLogicalDevice()->vkResetCommandBuffer(frame_data.command_buffer, /*VkCommandBufferResetFlagBits*/ 0);
         VkCommandBufferBeginInfo begin_info{};

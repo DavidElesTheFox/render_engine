@@ -65,7 +65,7 @@ namespace RenderEngine
         std::shared_ptr<UploadTask> getUploadTask() { return _ongoing_upload; }
 
         VkImageAspectFlags getAspect() const { return _aspect; }
-        Buffer& getStagingBuffer() { return _staging_buffer; }
+        CoherentBuffer& getStagingBuffer() { return _staging_buffer; }
         VkShaderStageFlags getShaderUsageFlag() const { return _shader_usage; }
 
         void setInitialCommandContext(std::weak_ptr<CommandContext> command_context);
@@ -90,7 +90,7 @@ namespace RenderEngine
         VkImage _texture{ VK_NULL_HANDLE };
         Image _image;
         VkDeviceMemory _texture_memory{ VK_NULL_HANDLE };
-        Buffer _staging_buffer;
+        CoherentBuffer _staging_buffer;
         VkImageAspectFlags _aspect{ VK_IMAGE_ASPECT_NONE };
         VkShaderStageFlags _shader_usage{ VK_SHADER_STAGE_ALL };
         std::set<uint32_t> _compatible_queue_family_indexes;

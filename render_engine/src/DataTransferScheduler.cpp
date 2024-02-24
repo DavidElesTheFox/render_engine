@@ -481,7 +481,7 @@ namespace RenderEngine
                                [&](const std::vector<uint8_t>& image_data) { return std::span(image_data); },
                                [&](const std::vector<float>& image_data) { return std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(&image_data[0]), image_data.size() / sizeof(float)); } },
                                image_to_upload.getData());
-                texture->getStagingBuffer().uploadMapped(data_view);
+                texture->getStagingBuffer().upload(data_view);
                 const bool is_initial_transfer = texture->getResourceState().command_context.expired();
 
                 if (is_initial_transfer)
@@ -523,8 +523,6 @@ namespace RenderEngine
                                                             CommandContext& dst_context,
                                                             BufferState final_state)
     {
-        assert(buffer->isMapped() == false);
-
         auto task = [data_to_upload = std::move(data), &dst_context, buffer, final_buffer_state = std::move(final_state)]
         (SyncOperations sync_operations, TransferEngine& transfer_engine, UploadTask::Storage& task_storage) -> std::vector<SyncObject>
             {

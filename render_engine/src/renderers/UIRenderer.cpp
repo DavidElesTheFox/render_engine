@@ -234,8 +234,7 @@ namespace RenderEngine
                                                                       {
                                                                           ImGui_ImplVulkan_CreateFontsTexture(command_buffer);
                                                                       });
-
-                logical_device->vkWaitForFences(*logical_device, 1, sync_object.getOperationsGroup(SyncGroups::kInternal).getFence(), VK_TRUE, UINT64_MAX);
+                sync_object.waitFence();
 
             }
             ImGui_ImplVulkan_DestroyFontUploadObjects();

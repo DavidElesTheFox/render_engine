@@ -38,8 +38,7 @@ namespace RenderEngine
 
         const SyncOperations& fillInfo(VkSubmitInfo2& submit_info) const;
         bool hasAnyFence() const { return _fence != VK_NULL_HANDLE; }
-        // TODO return with not a pointer
-        const VkFence* getFence() const { return &_fence; }
+        const VkFence& getFence() const { return _fence; }
 
         // TODO remove this and make a mutable object
         SyncOperations& unionWith(const SyncOperations& o);

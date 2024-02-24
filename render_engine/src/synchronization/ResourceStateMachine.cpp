@@ -199,7 +199,7 @@ namespace RenderEngine
             .select({ SyncGroups::kInternal, SyncGroups::kAcquire })
             .join(external_operations.extract(SyncOperations::ExtractSignalOperations | SyncOperations::ExtractFence)).get();
         acquire_operations.fillInfo(dst_submit_info);
-        logical_device->vkQueueSubmit2(dst_queue, 1, &dst_submit_info, *acquire_operations.getFence());
+        logical_device->vkQueueSubmit2(dst_queue, 1, &dst_submit_info, acquire_operations.getFence());
     }
 
     [[nodiscard]]

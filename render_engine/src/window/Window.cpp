@@ -185,7 +185,7 @@ namespace RenderEngine
         if (_swap_chain_image_index == std::nullopt)
         {
             uint32_t image_index = 0;
-            logical_device->vkWaitForFences(*logical_device, 1, frame_data.synch_render.getOperationsGroup(SyncGroups::kInternal).getFence(), VK_TRUE, UINT64_MAX);
+            frame_data.synch_render.waitFence();
             auto call_result = logical_device->vkAcquireNextImageKHR(*logical_device,
                                                                      _swap_chain->getDetails().swap_chain,
                                                                      UINT64_MAX,
@@ -205,7 +205,7 @@ namespace RenderEngine
             }
             _swap_chain_image_index = image_index;
         }
-        logical_device->vkResetFences(*logical_device, 1, frame_data.synch_render.getOperationsGroup(SyncGroups::kInternal).getFence());
+        frame_data.synch_render.resetFence();
         _render_engine->onFrameBegin(renderers, *_swap_chain_image_index);
 
 

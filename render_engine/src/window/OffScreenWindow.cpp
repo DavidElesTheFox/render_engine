@@ -72,7 +72,7 @@ namespace RenderEngine
         _renderers = RenderContext::context().getRendererFactory().generateRenderers(renderer_ids,
                                                                                      *this,
                                                                                      createRenderTarget(),
-                                                                                     _back_buffer.size());
+                                                                                     static_cast<uint32_t>(_back_buffer.size()));
         for (size_t i = 0; i < renderer_ids.size(); ++i)
         {
             _renderer_map[renderer_ids[i]] = _renderers[i].get();

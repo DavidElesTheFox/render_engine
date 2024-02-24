@@ -13,14 +13,14 @@ namespace RenderEngine
 
         ~LogicalDevice();
         LogicalDevice(const LogicalDevice&) = delete;
-        LogicalDevice(LogicalDevice&& o)
+        LogicalDevice(LogicalDevice&& o) noexcept
         {
             using std::swap;
             *this = std::move(o);
         }
 
         LogicalDevice& operator=(const LogicalDevice&) = delete;
-        LogicalDevice& operator=(LogicalDevice&& o)
+        LogicalDevice& operator=(LogicalDevice&& o) noexcept
         {
             using std::swap;
             swap(_api, o._api);

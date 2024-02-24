@@ -36,7 +36,7 @@ namespace RenderEngine
                    RenderTarget render_target,
                    uint32_t back_buffer_size,
                    bool first_renderer);
-        void onFrameBegin(uint32_t frame_number) override final {}
+        void onFrameBegin(uint32_t) override final {}
         void draw(uint32_t swap_chain_image_index) override final
         {
             draw(getFrameBuffer(swap_chain_image_index), getFrameData(swap_chain_image_index));
@@ -46,7 +46,7 @@ namespace RenderEngine
 
         ~UIRenderer();
 
-        SyncOperations getSyncOperations(uint32_t image_index) final
+        SyncOperations getSyncOperations(uint32_t) final
         {
             return {};
         }
@@ -55,7 +55,7 @@ namespace RenderEngine
         static void registerDeletedContext(ImGuiContext* context);
         static bool isValidContext(ImGuiContext* context);
 
-        std::vector<AttachmentInfo> reinitializeAttachments(const RenderTarget& render_target) override final { return {}; }
+        std::vector<AttachmentInfo> reinitializeAttachments(const RenderTarget&) override final { return {}; }
 
         void draw(const VkFramebuffer& frame_buffer, FrameData& frame_data);
         void loadVulkanPrototypes();

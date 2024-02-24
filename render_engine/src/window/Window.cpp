@@ -67,7 +67,10 @@ namespace RenderEngine
 
     void Window::registerRenderers(const std::vector<uint32_t>& renderer_ids)
     {
-        _renderers = RenderContext::context().getRendererFactory().generateRenderers(renderer_ids, *this, _swap_chain->createRenderTarget(), _back_buffer.size());
+        _renderers = RenderContext::context().getRendererFactory().generateRenderers(renderer_ids,
+                                                                                     *this,
+                                                                                     _swap_chain->createRenderTarget(),
+                                                                                     static_cast<uint32_t>(_back_buffer.size()));
         for (size_t i = 0; i < renderer_ids.size(); ++i)
         {
             _renderer_map[renderer_ids[i]] = _renderers[i].get();

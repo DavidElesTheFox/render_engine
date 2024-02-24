@@ -127,7 +127,8 @@ namespace
             const std::string camera_name = "Ortho camera";
             const std::string camera_node_name = "Main camera";
             constexpr float fov_degrees = 60.0f;
-            camera_builder.add(Scene::Camera::createPerspective(camera_name, glm::radians(fov_degrees), 800.0f, 600.0f, 0.001, 10.0f));
+            camera_builder.add(Scene::Camera::createPerspective(camera_name,
+                                                                glm::radians(fov_degrees), 800.0f, 600.0f, 0.001f, 10.0f));
 
             _scene.addNode(camera_builder.build(camera_node_name));
 
@@ -189,7 +190,6 @@ namespace
         {
             {
                 auto& logical_device = _device.getLogicalDevice();
-                auto physical_device = _device.getPhysicalDevice();
                 RenderEngine::SyncObject sync_object =
                     RenderEngine::SyncObject::CreateWithFence(logical_device, 0);
                 RenderEngine::Image image(std::filesystem::path{ IMAGE_BASE } / "statue.jpg");
@@ -333,7 +333,7 @@ namespace
             const std::string camera_name = "Perspective camera";
             const std::string camera_node_name = "Main camera";
             constexpr float fov_degrees = 60.0f;
-            camera_builder.add(Scene::Camera::createPerspective(camera_name, glm::radians(fov_degrees), 800.0f, 600.0f, 0.001, 10.0f));
+            camera_builder.add(Scene::Camera::createPerspective(camera_name, glm::radians(fov_degrees), 800.0f, 600.0f, 0.001f, 10.0f));
 
             _scene.addNode(camera_builder.build(camera_node_name));
 
@@ -370,7 +370,6 @@ namespace
         const auto& image_data = ct_image_container[1];
 
         auto& logical_device = _device.getLogicalDevice();
-        auto physical_device = _device.getPhysicalDevice();
         auto ct_material = _assets.getBaseMaterial<Assets::CtVolumeMaterial>();
 
         std::filesystem::path ct_base_path{ IMAGE_BASE };

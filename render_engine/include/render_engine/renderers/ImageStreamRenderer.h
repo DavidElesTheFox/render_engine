@@ -35,7 +35,7 @@ namespace RenderEngine
         };
         void destroy() noexcept;
         bool skipDrawCall(uint32_t frame_number) const override final;
-        std::vector<AttachmentInfo> reinitializeAttachments(const RenderTarget& render_target) override final { return {}; }
+        std::vector<AttachmentInfo> reinitializeAttachments(const RenderTarget&) override final { return {}; }
         ImageStream& _image_stream;
         Image _image_cache;
         std::unordered_map<Texture*, UploadData> _upload_data;

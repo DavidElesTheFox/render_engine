@@ -26,10 +26,10 @@ namespace Scene
             onParentChanged(_parent, parent);
         }
         const SceneNode* getParent() const { return _parent; }
-        virtual void onSceneChanged(Scene* new_scene, Scene* old_scene) {}
-        virtual void onRegisterToNewLookup(SceneNodeLookup* new_lookup, SceneNodeLookup* old_lookup) {}
+        virtual void onSceneChanged(Scene*, Scene*) {}
+        virtual void onRegisterToNewLookup(SceneNodeLookup*, SceneNodeLookup*) {}
     private:
-        virtual void onParentChanged(SceneNode* new_parent, SceneNode* old_parent) {}
+        virtual void onParentChanged(SceneNode*, SceneNode*) {}
         SceneNode* getParent() { return _parent; }
 
         std::string _name;

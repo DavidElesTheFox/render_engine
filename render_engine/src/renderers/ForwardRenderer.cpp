@@ -77,9 +77,7 @@ namespace RenderEngine
         if (_mesh_buffers.contains(mesh) == false)
         {
             const Geometry& geometry = mesh->getGeometry();
-            const auto& material = mesh->getMaterial();
 
-            const Shader::MetaData& vertex_shader_meta_data = material.getVertexShader().getMetaData();
             MeshBuffers mesh_buffers;
             if (geometry.positions.empty() == false)
             {
@@ -178,8 +176,10 @@ namespace RenderEngine
                                                             VK_PIPELINE_BIND_POINT_GRAPHICS,
                                                             mesh_group.technique->getPipelineLayout(),
                                                             0,
-                                                            descriptor_sets.size(),
-                                                            descriptor_sets.data(), 0, nullptr);
+                                                            static_cast<uint32_t>(descriptor_sets.size()),
+                                                            descriptor_sets.data(),
+                                                            0,
+                                                            nullptr);
             }
 
             for (auto& mesh_instance : mesh_group.mesh_instances)

@@ -401,8 +401,10 @@ namespace RenderEngine
                                                             VK_PIPELINE_BIND_POINT_GRAPHICS,
                                                             technique->getPipelineLayout(),
                                                             0,
-                                                            descriptor_sets.size(),
-                                                            descriptor_sets.data(), 0, nullptr);
+                                                            static_cast<uint32_t>(descriptor_sets.size()),
+                                                            descriptor_sets.data(),
+                                                            0,
+                                                            nullptr);
             }
 
             // Draw nothing just 3 'empty' vertexes trick is in the vertex shader
@@ -416,7 +418,7 @@ namespace RenderEngine
         }
 
     }
-    bool ImageStreamRenderer::skipDrawCall(uint32_t frame_number) const
+    bool ImageStreamRenderer::skipDrawCall(uint32_t) const
     {
         return _draw_call_recorded == false;
     }

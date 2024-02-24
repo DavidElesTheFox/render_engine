@@ -33,7 +33,7 @@ namespace Ui
                 int step_count = ct_material->getMaterialConstants().fragment_values.getNumSteps();
                 float step_size = ct_material->getMaterialConstants().fragment_values.getStepSize();
 
-                if (ImGui::SliderInt(("Num Steps - " + material_instance_name).c_str(), &step_count, 1, 1 / step_size))
+                if (ImGui::SliderInt(("Num Steps - " + material_instance_name).c_str(), &step_count, 1, static_cast<int32_t>(1 / step_size)))
                 {
                     ct_material->getMaterialConstants().fragment_values.setNumSteps(step_count);
                 }

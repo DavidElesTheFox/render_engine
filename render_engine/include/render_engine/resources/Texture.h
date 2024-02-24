@@ -93,17 +93,18 @@ namespace RenderEngine
         VkPhysicalDevice _physical_device{ VK_NULL_HANDLE };
         LogicalDevice& _logical_device;
         VkImage _texture{ VK_NULL_HANDLE };
-        Image _image;
-        VkDeviceMemory _texture_memory{ VK_NULL_HANDLE };
         CoherentBuffer _staging_buffer;
+        Image _image;
         VkImageAspectFlags _aspect{ VK_IMAGE_ASPECT_NONE };
         VkShaderStageFlags _shader_usage{ VK_SHADER_STAGE_ALL };
         std::set<uint32_t> _compatible_queue_family_indexes;
+        bool _vkimage_owner{ true };
+
+        VkDeviceMemory _texture_memory{ VK_NULL_HANDLE };
         TextureState _texture_state;
         VkMemoryRequirements _memory_requirements{};
         std::shared_ptr<UploadTask> _ongoing_upload{ nullptr };
         std::shared_ptr<DownloadTask> _ongoing_download{ nullptr };
-        bool _vkimage_owner{ true };
     };
 
     static_assert(IsResourceStateHolder_V<Texture>, "Texture needs to be a resource state holder");
@@ -133,7 +134,7 @@ namespace RenderEngine
             logical_device->vkDestroyImageView(*logical_device, _image_view, nullptr);
             logical_device->vkDestroySampler(*logical_device, _sampler, nullptr);
         }
-        TextureView(TextureView&& o)
+        TextureView(TextureView&& o) noexcept
             : _texture(o._texture)
             , _image_view(std::move(o._image_view))
             , _sampler(std::move(o._sampler))
@@ -160,7 +161,6 @@ namespace RenderEngine
         TextureView(Texture& texture,
                     Texture::ImageViewData image_view_data,
                     std::optional<Texture::SamplerData> sampler_data,
-                    VkPhysicalDevice physical_device,
                     LogicalDevice& logical_device)
             : _texture(texture)
             , _image_view(texture.createImageView(image_view_data))

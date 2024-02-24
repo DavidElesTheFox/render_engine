@@ -58,8 +58,6 @@ namespace RenderEngine
         [[deprecated("This object is a sign of ownership problem. It's not nice but sometimes a you need a shortcut. "
                      "This is a visible short cut and the goal is that whenever it is used let's remove it soon.")]]
         void addGarbage(Garbage garbage) { _garbage.emplace_back(std::move(garbage)); }
-        [[deprecated("This object is a sign of ownership problem. It's not nice but sometimes a you need a shortcut. "
-                     "This is a visible short cut and the goal is that whenever it is used let's remove it soon.")]]
         void clearGarbage();
         Debugger& getDebugger() { return _debugger; }
     private:
@@ -81,14 +79,14 @@ namespace RenderEngine
         void initVulkan(const InitializationInfo& info);
         void createDevices(const InitializationInfo& info);
         bool isVulkanInitialized() const { return _instance != nullptr; }
-        VkInstance _instance;
+        VkInstance _instance{ VK_NULL_HANDLE };
         std::vector<std::unique_ptr<Device>> _devices;
-        VkDebugUtilsMessengerEXT _debug_messenger;
+        VkDebugUtilsMessengerEXT _debug_messenger{ VK_NULL_HANDLE };
         void* _renderdoc_api{ nullptr };
         std::unique_ptr<RendererFeactory> _renderer_factory;
         bool _initialized{ false };
-        uint32_t _engine_id_counter = kEngineReservedIdStart;
+        uint32_t _engine_id_counter{ kEngineReservedIdStart };
         std::vector<GarbageData> _garbage;
-        Debugger _debugger;
+        Debugger _debugger{};
     };
 }

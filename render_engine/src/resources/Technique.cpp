@@ -35,7 +35,7 @@ namespace RenderEngine
         }
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        pipelineLayoutInfo.setLayoutCount = descriptor_set_layouts.size();
+        pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(descriptor_set_layouts.size());
         pipelineLayoutInfo.pSetLayouts = descriptor_set_layouts.data();
 
         std::vector<VkPushConstantRange> push_constants_info_container{};
@@ -49,7 +49,7 @@ namespace RenderEngine
             push_constants_info_container.push_back(push_constants_info);
         }
 
-        pipelineLayoutInfo.pushConstantRangeCount = push_constants_info_container.size();
+        pipelineLayoutInfo.pushConstantRangeCount = static_cast<uint32_t>(push_constants_info_container.size());
         pipelineLayoutInfo.pPushConstantRanges = push_constants_info_container.data();
         if (logical_device->vkCreatePipelineLayout(*logical_device, &pipelineLayoutInfo, nullptr, &_pipeline_layout) != VK_SUCCESS)
         {
@@ -93,7 +93,7 @@ namespace RenderEngine
         }
         VkPipelineVertexInputStateCreateInfo vertex_input_info{};
         vertex_input_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-        vertex_input_info.vertexBindingDescriptionCount = attribute_bindings.size();
+        vertex_input_info.vertexBindingDescriptionCount = static_cast<uint32_t>(attribute_bindings.size());
         vertex_input_info.vertexAttributeDescriptionCount = static_cast<uint32_t>(attribute_descriptions.size());
         vertex_input_info.pVertexBindingDescriptions = attribute_bindings.data();
         vertex_input_info.pVertexAttributeDescriptions = attribute_descriptions.data();

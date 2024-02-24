@@ -43,18 +43,15 @@ namespace RenderEngine
     }
     const SyncOperations& SyncOperations::fillInfo(VkSubmitInfo2& submit_info) const
     {
-        submit_info.waitSemaphoreInfoCount = _wait_semaphore_dependency.size();
+        submit_info.waitSemaphoreInfoCount = static_cast<uint32_t>(_wait_semaphore_dependency.size());
         submit_info.pWaitSemaphoreInfos = _wait_semaphore_dependency.data();
 
-        submit_info.signalSemaphoreInfoCount = _signal_semaphore_dependency.size();
+        submit_info.signalSemaphoreInfoCount = static_cast<uint32_t>(_signal_semaphore_dependency.size());
         submit_info.pSignalSemaphoreInfos = _signal_semaphore_dependency.data();
         return *this;
     }
     void SyncOperations::unionWith(const SyncOperations& o)
     {
-        uint32_t wait_semaphore_offset = _wait_semaphore_dependency.size();
-        uint32_t signal_semaphore_offset = _signal_semaphore_dependency.size();
-
         std::ranges::copy(o._wait_semaphore_dependency, std::back_inserter(_wait_semaphore_dependency));
         std::ranges::copy(o._signal_semaphore_dependency, std::back_inserter(_signal_semaphore_dependency));
         assert((_fence == VK_NULL_HANDLE || o._fence == VK_NULL_HANDLE) && "fence conflict");

@@ -184,7 +184,6 @@ namespace
     {
         std::vector<VkDescriptorSetLayout> layouts(backbuffer_size, layout);
         VkDescriptorSetAllocateInfo allocInfo{};
-        VkDescriptorSet result;
         allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
         allocInfo.descriptorPool = pool;
         allocInfo.descriptorSetCount = static_cast<uint32_t>(backbuffer_size);
@@ -375,8 +374,6 @@ namespace RenderEngine
         }
         catch (const std::runtime_error&)
         {
-            auto& logical_device = window.getDevice().getLogicalDevice();
-
             for (auto framebuffer : _frame_buffers)
             {
                 logical_device->vkDestroyFramebuffer(*logical_device, framebuffer, nullptr);
@@ -423,7 +420,7 @@ namespace RenderEngine
         auto descriptor_sets = createDescriptorSets(_window.getDevice().getLogicalDevice(),
                                                     _descriptor_pool,
                                                     _descriptor_set_layout,
-                                                    _back_buffer.size(),
+                                                    static_cast<uint32_t>(_back_buffer.size()),
                                                     created_buffers);
 
         for (size_t i = 0; i < descriptor_sets.size(); ++i)
@@ -560,7 +557,7 @@ namespace RenderEngine
 
     void ExampleRenderer::createCommandBuffer()
     {
-        std::vector<VkCommandBuffer> command_buffers = _window.getRenderEngine().getCommandContext().createCommandBuffers(_back_buffer.size(), CommandContext::Usage::MultipleSubmit);
+        std::vector<VkCommandBuffer> command_buffers = _window.getRenderEngine().getCommandContext().createCommandBuffers(static_cast<uint32_t>(_back_buffer.size()), CommandContext::Usage::MultipleSubmit);
         for (uint32_t i = 0; i < _back_buffer.size(); ++i)
         {
             _back_buffer[i].command_buffer = command_buffers[i];

@@ -31,7 +31,7 @@ namespace RenderEngine
                 const auto& image_data = std::get<std::vector<uint8_t>>(_image._data);
                 return { image_data[row_index], image_data[row_index + 1], image_data[row_index + 2], image_data[row_index + 3] };
             }
-            void setPixel(uint32_t u, uint32_t v, uint32_t s, const glm::vec4& data)
+            void setPixel(uint32_t u, uint32_t v, const glm::vec4& data)
             {
                 assert(_image.getPixelComponentCount() == 4 && "Currently only 4 component is supported");
 
@@ -39,10 +39,10 @@ namespace RenderEngine
                 const uint32_t row_index = (u + v * _image._width) * component_count;
                 auto& image_data = std::get<std::vector<uint8_t>>(_image._data);
 
-                image_data[row_index] = data.r;
-                image_data[row_index + 1] = data.g;
-                image_data[row_index + 2] = data.b;
-                image_data[row_index + 3] = data.a;
+                image_data[row_index] = static_cast<uint8_t>(data.r);
+                image_data[row_index + 1] = static_cast<uint8_t>(data.g);
+                image_data[row_index + 2] = static_cast<uint8_t>(data.b);
+                image_data[row_index + 3] = static_cast<uint8_t>(data.a);
             }
         private:
             explicit DataAccessor2D(Image& image)
@@ -72,10 +72,10 @@ namespace RenderEngine
                 const auto row_index = (u + v * _image._width + s * (_image._width * _image._height)) * component_count;
                 auto& image_data = std::get<std::vector<uint8_t>>(_image._data);
 
-                image_data[row_index] = data.r;
-                image_data[row_index + 1] = data.g;
-                image_data[row_index + 2] = data.b;
-                image_data[row_index + 3] = data.a;
+                image_data[row_index] = static_cast<uint8_t>(data.r);
+                image_data[row_index + 1] = static_cast<uint8_t>(data.g);
+                image_data[row_index + 2] = static_cast<uint8_t>(data.b);
+                image_data[row_index + 3] = static_cast<uint8_t>(data.a);
             }
         private:
             explicit DataAccessor3D(Image& image)

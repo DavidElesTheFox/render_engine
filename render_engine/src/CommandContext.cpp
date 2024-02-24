@@ -41,11 +41,11 @@ namespace RenderEngine
             }
         }
     }
-    CommandContext::CommandContext(CommandContext&& o)
+    CommandContext::CommandContext(CommandContext&& o) noexcept
     {
         *this = std::move(o);
     }
-    CommandContext& CommandContext::operator=(CommandContext&& o)
+    CommandContext& CommandContext::operator=(CommandContext&& o) noexcept
     {
         using std::swap;
         swap(o._logical_device, _logical_device);
@@ -79,7 +79,7 @@ namespace RenderEngine
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
         allocInfo.commandPool = getCommandPool(usage);
         allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        allocInfo.commandBufferCount = command_buffers.size();
+        allocInfo.commandBufferCount = static_cast<uint32_t>(command_buffers.size());
 
         if (getLogicalDevice()->vkAllocateCommandBuffers(*getLogicalDevice(), &allocInfo, command_buffers.data()) != VK_SUCCESS)
         {

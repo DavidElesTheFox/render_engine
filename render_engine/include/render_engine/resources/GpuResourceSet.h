@@ -24,7 +24,7 @@ namespace RenderEngine
             o._resource_layout = VK_NULL_HANDLE;
             o._logical_device = VK_NULL_HANDLE;
         }
-        GpuResourceSet& operator=(GpuResourceSet&& o)
+        GpuResourceSet& operator=(GpuResourceSet&& o) noexcept
         {
             using std::swap;
             swap(_resources, o._resources);

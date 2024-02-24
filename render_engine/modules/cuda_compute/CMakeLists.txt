@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.18)
 enable_language(CUDA)
 
 set(CMAKE_CUDA_STANDARD 11)
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 
 include(cmake/CudaConvertFlags.cmake)
@@ -14,12 +14,17 @@ include(cmake/CudaConvertFlags.cmake)
 set(CUDA_COMPUTE_HEADERS
    include/render_engine/cuda_compute/DistanceFieldTask.h
    include/render_engine/cuda_compute/DistanceFieldKernel.h
-   include/render_engine/cuda_compute/CudaDevice.h "include/render_engine/cuda_compute/IComputeCallback.h"  "include/render_engine/cuda_compute/ExternalSurface.h")
+   include/render_engine/cuda_compute/CudaDevice.h 
+   include/render_engine/cuda_compute/IComputeCallback.h
+   include/render_engine/cuda_compute/ExternalSurface.h)
 
 set(CUDA_COMPUTE_SRC
     src/DistanceFieldTask.cpp
     src/DistanceFieldKernel.cu 
-    src/CudaDevice.cpp "src/CudaStreamCallback.h" "src/CudaStreamCallback.cpp" "src/ExternalSurface.cpp")
+    src/CudaDevice.cpp 
+    src/CudaStreamCallback.h
+    src/CudaStreamCallback.cpp
+    src/ExternalSurface.cpp)
 
 
 add_library(CudaCompute STATIC ${CUDA_COMPUTE_SRC} ${CUDA_COMPUTE_HEADERS})

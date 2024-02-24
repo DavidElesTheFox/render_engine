@@ -67,14 +67,14 @@ namespace RenderEngine
         image_info.extent.depth = _image.getDepth();
 
         image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED; // TODO add initial layout for opimization
-        image_info.imageType = image.is3D() ? VK_IMAGE_TYPE_3D : VK_IMAGE_TYPE_2D;
+        image_info.imageType = _image.is3D() ? VK_IMAGE_TYPE_3D : VK_IMAGE_TYPE_2D;
         image_info.tiling = VK_IMAGE_TILING_OPTIMAL;
         image_info.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT // for download
             | VK_BUFFER_USAGE_TRANSFER_DST_BIT // for upload
             | image_usage;
         image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         image_info.samples = VK_SAMPLE_COUNT_1_BIT;
-        image_info.queueFamilyIndexCount = queue_family_indices.size();
+        image_info.queueFamilyIndexCount = static_cast<uint32_t>(queue_family_indices.size());
         image_info.pQueueFamilyIndices = queue_family_indices.data();
 
         VkExternalMemoryImageCreateInfo external_create_info{};
@@ -125,8 +125,8 @@ namespace RenderEngine
         : _physical_device(physical_device)
         , _logical_device(logical_device)
         , _texture(texture)
-        , _image(std::move(image))
         , _staging_buffer(physical_device, logical_device, image.createBufferInfo())
+        , _image(std::move(image))
         , _aspect(aspect)
         , _vkimage_owner(false)
     {
@@ -160,7 +160,7 @@ namespace RenderEngine
         return result;
     }
 
-    VkImageView Texture::createImageView(const ImageViewData& data)
+    VkImageView Texture::createImageView(const ImageViewData&)
     {
         VkImageViewCreateInfo create_info{};
         create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -265,7 +265,6 @@ namespace RenderEngine
         return std::unique_ptr<TextureView>{ new TextureView(*this,
                                                              std::move(view_data),
                                                              std::move(sampler_data),
-                                                             _physical_device,
                                                              _logical_device) };
     }
 
@@ -280,7 +279,7 @@ namespace RenderEngine
         return createReference();
     }
 
-    [[nodiscar]]
+    [[nodiscard]]
     std::unique_ptr<Texture> TextureFactory::create(Image image,
                                                     VkImageAspectFlags aspect,
                                                     VkShaderStageFlags shader_usage,
@@ -304,7 +303,7 @@ namespace RenderEngine
                                         sync_operations);
         return result;
     }
-    [[nodiscar]]
+    [[nodiscard]]
     std::unique_ptr<Texture> TextureFactory::createExternal(Image image,
                                                             VkImageAspectFlags aspect,
                                                             VkShaderStageFlags shader_usage,

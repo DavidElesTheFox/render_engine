@@ -26,7 +26,7 @@ namespace RenderEngine
         ITextureView& getTextureView(uint32_t index) { return *_texture_views[index]; }
         VkExtent2D getExtent() const { return _extent; }
         const Image& getImage(uint32_t index) const;
-        uint32_t getTexturesCount() const { return _texture_views.size(); }
+        uint32_t getTexturesCount() const { return static_cast<uint32_t>(_texture_views.size()); }
     private:
 
         std::vector<ITextureView*> _texture_views;

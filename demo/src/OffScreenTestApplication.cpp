@@ -77,7 +77,7 @@ void OffScreenTestApplication::initializeRenderers()
     std::unique_ptr<RendererFeactory> renderers = std::make_unique<RendererFeactory>();
 
     renderers->registerRenderer(ForwardRenderer::kRendererId,
-                                [&](auto& window, auto render_target, uint32_t back_buffer_count, AbstractRenderer* previous_renderer, bool has_next) -> std::unique_ptr<AbstractRenderer>
+                                [&](auto& window, auto render_target, uint32_t, AbstractRenderer*, bool has_next) -> std::unique_ptr<AbstractRenderer>
                                 {
                                     return std::make_unique<ForwardRenderer>(window, render_target, has_next);
                                 });
@@ -103,7 +103,7 @@ void OffScreenTestApplication::createWindow()
 {
     using namespace RenderEngine;
 
-    _window = RenderContext::context().getDevice(0).createOffScreenWindow("Offscreen window", 3);
+    _window = RenderContext::context().getDevice(0).createOffScreenWindow(3);
     _window->registerRenderers({ ForwardRenderer::kRendererId });
 
 }

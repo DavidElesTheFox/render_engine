@@ -84,7 +84,7 @@ namespace RenderEngine
             for (AbstractRenderer* drawer : renderers)
             {
                 auto renderer_sync_operations = drawer->getSyncOperations(image_index);
-                result.unionWith(renderer_sync_operations);
+                result = result.createUnionWith(renderer_sync_operations);
             }
             return result;
         }

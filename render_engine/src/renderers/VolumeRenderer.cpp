@@ -322,7 +322,7 @@ namespace RenderEngine
         SyncOperations result;
         for (auto& mesh_group : _meshes_with_distance_field)
         {
-            result.unionWith(mesh_group.technique_data.synchronization_objects[image_index].getOperationsGroup(SyncGroups::kExternal));
+            result = result.createUnionWith(mesh_group.technique_data.synchronization_objects[image_index].getOperationsGroup(SyncGroups::kExternal));
         }
         return result;
     }

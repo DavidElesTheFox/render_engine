@@ -50,7 +50,7 @@ namespace RenderEngine
         submit_info.pSignalSemaphoreInfos = _signal_semaphore_dependency.data();
         return *this;
     }
-    SyncOperations& SyncOperations::unionWith(const SyncOperations& o)
+    void SyncOperations::unionWith(const SyncOperations& o)
     {
         uint32_t wait_semaphore_offset = _wait_semaphore_dependency.size();
         uint32_t signal_semaphore_offset = _signal_semaphore_dependency.size();
@@ -62,7 +62,6 @@ namespace RenderEngine
         {
             _fence = o._fence;
         }
-        return *this;
     }
     void SyncOperations::shiftTimelineSemaphoreValues(uint64_t offset)
     {

@@ -40,13 +40,12 @@ namespace RenderEngine
         bool hasAnyFence() const { return _fence != VK_NULL_HANDLE; }
         const VkFence& getFence() const { return _fence; }
 
-        // TODO remove this and make a mutable object
-        SyncOperations& unionWith(const SyncOperations& o);
 
         SyncOperations createUnionWith(const SyncOperations& o) const
         {
             SyncOperations result = *this;
-            return result.unionWith(o);
+            result.unionWith(o);
+            return result;
         }
 
         void shiftTimelineSemaphoreValues(uint64_t offset);
@@ -74,6 +73,7 @@ namespace RenderEngine
         SyncOperations restrict(const CommandContext& context) const;
 
     private:
+        void unionWith(const SyncOperations& o);
 
         std::vector<VkSemaphoreSubmitInfo> _wait_semaphore_dependency;
         std::vector<VkSemaphoreSubmitInfo> _signal_semaphore_dependency;

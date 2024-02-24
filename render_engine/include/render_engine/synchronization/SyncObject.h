@@ -47,31 +47,31 @@ namespace RenderEngine
                     if (need_fence == false)
                     {
                         constexpr int32_t everything_except_fence_bit = ~SyncOperations::ExtractFence;
-                        _operations.unionWith(_sync_object.getOperationsGroup(name).extract(everything_except_fence_bit));
+                        _operations = _operations.createUnionWith(_sync_object.getOperationsGroup(name).extract(everything_except_fence_bit));
                     }
                     else
                     {
                         need_fence = false;
-                        _operations.unionWith(_sync_object.getOperationsGroup(name));
+                        _operations = _operations.createUnionWith(_sync_object.getOperationsGroup(name));
                     }
                 }
                 return std::move(*this);
             }
             Query&& extract(int32_t extract_flags)&&
             {
-                _operations.extract(extract_flags);
+                _operations = _operations.extract(extract_flags);
                 return std::move(*this);
             }
 
             Query&& join(const SyncOperations& operations)&&
             {
-                _operations.unionWith(operations);
+                _operations = _operations.createUnionWith(operations);
                 return std::move(*this);
             }
 
             Query&& join(const Query& o)&&
             {
-                _operations.unionWith(o._operations);
+                _operations = _operations.createUnionWith(o._operations);
                 return std::move(*this);
             }
 

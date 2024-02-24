@@ -47,21 +47,20 @@ namespace RenderEngine
         {
             SyncObject synch_render;
             bool contains_image{ false };
+            std::unique_ptr<Texture> render_target_texture;
+            std::unique_ptr<TextureView> render_target_texture_view;
         };
         void initSynchronizationObjects();
         void present();
         void present(FrameData& current_frame_data) const;
-        void readBack(FrameData& frame);
+        void readBack();
         void destroy();
         RenderTarget createRenderTarget();
         uint32_t getCurrentImageIndex() const { return _current_render_target_index; }
-        uint32_t getOldestImageIndex() const { return (_current_render_target_index + 1) % _textures.size(); }
+        uint32_t getOldestImageIndex() const { return (_current_render_target_index + 1) % _back_buffer_size; }
 
         Device& _device;
         std::unique_ptr<RenderEngine> _render_engine;
-        std::vector<std::unique_ptr<Texture>> _textures;
-        std::vector<std::unique_ptr<TextureView>> _texture_views;
-
         std::vector<FrameData> _back_buffer;
         uint32_t _render_queue_family{ 0 };
 

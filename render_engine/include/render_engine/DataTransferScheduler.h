@@ -52,7 +52,9 @@ namespace RenderEngine
                           std::move(final_state));
 
         }
-        std::weak_ptr<DownloadTask> download(Texture* texture, CommandContext& render_context);
+        std::weak_ptr<DownloadTask> download(Texture* texture,
+                                             CommandContext& render_context,
+                                             SyncOperations sync_operations = {});
 
         void executeJobs(SyncOperations sync_operations, TransferEngine& transfer_engine);
     private:

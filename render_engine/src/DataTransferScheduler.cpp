@@ -570,7 +570,9 @@ namespace RenderEngine
         return result;
     }
 
-    std::weak_ptr<DownloadTask> DataTransferScheduler::download(Texture* texture, CommandContext& render_context)
+    std::weak_ptr<DownloadTask> DataTransferScheduler::download(Texture* texture,
+                                                                CommandContext& render_context,
+                                                                SyncOperations sync_operations)
     {
         /*
         * TODO: Create Texture class for Swap Chain representation
@@ -595,14 +597,14 @@ namespace RenderEngine
         {
             texture->setInitialCommandContext(render_context.getWeakReference());
         }
-        auto task = [=]
+        auto task = [texture, &render_context, additional_sync_operations = sync_operations]
         (SyncOperations sync_operations, TransferEngine& transfer_engine) -> std::vector<SyncObject>
             {
                 auto src_context = texture->getResourceState().command_context.lock();
                 if (src_context->getQueueFamilyIndex() != transfer_engine.getTransferContext().getQueueFamilyIndex())
                 {
                     return textureNotUnifiedQueueTransfer(*texture,
-                                                          sync_operations,
+                                                          sync_operations.createUnionWith(additional_sync_operations),
                                                           transfer_engine,
                                                           *src_context,
                                                           *src_context,
@@ -611,9 +613,11 @@ namespace RenderEngine
                 }
                 else
                 {
-                    SyncObject transfer_sync_object = unifiedQueueTransfer(sync_operations, transfer_engine, createTextureUnifiedDownloadCommand(*texture,
-                                                                                                                                                 *src_context,
-                                                                                                                                                 texture->getResourceState().clone()));
+                    SyncObject transfer_sync_object = unifiedQueueTransfer(sync_operations.createUnionWith(additional_sync_operations),
+                                                                           transfer_engine,
+                                                                           createTextureUnifiedDownloadCommand(*texture,
+                                                                                                               *src_context,
+                                                                                                               texture->getResourceState().clone()));
                     std::vector<SyncObject> result;
                     result.push_back(std::move(transfer_sync_object));
                     return result;

@@ -1,5 +1,7 @@
 #include <render_engine/synchronization/SyncOperations.h>
 
+#include <render_engine/RenderContext.h>
+
 #include <cassert>
 #include <ranges>
 

@@ -17,8 +17,8 @@ OffScreenWindowSetup::OffScreenWindowSetup(std::vector<uint32_t> renderer_ids)
 {
     using namespace RenderEngine;
     {
-        auto graphics_window = RenderContext::context().getDevice(0).createOffScreenWindow("Demo window (render)", 2);
-        auto ui_window = RenderContext::context().getDevice(0).createWindow("Demo window", 2);
+        auto graphics_window = RenderContext::context().getDevice(0).createOffScreenWindow("Demo window (render)", 3);
+        auto ui_window = RenderContext::context().getDevice(0).createWindow("Demo window", 3);
         _window_tunnel = std::make_unique<WindowTunnel>(std::move(graphics_window), std::move(ui_window));
     }
     _window_tunnel->getOriginWindow().registerRenderers(renderer_ids);

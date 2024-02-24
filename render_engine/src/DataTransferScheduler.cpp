@@ -585,33 +585,12 @@ namespace RenderEngine
     }
 
     std::weak_ptr<DownloadTask> DataTransferScheduler::download(Texture* texture,
-                                                                CommandContext& render_context,
                                                                 SyncOperations sync_operations)
     {
-        /*
-        * TODO: Create Texture class for Swap Chain representation
-        * Currently behind swap chains there are no Texture. The reason is that the texture is the owner of the VkImage, but
-        * in case of swap chain it is not the case.
-        * But due to this the SwapChain images has no texture state.
-        * Therefore behind the RenderTarget there are also no Texture and texture state.
-        * When a texture is used as a render target its queue family will be the queue where it was rendered. But
-        * currently the RenderEngine (who dispatches the draw call) does not set the render target textures queue families.
-        * Therefore it can happen that the texture what we would like to download here has no command context.
-        *
-        * Fixing this issue requires the following steps:
-        *  - Texture might not destroy its image when it is created from a swap chain
-        *  - Storing Textures in SwapChain.
-        *  - Having a reference in the RenderTarget to the Textures
-        *  - When the texture has no context the render engine should set the command context of the render target textures based
-        *    on the queue where it was issued.
-        *  - Enable this assertion below and remove the if
-        */
-        //assert(texture->getResourceState().command_context.expired() == false && "For download it should never be an initial transfer");
-        if (texture->getResourceState().command_context.expired())
-        {
-            texture->setInitialCommandContext(render_context.getWeakReference());
-        }
-        auto task = [texture, &render_context, additional_sync_operations = sync_operations]
+
+        assert(texture->getResourceState().command_context.expired() == false && "For download it should never be an initial transfer");
+
+        auto task = [texture, additional_sync_operations = sync_operations]
         (SyncOperations sync_operations, TransferEngine& transfer_engine) -> std::vector<SyncObject>
             {
                 auto src_context = texture->getResourceState().command_context.lock();

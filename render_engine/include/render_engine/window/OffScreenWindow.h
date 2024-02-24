@@ -48,7 +48,7 @@ namespace RenderEngine
             SyncObject synch_render;
             bool contains_image{ false };
             std::unique_ptr<Texture> render_target_texture;
-            std::unique_ptr<TextureView> render_target_texture_view;
+            std::unique_ptr<ITextureView> render_target_texture_view;
         };
         void initSynchronizationObjects();
         void present();

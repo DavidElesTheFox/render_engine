@@ -40,6 +40,7 @@ namespace RenderEngine
             _device.getStagingArea().synchronizeStagingArea({});
 
             auto all_sync_operations = collectSynchronizationOperations(renderers, sync_operations, image_index);
+
             if (command_buffer_infos.empty() == false)
             {
                 submitDrawCalls(command_buffer_infos, all_sync_operations);

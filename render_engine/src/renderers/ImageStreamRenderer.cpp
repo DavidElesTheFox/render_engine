@@ -164,7 +164,7 @@ namespace RenderEngine
     }
     ImageStreamRenderer::ImageStreamRenderer(IWindow& window,
                                              ImageStream& image_stream,
-                                             const RenderTarget& render_target,
+                                             RenderTarget render_target,
                                              uint32_t back_buffer_size, bool last_renderer)
         try : SingleColorOutputRenderer(window)
         , _image_stream(image_stream)

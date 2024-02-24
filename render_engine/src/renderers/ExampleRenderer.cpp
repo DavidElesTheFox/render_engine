@@ -4,6 +4,7 @@
 #include <render_engine/Device.h>
 #include <render_engine/GpuResourceManager.h>
 #include <render_engine/resources/RenderTarget.h>
+#include <render_engine/resources/Texture.h>
 #include <render_engine/window/Window.h>
 
 #include <data_config.h>
@@ -524,7 +525,7 @@ namespace RenderEngine
     {
         auto& logical_device = _window.getDevice().getLogicalDevice();
 
-        _frame_buffers.resize(render_target.getImageViews().size());
+        _frame_buffers.resize(render_target.getTexturesCount());
         for (uint32_t i = 0; i < _frame_buffers.size(); ++i)
         {
             if (createFrameBuffer(render_target, i) == false)
@@ -543,7 +544,7 @@ namespace RenderEngine
         auto& logical_device = _window.getDevice().getLogicalDevice();
 
         VkImageView attachments[] = {
-                render_target.getImageViews()[frame_buffer_index]
+                render_target.getTextureView(frame_buffer_index).getImageView()
         };
         VkFramebufferCreateInfo framebuffer_info{};
         framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;

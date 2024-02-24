@@ -77,7 +77,7 @@ void OffScreenTestApplication::initializeRenderers()
     std::unique_ptr<RendererFeactory> renderers = std::make_unique<RendererFeactory>();
 
     renderers->registerRenderer(ForwardRenderer::kRendererId,
-                                [&](auto& window, const auto& render_target, uint32_t back_buffer_count, AbstractRenderer* previous_renderer, bool has_next) -> std::unique_ptr<AbstractRenderer>
+                                [&](auto& window, auto render_target, uint32_t back_buffer_count, AbstractRenderer* previous_renderer, bool has_next) -> std::unique_ptr<AbstractRenderer>
                                 {
                                     return std::make_unique<ForwardRenderer>(window, render_target, has_next);
                                 });

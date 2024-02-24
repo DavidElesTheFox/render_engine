@@ -100,7 +100,7 @@ namespace RenderEngine
         }
     }
 
-    VolumeRenderer::VolumeRenderer(IWindow& window, const RenderTarget& render_target, bool last_renderer)
+    VolumeRenderer::VolumeRenderer(IWindow& window, RenderTarget render_target, bool last_renderer)
         try : SingleColorOutputRenderer(window)
         , _render_target(render_target)
 
@@ -672,7 +672,7 @@ namespace RenderEngine
         auto& gpu_resource_manager = getWindow().getRenderEngine().getGpuResourceManager();
         const uint32_t back_buffer_size = gpu_resource_manager.getBackBufferSize();
 
-        initializeFrameBuffers(back_buffer_size, render_target.createImage());
+        initializeFrameBuffers(back_buffer_size, render_target.getImage(0));
         std::vector<AttachmentInfo> render_pass_attachments;
         for (uint32_t i = 0; i < back_buffer_size; ++i)
         {

@@ -35,7 +35,7 @@ namespace RenderEngine
     public:
         static constexpr uint32_t kRendererId = 2u;
         ForwardRenderer(IWindow& window,
-                        const RenderTarget& render_target,
+                        RenderTarget render_target,
                         bool last_renderer);
         ~ForwardRenderer() override;
         void onFrameBegin(uint32_t image_index) override;

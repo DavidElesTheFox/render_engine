@@ -186,7 +186,7 @@ namespace RenderEngine
 
 
     UIRenderer::UIRenderer(Window& window,
-                           const RenderTarget& render_target,
+                           RenderTarget render_target,
                            uint32_t back_buffer_size,
                            bool first_renderer)
         : SingleColorOutputRenderer(window)

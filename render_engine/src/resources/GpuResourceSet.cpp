@@ -90,7 +90,7 @@ namespace RenderEngine
                             VkDescriptorImageInfo image_info{};
                             image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
                             image_info.imageView = slot.texture_views[i]->getImageView();
-                            image_info.sampler = slot.texture_views[i]->getSamler();
+                            image_info.sampler = slot.texture_views[i]->getSampler();
                             image_info_holder.push_back(image_info);
                         }
                         VkWriteDescriptorSet writer{};
@@ -132,7 +132,7 @@ namespace RenderEngine
                             VkDescriptorImageInfo image_info{};
                             image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
                             image_info.imageView = slot.texture_views[i]->getImageView();
-                            image_info.sampler = slot.texture_views[i]->getSamler();
+                            image_info.sampler = slot.texture_views[i]->getSampler();
                             image_info_holder.push_back(image_info);
                         }
                         VkWriteDescriptorSet writer{};

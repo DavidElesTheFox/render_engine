@@ -213,7 +213,7 @@ set(RENDER_ENGINE_HEADERS
 	${RENDER_ENGINE_ROOT_HEADERS})
 
 add_library(RenderEngine STATIC ${RENDER_ENGINE_SRC} ${RENDER_ENGINE_HEADERS})
-set_property(TARGET RenderEngine PROPERTY CXX_STANDARD 20)
+set_property(TARGET RenderEngine PROPERTY CXX_STANDARD 23)
 
 target_compile_options(RenderEngine PRIVATE
   $<$<CXX_COMPILER_ID:MSVC>:/W4>

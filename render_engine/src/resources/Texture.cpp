@@ -117,6 +117,22 @@ namespace RenderEngine
         destroy();
     }
 
+    Texture::Texture(Image image,
+                     VkImage texture,
+                     VkPhysicalDevice physical_device,
+                     LogicalDevice& logical_device,
+                     VkImageAspectFlags aspect)
+        : _physical_device(physical_device)
+        , _logical_device(logical_device)
+        , _texture(texture)
+        , _image(std::move(image))
+        , _staging_buffer(physical_device, logical_device, image.createBufferInfo())
+        , _aspect(aspect)
+        , _vkimage_owner(false)
+    {
+        _logical_device->vkGetImageMemoryRequirements(*_logical_device, _texture, &_memory_requirements);
+    }
+
     void Texture::setInitialCommandContext(std::weak_ptr<CommandContext> command_context)
     {
         if (_texture_state.command_context.expired() == false)
@@ -205,8 +221,11 @@ namespace RenderEngine
 
     void Texture::destroy() noexcept
     {
-        _logical_device->vkFreeMemory(*_logical_device, _texture_memory, nullptr);
-        _logical_device->vkDestroyImage(*_logical_device, _texture, nullptr);
+        if (_vkimage_owner)
+        {
+            _logical_device->vkFreeMemory(*_logical_device, _texture_memory, nullptr);
+            _logical_device->vkDestroyImage(*_logical_device, _texture, nullptr);
+        }
     }
 
     HANDLE Texture::getMemoryHandle() const
@@ -334,4 +353,19 @@ namespace RenderEngine
             support_external_usage) };
         return result;
     }
+
+    std::unique_ptr<Texture> TextureFactory::createWrapper(Image image,
+                                                           VkImage texture,
+                                                           VkPhysicalDevice physical_device,
+                                                           LogicalDevice& logical_device,
+                                                           VkImageAspectFlags aspect)
+    {
+        std::unique_ptr<Texture> result{ new Texture(image,
+                                                     texture,
+                                                     physical_device,
+                                                     logical_device,
+                                                     aspect) };
+        return result;
+    }
+
 }

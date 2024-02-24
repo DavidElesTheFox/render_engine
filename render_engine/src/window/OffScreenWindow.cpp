@@ -1,5 +1,6 @@
 #include <render_engine/window/OffScreenWindow.h>
 
+#include <render_engine/containers/Views.h>
 #include <render_engine/RenderContext.h>
 #include <render_engine/RenderEngine.h>
 
@@ -74,7 +75,8 @@ namespace RenderEngine
     {
         _renderers = RenderContext::context().getRendererFactory().generateRenderers(renderer_ids,
                                                                                      *this,
-                                                                                     createRenderTarget(), _back_buffer.size());
+                                                                                     createRenderTarget(),
+                                                                                     _back_buffer.size());
         for (size_t i = 0; i < renderer_ids.size(); ++i)
         {
             _renderer_map[renderer_ids[i]] = _renderers[i].get();
@@ -134,10 +136,10 @@ namespace RenderEngine
 
     RenderTarget OffScreenWindow::createRenderTarget()
     {
-        std::vector<VkImageView> image_views;
+        std::vector<ITextureView*> image_views;
         for (auto& frame_data : _back_buffer)
         {
-            image_views.push_back(frame_data.render_target_texture_view->getImageView());
+            image_views.push_back(frame_data.render_target_texture_view.get());
         }
         const auto& image_stream_description = _image_stream.getImageDescription();
         return { std::move(image_views),
@@ -146,7 +148,6 @@ namespace RenderEngine
             image_stream_description.format,
             VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
         };
-
     }
 
     void OffScreenWindow::present()
@@ -184,7 +185,6 @@ namespace RenderEngine
             FrameData& frame_to_download = _back_buffer[getCurrentImageIndex()];
             // Start reading back the current image
             _device.getStagingArea().getScheduler().download(frame_to_download.render_target_texture.get(),
-                                                             _render_engine->getCommandContext(),
                                                              frame_to_download.synch_render.getOperationsGroup(SyncGroups::kPresent));
         }
         {

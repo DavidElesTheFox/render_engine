@@ -1,6 +1,8 @@
 #include <render_engine/window/SwapChain.h>
 
+#include <render_engine/containers/Views.h>
 #include <render_engine/resources/RenderTarget.h>
+#include <render_engine/resources/Texture.h>
 
 #include <GLFW/glfw3.h>
 
@@ -133,7 +135,7 @@ namespace RenderEngine
             return image_views;
         }
 
-        RenderEngine::SwapChain::Details createSwapChain(const RenderEngine::SwapChain::CreateInfo& info)
+        SwapChain::Details createSwapChain(const SwapChain::CreateInfo& info)
         {
             SwapChainSupportDetails swap_chain_support = querySwapChainSupport(info.physical_device, info.surface);
             if (swap_chain_support.present_modes.empty())
@@ -181,29 +183,42 @@ namespace RenderEngine
 
             createInfo.oldSwapchain = VK_NULL_HANDLE;
 
-            RenderEngine::SwapChain::Details result;
+            SwapChain::Details result;
             auto& logical_device = *info.logical_device;
             if (auto ret_code = logical_device->vkCreateSwapchainKHR(*logical_device, &createInfo, nullptr, &result.swap_chain);
                 ret_code != VK_SUCCESS)
             {
                 throw std::runtime_error(std::string("failed to create swap chain! ") + string_VkResult(ret_code));
             }
-
+            std::vector<VkImage> swap_chain_images;
             logical_device->vkGetSwapchainImagesKHR(*logical_device, result.swap_chain, &image_count, nullptr);
-            result.images.resize(image_count);
-            logical_device->vkGetSwapchainImagesKHR(*logical_device, result.swap_chain, &image_count, result.images.data());
+            swap_chain_images.resize(image_count);
+            logical_device->vkGetSwapchainImagesKHR(*logical_device, result.swap_chain, &image_count, swap_chain_images.data());
+
+            Texture::ImageViewData image_view_data{};
+            for (VkImage vk_image : swap_chain_images)
+            {
+                result.textures.push_back(info.device->getTextureFactory().createWrapper(Image{ extent.width, extent.height, surface_format.format },
+                                                                                         vk_image,
+                                                                                         info.physical_device,
+                                                                                         *info.logical_device,
+                                                                                         VK_IMAGE_ASPECT_COLOR_BIT));
+                result.texture_views.push_back(std::make_unique<TextureView>(*result.textures.back(),
+                                                                             image_view_data,
+                                                                             std::nullopt,
+                                                                             info.physical_device,
+                                                                             *info.logical_device));
+            }
 
             result.image_format = surface_format.format;
             result.extent = extent;
             result.surface = std::move(info.surface);
 
-            result.image_views = createImageViews(result.images, result.image_format, *info.logical_device);
-
             return result;
         }
-
-
     }
+
+    SwapChain::Details::~Details() = default;
 
     SwapChain::SwapChain(CreateInfo create_info)
         try : _details{ createSwapChain(create_info) }
@@ -229,15 +244,13 @@ namespace RenderEngine
     {
         auto& logical_device = *_create_info.logical_device;
         logical_device->vkDestroySwapchainKHR(*logical_device, _details.swap_chain, nullptr);
-        for (VkImageView& image_view : _details.image_views)
-        {
-            logical_device->vkDestroyImageView(*logical_device, image_view, nullptr);
-        }
+        _details.texture_views.clear();
+        _details.textures.clear();
     }
 
     RenderTarget SwapChain::createRenderTarget() const
     {
-        return RenderTarget{ _details.image_views,
+        return RenderTarget{ _details.texture_views | views::to_raw_pointer | std::ranges::to<std::vector>(),
         _details.extent.width,
         _details.extent.height,
         _details.image_format,

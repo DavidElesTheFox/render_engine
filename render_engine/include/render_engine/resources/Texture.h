@@ -78,7 +78,13 @@ namespace RenderEngine
                 std::set<uint32_t> compatible_queue_family_indexes,
                 VkImageUsageFlags image_usage,
                 bool support_external_usage);
+        Texture(Image image,
+                VkImage texture,
+                VkPhysicalDevice physical_device,
+                LogicalDevice& logical_device,
+                VkImageAspectFlags aspect);
         void destroy() noexcept;
+
         VkPhysicalDevice _physical_device{ VK_NULL_HANDLE };
         LogicalDevice& _logical_device;
         VkImage _texture{ VK_NULL_HANDLE };
@@ -92,6 +98,7 @@ namespace RenderEngine
         VkMemoryRequirements _memory_requirements{};
         std::shared_ptr<UploadTask> _ongoing_upload{ nullptr };
         std::shared_ptr<DownloadTask> _ongoing_download{ nullptr };
+        bool _vkimage_owner{ true };
     };
 
     static_assert(IsResourceStateHolder_V<Texture>, "Texture needs to be a resource state holder");
@@ -101,15 +108,15 @@ namespace RenderEngine
     public:
         virtual ~ITextureView() = default;
         virtual Texture& getTexture() = 0;
-        virtual VkImageView getImageView() = 0;
-        virtual VkSampler getSamler() = 0;
+        virtual VkImageView getImageView() const = 0;
+        virtual VkSampler getSampler() const = 0;
         virtual std::unique_ptr<ITextureView> clone() const = 0;
     };
     class TextureView : public ITextureView
     {
     public:
         friend class TextureViewReference;
-
+        // TODO: TextureView should be created from a texture member function
         TextureView(Texture& texture,
                     Texture::ImageViewData image_view_data,
                     std::optional<Texture::SamplerData> sampler_data,
@@ -149,8 +156,8 @@ namespace RenderEngine
         TextureView& operator=(const TextureView&) = delete;
 
         Texture& getTexture() override final { return _texture; }
-        VkImageView getImageView() override final { return _image_view; }
-        VkSampler getSamler() override final { return _sampler; }
+        VkImageView getImageView() const override final { return _image_view; }
+        VkSampler getSampler() const override final { return _sampler; }
 
         std::unique_ptr<TextureViewReference> createReference() const;
 
@@ -192,8 +199,8 @@ namespace RenderEngine
         TextureViewReference& operator=(const TextureViewReference&) = delete;
 
         Texture& getTexture() override final { return _texture_view.getTexture(); }
-        VkImageView getImageView() override final { return _texture_view.getImageView(); }
-        VkSampler getSamler() override final { return _texture_view.getSamler(); }
+        VkImageView getImageView() const override final { return _texture_view.getImageView(); }
+        VkSampler getSampler() const override final { return _texture_view.getSampler(); }
         std::unique_ptr<ITextureView> clone() const override final
         {
             return std::unique_ptr<TextureViewReference>(new TextureViewReference(_texture_view));
@@ -225,7 +232,7 @@ namespace RenderEngine
         TextureFactory& operator=(const TextureFactory&) = delete;
         TextureFactory& operator=(TextureFactory&&) = delete;
 
-        [[nodiscar]]
+        [[nodiscard]]
         std::unique_ptr<Texture> create(Image image,
                                         VkImageAspectFlags aspect,
                                         VkShaderStageFlags shader_usage,
@@ -233,7 +240,7 @@ namespace RenderEngine
                                         CommandContext* dst_context,
                                         VkImageUsageFlagBits image_usage,
                                         TextureState final_state);
-        [[nodiscar]]
+        [[nodiscard]]
         std::unique_ptr<Texture> createExternal(Image image,
                                                 VkImageAspectFlags aspect,
                                                 VkShaderStageFlags shader_usage,
@@ -241,17 +248,24 @@ namespace RenderEngine
                                                 CommandContext* dst_context,
                                                 VkImageUsageFlagBits image_usage,
                                                 TextureState final_state);
-        [[nodiscar]]
+        [[nodiscard]]
         std::unique_ptr<Texture> createNoUpload(Image image,
                                                 VkImageAspectFlags aspect,
                                                 VkShaderStageFlags shader_usage,
                                                 VkImageUsageFlags image_usage);
 
-        [[nodiscar]]
+        [[nodiscard]]
         std::unique_ptr<Texture> createExternalNoUpload(Image image,
                                                         VkImageAspectFlags aspect,
                                                         VkShaderStageFlags shader_usage,
                                                         VkImageUsageFlags image_usage);
+
+        [[nodiscard]]
+        std::unique_ptr<Texture> createWrapper(Image image,
+                                               VkImage texture,
+                                               VkPhysicalDevice physical_device,
+                                               LogicalDevice& logical_device,
+                                               VkImageAspectFlags aspect);
     private:
 
         TransferEngine& _transfer_engine;

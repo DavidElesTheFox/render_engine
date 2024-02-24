@@ -242,7 +242,15 @@ namespace RenderEngine
         }
         try
         {
-            std::unique_ptr<SwapChain> swap_chain = std::make_unique<SwapChain>(SwapChain::CreateInfo{ window, _instance, _physical_device, &_logical_device, std::move(surface), _queue_family_graphics, _queue_family_present, back_buffer_size });
+            std::unique_ptr<SwapChain> swap_chain = std::make_unique<SwapChain>(SwapChain::CreateInfo{ window,
+                                                                                _instance,
+                                                                                _physical_device,
+                                                                                &_logical_device,
+                                                                                std::move(surface),
+                                                                                this,
+                                                                                _queue_family_graphics,
+                                                                                _queue_family_present,
+                                                                                back_buffer_size });
             std::unique_ptr<RenderEngine> render_engine = createRenderEngine(back_buffer_size);
             auto command_context = CommandContext::create(_logical_device, _queue_family_present, _device_info.queue_families[_queue_family_present]);
             return std::make_unique<Window>(*this, std::move(render_engine),

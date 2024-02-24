@@ -17,7 +17,7 @@ namespace RenderEngine
         static constexpr uint32_t kRendererId = 4u;
 
         VolumeRenderer(IWindow& window,
-                       const RenderTarget& render_target,
+                       RenderTarget render_target,
                        bool last_renderer);
         ~VolumeRenderer() override = default;
         void onFrameBegin(uint32_t image_index) override;

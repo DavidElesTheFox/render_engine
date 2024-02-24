@@ -19,10 +19,12 @@ namespace RenderEngine
     Material::Material(std::unique_ptr<Shader> verted_shader,
                        std::unique_ptr<Shader> fragment_shader,
                        CallbackContainer callbacks,
-                       uint32_t id)
+                       uint32_t id,
+                       std::string name)
         : _vertex_shader(std::move(verted_shader))
         , _fragment_shader(std::move(fragment_shader))
         , _id{ id }
         , _callbacks(std::move(callbacks))
+        , _name(std::move(name))
     {}
 }

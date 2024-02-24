@@ -50,6 +50,7 @@ namespace RenderEngine
 
         std::vector<MeshGroup> _meshes;
         std::map<const Mesh*, MeshBuffers> _mesh_buffers;
+        PerformanceMarkerFactory _performance_markers;
 
     };
 }

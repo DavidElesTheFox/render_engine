@@ -63,7 +63,8 @@ namespace RenderEngine
         Material(std::unique_ptr<Shader> verted_shader,
                  std::unique_ptr<Shader> fragment_shader,
                  CallbackContainer callbacks,
-                 uint32_t id);
+                 uint32_t id,
+                 std::string name);
         virtual ~Material() = default;
         const Shader& getVertexShader() const { return *_vertex_shader; }
         const Shader& getFragmentShader() const { return *_fragment_shader; }
@@ -96,6 +97,7 @@ namespace RenderEngine
 
         const BlendingInfo& getAlpheBlending() const { return _alpha_blending; }
         void setAlphaBlending(BlendingInfo value) { _alpha_blending = std::move(value); }
+        const std::string& getName() const { return _name; }
     private:
 
 
@@ -103,6 +105,7 @@ namespace RenderEngine
         std::unique_ptr<Shader> _fragment_shader;
         uint32_t _id;
         CallbackContainer _callbacks;
+        std::string _name;
         RasterizationInfo _rasterization_info{};
         BlendingInfo _color_blending{ .enabled = false, .src_factor = VK_BLEND_FACTOR_SRC_ALPHA, .dst_factor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA, .op = VK_BLEND_OP_ADD };
         BlendingInfo _alpha_blending{};

@@ -288,6 +288,7 @@ namespace RenderEngine
             ImGui_ImplGlfw_NewFrame();
             ImGui::NewFrame();
         }
+        // TODO remove reset
         getLogicalDevice()->vkResetCommandBuffer(frame_data.command_buffer, /*VkCommandBufferResetFlagBits*/ 0);
         VkCommandBufferBeginInfo begin_info{};
         begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -296,6 +297,8 @@ namespace RenderEngine
         {
             throw std::runtime_error("failed to begin recording command buffer!");
         }
+
+        auto renderer_marker = _performance_markers.createMarker(frame_data.command_buffer, "UIRenderer");
 
         VkRenderPassBeginInfo render_pass_info{};
         render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;

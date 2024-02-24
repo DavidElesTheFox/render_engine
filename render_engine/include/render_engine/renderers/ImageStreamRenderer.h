@@ -44,5 +44,7 @@ namespace RenderEngine
         std::unique_ptr<Technique> _technique;
         std::vector<std::unique_ptr<Texture>> _texture_container;
         bool _draw_call_recorded{ true };
+        PerformanceMarkerFactory _performance_markers;
+
     };
 }

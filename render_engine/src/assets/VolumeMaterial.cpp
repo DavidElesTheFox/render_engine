@@ -27,7 +27,8 @@ namespace RenderEngine
         std::unique_ptr<Material> result(new Material(std::move(vertex_shader),
                                                       std::move(fragment_shader),
                                                       { [](const Geometry& geometry, const Material& material) { return createVertexBuffer(geometry, material); } },
-                                                      id));
+                                                      id,
+                                                      "FrontFaceMaterial"));
         result->setColorBlending(result->getColorBlending().clone()
                                  .setEnabled(false));
         result->setAlphaBlending(result->getAlpheBlending().clone()
@@ -43,7 +44,8 @@ namespace RenderEngine
         std::unique_ptr<Material> result(new Material(std::move(vertex_shader),
                                                       std::move(fragment_shader),
                                                       { [](const Geometry& geometry, const Material& material) { return createVertexBuffer(geometry, material); } },
-                                                      id));
+                                                      id,
+                                                      "BackFaceMaterial"));
         result->setColorBlending(result->getColorBlending().clone()
                                  .setEnabled(false));
         result->setAlphaBlending(result->getAlpheBlending().clone()

@@ -44,7 +44,8 @@ namespace Assets
             _material = std::make_unique<VolumeMaterial>(std::move(vertex_shader),
                                                          std::move(fretment_shader),
                                                          require_distance_filed,
-                                                         id);
+                                                         id,
+                                                         "CtVolumeMaterialAO");
             _material->setColorBlending(_material->getColorBlending().clone()
                                         .setEnabled(true));
             _material->setAlphaBlending(_material->getAlpheBlending().clone()
@@ -60,7 +61,8 @@ namespace Assets
             _material = std::make_unique<VolumeMaterial>(std::move(vertex_shader),
                                                          std::move(fretment_shader),
                                                          require_distance_filed,
-                                                         id);
+                                                         id,
+                                                         "CtVolumeMaterial");
             _material->setColorBlending(_material->getColorBlending().clone()
                                         .setEnabled(true));
             _material->setAlphaBlending(_material->getAlpheBlending().clone()

@@ -137,7 +137,12 @@ namespace RenderEngine
 {
     PerformanceMarkerFactory::Marker::~Marker()
     {
-        assert(_command_buffer == VK_NULL_HANDLE && "Performance marker is not finished");
+        if (_command_buffer == VK_NULL_HANDLE)
+        {
+            return;
+        }
+        vkCmdEndDebugUtilsLabelEXT(_command_buffer);
+        _command_buffer = VK_NULL_HANDLE;
     }
     void PerformanceMarkerFactory::Marker::start(const std::string_view& name)
     {

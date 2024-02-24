@@ -195,6 +195,11 @@ namespace RenderEngine
                 return;
             }
 
+            /*
+            * TODO: Current bottleneck: Copying data from a coherent memory is slow. It should be done on a different thread.
+            *
+            * This TODO should be done when the render graph is introduced and parallel rendering is there.
+            */
             auto download_task = frame_to_read_back.render_target_texture->clearDownloadTask();
             assert(download_task != nullptr && "When the frame contains image it should have a download task");
 

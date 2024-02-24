@@ -57,7 +57,9 @@ namespace Assets
                                                        std::vector<uint8_t> vertex_buffer(begin, begin + vertex_buffer_data.size() * sizeof(float));
                                                        return vertex_buffer;
                                                    }
-                                               }, id);
+                                               },
+                                               id,
+                                               "BillboardMaterial");
     }
     std::unique_ptr<BillboardMaterial::Instance> BillboardMaterial::createInstance(std::unique_ptr<RenderEngine::TextureView> texture, Scene::Scene* scene, uint32_t id)
     {

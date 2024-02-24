@@ -134,6 +134,8 @@ namespace RenderEngine
             throw std::runtime_error("failed to begin recording command buffer!");
         }
 
+        auto renderer_marker = _performance_markers.createMarker(frame_data.command_buffer,
+                                                                 "ForwardRenderer");
         auto render_area = getRenderArea();
         VkRenderPassBeginInfo render_pass_info{};
         render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -148,6 +150,9 @@ namespace RenderEngine
         getLogicalDevice()->vkCmdBeginRenderPass(frame_data.command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
         for (auto& mesh_group : _meshes)
         {
+            auto technique_marker = _performance_markers.createMarker(frame_data.command_buffer,
+                                                                      mesh_group.technique->getMaterialInstance().getMaterial().getName());
+
             MaterialInstance::UpdateContext material_update_context = mesh_group.technique->onFrameBegin(swap_chain_image_index, frame_data.command_buffer);
 
             getLogicalDevice()->vkCmdBindPipeline(frame_data.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_group.technique->getPipeline());
@@ -190,6 +195,7 @@ namespace RenderEngine
 
                 getLogicalDevice()->vkCmdDrawIndexed(frame_data.command_buffer, static_cast<uint32_t>(mesh_buffers.index_buffer->getDeviceSize() / sizeof(uint16_t)), 1, 0, 0, 0);
             }
+            technique_marker.finish();
         }
         getLogicalDevice()->vkCmdEndRenderPass(frame_data.command_buffer);
 

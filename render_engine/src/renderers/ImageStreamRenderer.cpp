@@ -223,7 +223,8 @@ namespace RenderEngine
             _fullscreen_material = std::make_unique<Material>(std::move(vertex_shader),
                                                               std::move(fragment_shader),
                                                               Material::CallbackContainer{},
-                                                              material_id);
+                                                              material_id,
+                                                              "FullScreenMaterial");
 
             Texture::SamplerData sampler_data{};
 
@@ -380,6 +381,8 @@ namespace RenderEngine
                 throw std::runtime_error("failed to begin recording command buffer!");
             }
             getLogicalDevice()->vkCmdBeginRenderPass(frame_data.command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
+
+            auto renderer_marker = _performance_markers.createMarker(frame_data.command_buffer, "ImageStreamRenderer");
 
             auto& technique = _technique;
 

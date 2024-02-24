@@ -67,5 +67,7 @@ namespace RenderEngine
         GLFWwindow* _window_handle{ nullptr };
 
         std::function<void()> _on_gui;
+        PerformanceMarkerFactory _performance_markers;
+
     };
 }

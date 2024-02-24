@@ -209,7 +209,7 @@ namespace
                 _statue_texture = std::move(texture);
                 RenderEngine::Texture::SamplerData sampler_data{};
 
-                auto view = std::make_unique<RenderEngine::TextureView>(*_statue_texture, RenderEngine::Texture::ImageViewData{}, sampler_data, physical_device, logical_device);
+                auto view = _statue_texture->createTextureView({}, sampler_data);
                 _assets.addMaterialInstance("Billboard - statue", billboard_material->createInstance(std::move(view), &_scene, ApplicationContext::instance().generateId()));
             }
         }
@@ -427,7 +427,7 @@ namespace
         RenderEngine::Texture::SamplerData sampler_data{};
         sampler_data.sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 
-        auto view = std::make_unique<RenderEngine::TextureView>(*_ct_texture, RenderEngine::Texture::ImageViewData{}, sampler_data, physical_device, logical_device);
+        auto view = _ct_texture->createTextureView({}, sampler_data);
         _assets.addMaterialInstance("CtVolume - ct_finger",
                                     ct_material->createInstance(std::move(view), &_scene, ApplicationContext::instance().generateId()));
     }

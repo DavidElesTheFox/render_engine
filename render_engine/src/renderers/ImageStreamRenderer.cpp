@@ -233,11 +233,8 @@ namespace RenderEngine
             const int32_t input_binding = 0;
             for (uint32_t i = 0; i < back_buffer_size; ++i)
             {
-                texture_bindings[input_binding].push_back(std::make_unique<TextureView>(*_texture_container[i],
-                                                                                        Texture::ImageViewData{},
-                                                                                        sampler_data,
-                                                                                        getWindow().getDevice().getPhysicalDevice(),
-                                                                                        getLogicalDevice()));
+                texture_bindings[input_binding].push_back(_texture_container[i]->createTextureView(Texture::ImageViewData{},
+                                                                                                   sampler_data));
             }
 
 

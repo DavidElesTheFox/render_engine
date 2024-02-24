@@ -203,11 +203,7 @@ namespace RenderEngine
                                                                                          info.physical_device,
                                                                                          *info.logical_device,
                                                                                          VK_IMAGE_ASPECT_COLOR_BIT));
-                result.texture_views.push_back(std::make_unique<TextureView>(*result.textures.back(),
-                                                                             image_view_data,
-                                                                             std::nullopt,
-                                                                             info.physical_device,
-                                                                             *info.logical_device));
+                result.texture_views.push_back(result.textures.back()->createTextureView(image_view_data, std::nullopt));
             }
 
             result.image_format = surface_format.format;

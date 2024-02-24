@@ -259,6 +259,15 @@ namespace RenderEngine
         }
         _ongoing_download = task;
     }
+    std::unique_ptr<TextureView> Texture::createTextureView(ImageViewData view_data,
+                                                            std::optional<Texture::SamplerData> sampler_data)
+    {
+        return std::unique_ptr<TextureView>{ new TextureView(*this,
+                                                             std::move(view_data),
+                                                             std::move(sampler_data),
+                                                             _physical_device,
+                                                             _logical_device) };
+    }
 
 
     std::unique_ptr<TextureViewReference> TextureView::createReference() const

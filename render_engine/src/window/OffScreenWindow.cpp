@@ -47,11 +47,7 @@ namespace RenderEngine
                 .synch_render = SyncObject::CreateEmpty(device.getLogicalDevice()),
                 .contains_image = false,
                 .render_target_texture = std::move(textures[i]),
-                .render_target_texture_view = std::make_unique<TextureView>(texture,
-                                                                      image_view_data,
-                                                                      std::nullopt,
-                                                                      getDevice().getPhysicalDevice(),
-                                                                      getDevice().getLogicalDevice()) });
+                .render_target_texture_view = texture.createTextureView(image_view_data, std::nullopt) });
         }
         initSynchronizationObjects();
     }

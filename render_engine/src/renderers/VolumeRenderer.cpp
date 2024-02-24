@@ -524,11 +524,7 @@ namespace RenderEngine
                                                                                                      VK_SHADER_STAGE_FRAGMENT_BIT,
                                                                                                      VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT));
             auto& texture = frame_buffer_data->textures_per_back_buffer.back();
-            auto texture_view = std::make_unique<TextureView>(*texture,
-                                                              Texture::ImageViewData{},
-                                                              sampler_data,
-                                                              getPhysicalDevice(),
-                                                              getLogicalDevice());
+            auto texture_view = texture->createTextureView(Texture::ImageViewData{}, sampler_data);
 
             frame_buffer_data->texture_views_per_back_buffer.push_back(std::move(texture_view));
         }
@@ -592,15 +588,13 @@ namespace RenderEngine
                                                                                                     | VK_IMAGE_USAGE_TRANSFER_DST_BIT
                                                                                                     | VK_IMAGE_USAGE_TRANSFER_SRC_BIT));
                 result.distance_field_texture_views.push_back(
-                    std::make_unique<TextureView>(*result.distance_field_textures.back(),
-                                                  Texture::ImageViewData{ },
-                                                  Texture::SamplerData{
-                                                      .mag_filter = VK_FILTER_NEAREST,
-                                                      .min_filter = VK_FILTER_NEAREST,
-                                                      .sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-                                                      .border_color = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE },
-                                                      getPhysicalDevice(),
-                                                      getLogicalDevice()));
+                    result.distance_field_textures.back()->createTextureView(
+                        Texture::ImageViewData{ },
+                        Texture::SamplerData{
+                            .mag_filter = VK_FILTER_NEAREST,
+                            .min_filter = VK_FILTER_NEAREST,
+                            .sampler_address_mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+                            .border_color = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE }));
                 {
                     cudaChannelFormatDesc channel_format{};
                     assert(distance_field_image.getFormat() == VK_FORMAT_R32_SFLOAT);

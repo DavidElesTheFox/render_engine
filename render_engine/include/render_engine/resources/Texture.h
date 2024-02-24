@@ -14,6 +14,8 @@
 
 namespace RenderEngine
 {
+    class TextureView;
+
     class Texture
     {
     public:
@@ -38,6 +40,9 @@ namespace RenderEngine
             destroy();
         }
         bool isImageCompatible(const Image& image) const;
+
+        std::unique_ptr<TextureView> createTextureView(ImageViewData view_data,
+                                                       std::optional<Texture::SamplerData> sampler_data);
 
         VkImageView createImageView(const ImageViewData& data);
         VkSampler createSampler(const SamplerData& data);
@@ -115,20 +120,10 @@ namespace RenderEngine
     class TextureView : public ITextureView
     {
     public:
+        friend class Texture;
         friend class TextureViewReference;
         // TODO: TextureView should be created from a texture member function
-        TextureView(Texture& texture,
-                    Texture::ImageViewData image_view_data,
-                    std::optional<Texture::SamplerData> sampler_data,
-                    VkPhysicalDevice physical_device,
-                    LogicalDevice& logical_device)
-            : _texture(texture)
-            , _image_view(texture.createImageView(image_view_data))
-            , _sampler(sampler_data != std::nullopt ? texture.createSampler(*sampler_data) : VK_NULL_HANDLE)
-            , _logical_device(&logical_device)
-            , _image_view_data(std::move(image_view_data))
-            , _sampler_data(std::move(sampler_data))
-        {}
+
         ~TextureView() override
         {
             if (_logical_device == nullptr)
@@ -162,7 +157,20 @@ namespace RenderEngine
         std::unique_ptr<TextureViewReference> createReference() const;
 
         std::unique_ptr<ITextureView> clone() const override final;
-    protected:
+    private:
+        TextureView(Texture& texture,
+                    Texture::ImageViewData image_view_data,
+                    std::optional<Texture::SamplerData> sampler_data,
+                    VkPhysicalDevice physical_device,
+                    LogicalDevice& logical_device)
+            : _texture(texture)
+            , _image_view(texture.createImageView(image_view_data))
+            , _sampler(sampler_data != std::nullopt ? texture.createSampler(*sampler_data) : VK_NULL_HANDLE)
+            , _logical_device(&logical_device)
+            , _image_view_data(std::move(image_view_data))
+            , _sampler_data(std::move(sampler_data))
+        {}
+
         /**
         * Used when TextureViewReference is created
         */
@@ -173,7 +181,6 @@ namespace RenderEngine
             _logical_device = nullptr;
             _physical_device = VK_NULL_HANDLE;
         }
-    private:
 
         Texture& _texture;
         VkImageView _image_view{ VK_NULL_HANDLE };

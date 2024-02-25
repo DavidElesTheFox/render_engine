@@ -73,7 +73,7 @@ target_include_directories(RenderingSystemDemo PUBLIC ${CMAKE_CURRENT_SOURCE_DIR
 target_link_libraries(RenderingSystemDemo PUBLIC RenderEngine)
 
 target_compile_options(RenderingSystemDemo PRIVATE
-  $<$<CXX_COMPILER_ID:MSVC>:/W4>
+  $<$<CXX_COMPILER_ID:MSVC>:/W4 /WX>
 )
 
 # STB headers #

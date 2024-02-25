@@ -113,12 +113,12 @@ void MultiWindowApplication::initEngine()
                                 });
 
     renderers->registerRenderer(ExampleRenderer::kRendererId,
-                                [](auto& window, auto render_target, uint32_t back_buffer_count, AbstractRenderer* previous_renderer, bool has_next) -> std::unique_ptr<AbstractRenderer>
+                                [](auto& window, auto render_target, uint32_t back_buffer_count, AbstractRenderer*, bool has_next) -> std::unique_ptr<AbstractRenderer>
                                 {
                                     return std::make_unique<ExampleRenderer>(window, render_target, back_buffer_count, has_next);
                                 });
     renderers->registerRenderer(ImageStreamRenderer::kRendererId,
-                                [&](auto& window, auto render_target, uint32_t back_buffer_count, AbstractRenderer* previous_renderer, bool has_next) -> std::unique_ptr<AbstractRenderer>
+                                [&](auto& window, auto render_target, uint32_t back_buffer_count, AbstractRenderer*, bool has_next) -> std::unique_ptr<AbstractRenderer>
                                 {
                                     return std::make_unique<ImageStreamRenderer>(window, *_image_stream, render_target, back_buffer_count, has_next);
                                 });

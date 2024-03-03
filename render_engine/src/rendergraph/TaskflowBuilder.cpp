@@ -29,6 +29,15 @@ namespace RenderEngine::RenderGraph
             }
         private:
 
+            struct TaskDetails
+            {
+                TaskDetails(tf::Task task, std::unique_ptr<Job> job)
+                    : task(task), job(std::move(job))
+                {}
+                tf::Task task;
+                std::unique_ptr<Job> job;
+            };
+
             void visitImpl(Node* node);
             SyncOperations collectSyncOperationForNode(const Node* node) const
             {
@@ -61,7 +70,7 @@ namespace RenderEngine::RenderGraph
 
             Job::ExecutionContext& _execution_context;
             tf::Taskflow _task_container;
-            std::unordered_map<std::string, tf::Task> _task_map;
+            std::unordered_map<std::string, TaskDetails> _task_map;
         };
         void VisitorForTaskCreation::visit(Link* edge)
         {
@@ -82,7 +91,7 @@ namespace RenderEngine::RenderGraph
                 for (auto& node_before : all_node_before)
                 {
                     auto& task_before = _task_map.at(node_before->getName());
-                    task_before.precede(task_later);
+                    task_before.task.precede(task_later.task);
                 }
             }
             // Link all the task dependences after this node that can run parallel on CPU
@@ -95,7 +104,7 @@ namespace RenderEngine::RenderGraph
                 for (auto& node_after : all_node_after)
                 {
                     auto& task_after = _task_map.at(node_after->getName());
-                    task_after.succeed(task_before);
+                    task_after.task.succeed(task_before.task);
                 }
             }
         }
@@ -108,12 +117,12 @@ namespace RenderEngine::RenderGraph
             }
 
             auto job = node->createJob(collectSyncOperationForNode(node));
-            auto tf_task = _task_container.emplace([job_to_execute = std::move(job),
+            auto tf_task = _task_container.emplace([job_to_execute = job.get(),
                                                    &execution_context_for_job = _execution_context]
                                                    {
                                                        job_to_execute->execute(execution_context_for_job);
                                                    });
-            _task_map.insert({ node->getName(), std::move(tf_task) });
+            _task_map.insert({ node->getName(), TaskDetails{ std::move(tf_task), std::move(job) } });
         }
     }
 

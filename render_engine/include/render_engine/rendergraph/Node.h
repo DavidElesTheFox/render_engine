@@ -102,7 +102,7 @@ namespace RenderEngine::RenderGraph
 
         ~ComputeNode() override = default;
         std::unique_ptr<Job> createJob(const SyncOperations& in_operations) override;
-        bool isActive() const override { _compute_task->isActive(); }
+        bool isActive() const override { return _compute_task->isActive(); }
 
         void accept(GraphVisitor& visitor) override;
     private:

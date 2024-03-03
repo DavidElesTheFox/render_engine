@@ -49,11 +49,11 @@ namespace RenderEngine
         {
             RenderingProcess() = default;
 
-            RenderingProcess(RenderingProcess&&) = default;
-            RenderingProcess(const RenderingProcess&) = delete;
+            RenderingProcess(RenderingProcess&& o) noexcept = delete;
+            RenderingProcess(const RenderingProcess&) noexcept = delete;
 
-            RenderingProcess& operator=(RenderingProcess&&) = default;
-            RenderingProcess& operator=(const RenderingProcess&) = delete;
+            RenderingProcess& operator=(RenderingProcess&&) noexcept = delete;
+            RenderingProcess& operator=(const RenderingProcess&) noexcept = delete;
 
             RenderGraph::Job::ExecutionContext execution_contexts;
             tf::Taskflow task_flow;
@@ -67,7 +67,7 @@ namespace RenderEngine
 
         std::unique_ptr<RenderGraph::Graph> _skeleton;
         std::unique_ptr<GpuResourceManager> _gpu_resource_manager;
-        std::vector<RenderingProcess> _rendering_processes;
+        std::vector<std::unique_ptr<RenderingProcess>> _rendering_processes;
         uint32_t _render_call_count{ 0 };
     };
 }

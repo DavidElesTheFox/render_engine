@@ -203,6 +203,8 @@ namespace RenderEngine
 
     };
 
+    SingleShotCommandContext::~SingleShotCommandContext() = default;
+
     SingleShotCommandContext::SingleShotCommandContext(LogicalDevice& logical_device,
                                                        uint32_t queue_family_index,
                                                        DeviceLookup::QueueFamilyInfo queue_family_info,

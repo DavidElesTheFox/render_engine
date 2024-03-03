@@ -51,15 +51,16 @@ namespace RenderEngine
         }
         TaskflowBuilder task_flow_builder;
 
+        _rendering_processes.reserve(_gpu_resource_manager->getBackBufferSize());
         for (uint32_t i = 0; i < _gpu_resource_manager->getBackBufferSize(); ++i)
         {
-            _rendering_processes.push_back(RenderingProcess{});
+            _rendering_processes.push_back(std::make_unique<RenderingProcess>());
         }
         _skeleton = std::move(render_graph);
 
         for (auto& rendering_process : _rendering_processes)
         {
-            rendering_process.task_flow = task_flow_builder.createTaskflow(*_skeleton, rendering_process.execution_contexts);
+            rendering_process->task_flow = task_flow_builder.createTaskflow(*_skeleton, rendering_process->execution_contexts);
         }
     }
 
@@ -71,12 +72,12 @@ namespace RenderEngine
         }
         auto& current_process = _rendering_processes[_render_call_count % _rendering_processes.size()];
 
-        if (current_process.calling_token.valid())
+        if (current_process->calling_token.valid())
         {
-            current_process.calling_token.wait();
+            current_process->calling_token.wait();
         }
-        current_process.execution_contexts.reset();
-        current_process.calling_token = current_process.executor.run(current_process.task_flow);
+        current_process->execution_contexts.reset();
+        current_process->calling_token = current_process->executor.run(current_process->task_flow);
         _render_call_count++;
     }
 }

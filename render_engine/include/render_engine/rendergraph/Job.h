@@ -15,11 +15,11 @@ namespace RenderEngine::RenderGraph
         public:
             ExecutionContext() = default;
 
-            ExecutionContext(const ExecutionContext&) = delete;
-            ExecutionContext(ExecutionContext&&) = default;
+            ExecutionContext(const ExecutionContext&) noexcept = delete;
+            ExecutionContext(ExecutionContext&&) noexcept = default;
 
-            ExecutionContext& operator=(const ExecutionContext&) = delete;
-            ExecutionContext& operator=(ExecutionContext&&) = default;
+            ExecutionContext& operator=(const ExecutionContext&) noexcept = delete;
+            ExecutionContext& operator=(ExecutionContext&&) noexcept = default;
 
             uint32_t getRenderTargetIndex() const;
             void setRenderTargetIndex(uint32_t index);

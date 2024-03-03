@@ -36,7 +36,7 @@ namespace RenderEngine
         {
             if (render_target.getTextureView(i).getTexture().getResourceState().command_context.expired())
             {
-                render_target.getTextureView(i).getTexture().setInitialCommandContext(_window.getRenderEngine().getCommandContext().getWeakReference());
+                render_target.getTextureView(i).getTexture().setInitialCommandContext(_window.getRenderEngine().getTransferCommandContext().getWeakReference());
             }
             else
             {
@@ -98,11 +98,12 @@ namespace RenderEngine
     }
     void SingleColorOutputRenderer::createCommandBuffer()
     {
-        std::vector<VkCommandBuffer> command_buffers = _window.getRenderEngine().getCommandContext().createCommandBuffers(static_cast<uint32_t>(_back_buffer.size()),
-                                                                                                                          CommandContext::Usage::MultipleSubmit);
+
         for (uint32_t i = 0; i < _back_buffer.size(); ++i)
         {
-            _back_buffer[i].command_buffer = command_buffers[i];
+            VkCommandBuffer command_buffer = _window.getRenderEngine().getCommandContext().createCommandBuffer(i);
+
+            _back_buffer[i].command_buffer = command_buffer;
         }
     }
     void SingleColorOutputRenderer::resetFrameBuffers()

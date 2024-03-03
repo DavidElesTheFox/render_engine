@@ -40,7 +40,7 @@ namespace RenderEngine
         VkPhysicalDevice getPhysicalDevice() const { return _physical_device; }
         LogicalDevice& getLogicalDevice() const { return _logical_device; }
 
-        void setInitialCommandContext(std::weak_ptr<CommandContext> command_context);
+        void setInitialCommandContext(std::weak_ptr<SingleShotCommandContext> command_context);
 
         void assignUploadTask(std::shared_ptr<UploadTask>);
         void assignDownloadTask(std::shared_ptr<DownloadTask>);

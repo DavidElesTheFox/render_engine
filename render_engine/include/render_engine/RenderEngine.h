@@ -21,7 +21,10 @@ namespace RenderEngine
     {
     public:
 
-        RenderEngine(Device& device, std::shared_ptr<CommandContext>&& command_context, uint32_t back_buffer_count);
+        RenderEngine(Device& device,
+                     std::shared_ptr<SingleShotCommandContext>&& single_shot_command_context,
+                     std::shared_ptr<CommandContext>&& command_context,
+                     uint32_t back_buffer_count);
 
         void onFrameBegin(const std::ranges::input_range auto& renderers, uint32_t image_index)
         {
@@ -37,7 +40,7 @@ namespace RenderEngine
         {
             std::vector<VkCommandBufferSubmitInfo> command_buffer_infos = executeDrawCalls(renderers, image_index);
             // TODO: Do not synchronize per window draw rather once per all widnow draw. Currently it is necessary to start the uploads properly.
-            _device.getStagingArea().synchronizeStagingArea({});
+            _device.getDataTransferContext().synchronizeScheduler({});
 
             auto all_sync_operations = collectSynchronizationOperations(renderers, sync_operations, image_index);
 
@@ -53,6 +56,7 @@ namespace RenderEngine
         uint32_t getBackBufferSize() const { return _gpu_resource_manager.getBackBufferSize(); }
         TransferEngine& getTransferEngine() { return _transfer_engine; }
         CommandContext& getCommandContext() { return *_command_context; }
+        SingleShotCommandContext& getTransferCommandContext() { return *_transfer_command_context; }
     private:
         std::vector<VkCommandBufferSubmitInfo> executeDrawCalls(const std::ranges::input_range auto& renderers,
                                                                 uint32_t image_index)
@@ -97,6 +101,7 @@ namespace RenderEngine
         GpuResourceManager _gpu_resource_manager;
         // TODO make borrow_ptr
         std::shared_ptr<CommandContext> _command_context;
+        std::shared_ptr<SingleShotCommandContext> _transfer_command_context;
         TransferEngine _transfer_engine;
     };
 }

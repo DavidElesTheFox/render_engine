@@ -19,3 +19,6 @@
 [submodule "3rd_party/stb"]
 	path = 3rd_party/stb
 	url = https://github.com/nothings/stb.git
+[submodule "3rd_party/taskflow-src"]
+	path = 3rd_party/taskflow-src
+	url = https://github.com/taskflow/taskflow.git

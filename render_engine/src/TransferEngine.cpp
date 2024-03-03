@@ -2,7 +2,7 @@
 
 namespace RenderEngine
 {
-    TransferEngine::TransferEngine(std::shared_ptr<CommandContext>&& transfer_context)
+    TransferEngine::TransferEngine(std::shared_ptr<SingleShotCommandContext> transfer_context)
         : _transfer_context(std::move(transfer_context))
     {}
 
@@ -10,7 +10,7 @@ namespace RenderEngine
                                   std::function<void(VkCommandBuffer)> record_transfer_command)
     {
 
-        VkCommandBuffer command_buffer = _transfer_context->createCommandBuffer(CommandContext::Usage::SingleSubmit);
+        VkCommandBuffer command_buffer = _transfer_context->createCommandBuffer();
 
         VkCommandBufferSubmitInfo command_buffer_info{};
         command_buffer_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;

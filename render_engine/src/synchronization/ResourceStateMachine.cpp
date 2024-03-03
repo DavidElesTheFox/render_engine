@@ -42,12 +42,12 @@ namespace RenderEngine
 
     SyncObject ResourceStateMachine::transferOwnershipImpl(ResourceStateHolder auto* resource,
                                                            ResourceState auto new_state,
-                                                           CommandContext* src,
-                                                           CommandContext* dst,
+                                                           SingleShotCommandContext* src,
+                                                           SingleShotCommandContext* dst,
                                                            const SyncOperations& sync_operations)
     {
-        auto src_command_buffer = src->createCommandBuffer(CommandContext::Usage::SingleSubmit);
-        auto dst_command_buffer = dst->createCommandBuffer(CommandContext::Usage::SingleSubmit);
+        auto src_command_buffer = src->createCommandBuffer();
+        auto dst_command_buffer = dst->createCommandBuffer();
 
         assert(*src->getLogicalDevice() == *dst->getLogicalDevice());
         assert(dst->isPipelineStageSupported(new_state.pipeline_stage));
@@ -205,8 +205,8 @@ namespace RenderEngine
     [[nodiscard]]
     SyncObject ResourceStateMachine::transferOwnership(Texture* texture,
                                                        TextureState new_state,
-                                                       CommandContext* src,
-                                                       CommandContext* dst,
+                                                       SingleShotCommandContext* src,
+                                                       SingleShotCommandContext* dst,
                                                        const SyncOperations& sync_operations)
     {
         return transferOwnershipImpl(texture,
@@ -218,8 +218,8 @@ namespace RenderEngine
     [[nodiscard]]
     SyncObject ResourceStateMachine::transferOwnership(Buffer* buffer,
                                                        BufferState new_state,
-                                                       CommandContext* src,
-                                                       CommandContext* dst,
+                                                       SingleShotCommandContext* src,
+                                                       SingleShotCommandContext* dst,
                                                        const SyncOperations& sync_operations)
     {
         return transferOwnershipImpl(buffer,
@@ -229,16 +229,16 @@ namespace RenderEngine
                                      sync_operations);
     }
 
-    SyncObject ResourceStateMachine::barrier(Texture& texture, CommandContext& src, const SyncOperations& sync_operations)
+    SyncObject ResourceStateMachine::barrier(Texture& texture, SingleShotCommandContext& src, const SyncOperations& sync_operations)
     {
         return barrierImpl(texture, src, sync_operations);
     }
-    SyncObject ResourceStateMachine::barrier(Buffer* buffer, CommandContext* src, const SyncOperations& sync_operations)
+    SyncObject ResourceStateMachine::barrier(Buffer* buffer, SingleShotCommandContext* src, const SyncOperations& sync_operations)
     {
         return barrierImpl(*buffer, *src, sync_operations);
     }
     SyncObject ResourceStateMachine::barrierImpl(ResourceStateHolder auto& resource,
-                                                 CommandContext& src,
+                                                 SingleShotCommandContext& src,
                                                  const SyncOperations& sync_operations)
     {
         SyncObject result = SyncObject::CreateEmpty(src.getLogicalDevice());
@@ -252,7 +252,7 @@ namespace RenderEngine
                                        resource.getResourceState().pipeline_stage,
                                        1);
 
-        auto command_buffer = src.createCommandBuffer(CommandContext::Usage::SingleSubmit);
+        auto command_buffer = src.createCommandBuffer();
         VkCommandBufferBeginInfo begin_info{};
         begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;

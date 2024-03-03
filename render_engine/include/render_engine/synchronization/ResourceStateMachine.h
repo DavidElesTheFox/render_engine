@@ -24,24 +24,24 @@ namespace RenderEngine
         [[nodiscard]]
         static SyncObject transferOwnership(Texture* texture,
                                             TextureState new_state,
-                                            CommandContext* src,
-                                            CommandContext* dst,
+                                            SingleShotCommandContext* src,
+                                            SingleShotCommandContext* dst,
                                             const SyncOperations& sync_operations);
 
         [[nodiscard]]
         static SyncObject transferOwnership(Buffer* buffer,
                                             BufferState new_state,
-                                            CommandContext* src,
-                                            CommandContext* dst,
+                                            SingleShotCommandContext* src,
+                                            SingleShotCommandContext* dst,
                                             const SyncOperations& sync_operations);
 
         [[nodiscard]]
         static SyncObject barrier(Texture& texture,
-                                  CommandContext& src,
+                                  SingleShotCommandContext& src,
                                   const SyncOperations& sync_operations);
         [[nodiscard]]
         static SyncObject barrier(Buffer* buffer,
-                                  CommandContext* src,
+                                  SingleShotCommandContext* src,
                                   const SyncOperations& sync_operations);
         explicit ResourceStateMachine(LogicalDevice& logical_device)
             : _logical_device(logical_device)
@@ -57,8 +57,8 @@ namespace RenderEngine
         [[nodiscard]]
         static SyncObject transferOwnershipImpl(ResourceStateHolder auto* texture,
                                                 ResourceState auto new_state,
-                                                CommandContext* src,
-                                                CommandContext* dst,
+                                                SingleShotCommandContext* src,
+                                                SingleShotCommandContext* dst,
                                                 const SyncOperations& sync_operations);
 
         static void ownershipTransformRelease(VkCommandBuffer src_command_buffer,
@@ -79,7 +79,7 @@ namespace RenderEngine
                                               const std::function<void(VkCommandBuffer, ResourceStateMachine&)>& additional_command);
 
         static SyncObject barrierImpl(ResourceStateHolder auto& resource,
-                                      CommandContext& src,
+                                      SingleShotCommandContext& src,
                                       const SyncOperations& sync_operations);
 
         void commitChanges(VkCommandBuffer command_buffer, bool apply_state_change_on_objects);

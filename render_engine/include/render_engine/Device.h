@@ -73,18 +73,18 @@ namespace RenderEngine
     class Device
     {
     public:
-        class StagingArea
+        class DataTransferContext
         {
         public:
-            StagingArea(std::unique_ptr<TransferEngine> transfer_engine,
-                        std::set<uint32_t> queue_family_indexes,
-                        VkPhysicalDevice physical_device,
-                        LogicalDevice& logical_device);
+            DataTransferContext(std::unique_ptr<TransferEngine> transfer_engine,
+                                std::set<uint32_t> queue_family_indexes,
+                                VkPhysicalDevice physical_device,
+                                LogicalDevice& logical_device);
 
-            ~StagingArea();
+            ~DataTransferContext();
             DataTransferScheduler& getScheduler() { return *_scheduler; }
             TextureFactory& getTextureFactory() { return *_texture_factory; }
-            void synchronizeStagingArea(SyncOperations sync_operations);
+            void synchronizeScheduler(SyncOperations sync_operations);
             void destroy();
         private:
             std::unique_ptr<DataTransferScheduler> _scheduler;
@@ -123,7 +123,7 @@ namespace RenderEngine
         void waitIdle();
 
         void synchronizeStagingArea(SyncOperations syncOperations);
-        StagingArea& getStagingArea() { return _staging_area; }
+        DataTransferContext& getDataTransferContext() { return _staging_area; }
     private:
         void destroy() noexcept;
 
@@ -135,7 +135,6 @@ namespace RenderEngine
         uint32_t _queue_family_transfer = 0;
         std::unique_ptr<CudaCompute::CudaDevice> _cuda_device;
         DeviceLookup::DeviceInfo _device_info;
-        StagingArea _staging_area;
-
+        DataTransferContext _staging_area;
     };
 }

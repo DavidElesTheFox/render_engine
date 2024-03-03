@@ -28,22 +28,22 @@ namespace RenderEngine
         // TODO: Remove final parameter. RenderGraph should be control that dependency
         std::weak_ptr<UploadTask> upload(Texture* texture,
                                          Image image,
-                                         CommandContext& dst_context,
+                                         SingleShotCommandContext& dst_context,
                                          TextureState final_state,
                                          SyncOperations sync_operations = {});
         std::weak_ptr<UploadTask> upload(Buffer* buffer,
                                          std::vector<uint8_t> data,
-                                         CommandContext& dst_context,
+                                         SingleShotCommandContext& dst_context,
                                          BufferState final_state);
 
         std::weak_ptr<UploadTask> upload(Buffer* buffer,
                                          std::span<const uint8_t> data,
-                                         CommandContext& dst_context,
+                                         SingleShotCommandContext& dst_context,
                                          BufferState final_state);
         template<typename T>
         std::weak_ptr<UploadTask> upload(Buffer* buffer,
                                          std::span<T> data,
-                                         CommandContext& dst_context,
+                                         SingleShotCommandContext& dst_context,
                                          BufferState final_state)
         {
             return upload(buffer,
@@ -55,7 +55,8 @@ namespace RenderEngine
         std::weak_ptr<DownloadTask> download(Texture* texture,
                                              SyncOperations sync_operations = {});
 
-        void executeJobs(SyncOperations sync_operations, TransferEngine& transfer_engine);
+        void executeTasks(SyncOperations sync_operations, TransferEngine& transfer_engine);
+        bool hasAnyTask() const;
     private:
         /* TODO: Batch upload/download
         * Instead of storing the tasks it would be enough to store the input parameters.
@@ -69,6 +70,7 @@ namespace RenderEngine
             std::unordered_map<T*, std::shared_ptr<DownloadTask>> downloads;
         };
 
+        std::mutex _task_mutex;
         StagingAera<Buffer> _buffers_staging_area;
         StagingAera<Texture> _textures_staging_area;
     };

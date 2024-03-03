@@ -133,7 +133,7 @@ namespace RenderEngine
         _logical_device->vkGetImageMemoryRequirements(*_logical_device, _texture, &_memory_requirements);
     }
 
-    void Texture::setInitialCommandContext(std::weak_ptr<CommandContext> command_context)
+    void Texture::setInitialCommandContext(std::weak_ptr<SingleShotCommandContext> command_context)
     {
         if (_texture_state.command_context.expired() == false)
         {
@@ -284,7 +284,7 @@ namespace RenderEngine
                                                     VkImageAspectFlags aspect,
                                                     VkShaderStageFlags shader_usage,
                                                     const SyncOperations& sync_operations,
-                                                    CommandContext* dst_context,
+                                                    SingleShotCommandContext* dst_context,
                                                     VkImageUsageFlagBits image_usage,
                                                     TextureState final_state)
     {
@@ -308,7 +308,7 @@ namespace RenderEngine
                                                             VkImageAspectFlags aspect,
                                                             VkShaderStageFlags shader_usage,
                                                             const SyncOperations& sync_operations,
-                                                            CommandContext* dst_context,
+                                                            SingleShotCommandContext* dst_context,
                                                             VkImageUsageFlagBits image_usage,
                                                             TextureState final_state)
     {

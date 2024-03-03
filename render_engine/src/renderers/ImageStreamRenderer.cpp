@@ -321,28 +321,28 @@ namespace RenderEngine
                                                     "copy-finished",
                                                     VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT); // TODO add as pipeline dependency
 
-                getWindow().getDevice().getStagingArea().getScheduler().upload(upload_texture.get(),
-                                                                               _image_cache,
-                                                                               getWindow().getRenderEngine().getCommandContext(),
-                                                                               upload_texture->getResourceState().clone()
-                                                                               .setPipelineStage(VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT)
-                                                                               .setAccessFlag(VK_ACCESS_2_SHADER_READ_BIT)
-                                                                               .setImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
-                                                                               sync_objcet.getOperationsGroup(SyncGroups::kInternal));
+                getWindow().getDevice().getDataTransferContext().getScheduler().upload(upload_texture.get(),
+                                                                                       _image_cache,
+                                                                                       getWindow().getRenderEngine().getTransferCommandContext(),
+                                                                                       upload_texture->getResourceState().clone()
+                                                                                       .setPipelineStage(VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT)
+                                                                                       .setAccessFlag(VK_ACCESS_2_SHADER_READ_BIT)
+                                                                                       .setImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+                                                                                       sync_objcet.getOperationsGroup(SyncGroups::kInternal));
 
                 _upload_data.insert(std::make_pair(upload_texture.get(),
                                                    UploadData(std::move(sync_objcet))));
             }
             else
             {
-                getWindow().getDevice().getStagingArea().getScheduler().upload(upload_texture.get(),
-                                                                               _image_cache,
-                                                                               getWindow().getRenderEngine().getCommandContext(),
-                                                                               upload_texture->getResourceState().clone()
-                                                                               .setPipelineStage(VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT)
-                                                                               .setAccessFlag(VK_ACCESS_2_SHADER_READ_BIT)
-                                                                               .setImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
-                                                                               it->second.synchronization_object.getOperationsGroup(SyncGroups::kInternal));
+                getWindow().getDevice().getDataTransferContext().getScheduler().upload(upload_texture.get(),
+                                                                                       _image_cache,
+                                                                                       getWindow().getRenderEngine().getTransferCommandContext(),
+                                                                                       upload_texture->getResourceState().clone()
+                                                                                       .setPipelineStage(VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT)
+                                                                                       .setAccessFlag(VK_ACCESS_2_SHADER_READ_BIT)
+                                                                                       .setImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+                                                                                       it->second.synchronization_object.getOperationsGroup(SyncGroups::kInternal));
             }
         }
         _draw_call_recorded = false;

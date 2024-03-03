@@ -73,7 +73,7 @@ namespace RenderEngine
         CoherentBuffer& getStagingBuffer() { return _staging_buffer; }
         VkShaderStageFlags getShaderUsageFlag() const { return _shader_usage; }
 
-        void setInitialCommandContext(std::weak_ptr<CommandContext> command_context);
+        void setInitialCommandContext(std::weak_ptr<SingleShotCommandContext> command_context);
     private:
         Texture(Image image,
                 VkPhysicalDevice physical_device,
@@ -243,7 +243,7 @@ namespace RenderEngine
                                         VkImageAspectFlags aspect,
                                         VkShaderStageFlags shader_usage,
                                         const SyncOperations& synchronization_primitive,
-                                        CommandContext* dst_context,
+                                        SingleShotCommandContext* dst_context,
                                         VkImageUsageFlagBits image_usage,
                                         TextureState final_state);
         [[nodiscard]]
@@ -251,7 +251,7 @@ namespace RenderEngine
                                                 VkImageAspectFlags aspect,
                                                 VkShaderStageFlags shader_usage,
                                                 const SyncOperations& synchronization_primitive,
-                                                CommandContext* dst_context,
+                                                SingleShotCommandContext* dst_context,
                                                 VkImageUsageFlagBits image_usage,
                                                 TextureState final_state);
         [[nodiscard]]

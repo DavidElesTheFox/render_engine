@@ -9,11 +9,14 @@ namespace RenderEngine
     {
         constexpr uint32_t kMaxNumOfResources = 10;
     }
-    RenderEngine::RenderEngine(Device& device, std::shared_ptr<CommandContext>&& command_context, uint32_t back_buffer_count)
+    RenderEngine::RenderEngine(Device& device,
+                               std::shared_ptr<SingleShotCommandContext>&& single_shot_command_context,
+                               std::shared_ptr<CommandContext>&& command_context,
+                               uint32_t back_buffer_count)
         : _device(device)
         , _gpu_resource_manager(device.getPhysicalDevice(), device.getLogicalDevice(), back_buffer_count, kMaxNumOfResources)
-        , _command_context(command_context->clone())
-        , _transfer_engine(std::move(command_context))
+        , _command_context(std::move(command_context))
+        , _transfer_engine(std::move(single_shot_command_context))
     {
 
     }

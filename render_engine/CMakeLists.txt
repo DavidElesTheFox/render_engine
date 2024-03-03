@@ -93,7 +93,6 @@ set(RENDER_ENGINE_ASSETS_SRC
 	src/assets/Material.cpp
 	src/assets/Shader.cpp
 	src/assets/Image.cpp
-    src/assets/Image3D.cpp
     src/assets/VolumetricObject.cpp
     src/assets/VolumeShader.cpp
     src/assets/VolumeMaterial.cpp
@@ -108,7 +107,6 @@ set(RENDER_ENGINE_ASSETS_HEADERS
 	${RENDER_ENGINE_HEADER_LOCATION}/assets/Mesh.h
 	${RENDER_ENGINE_HEADER_LOCATION}/assets/Shader.h
 	${RENDER_ENGINE_HEADER_LOCATION}/assets/Image.h
-    ${RENDER_ENGINE_HEADER_LOCATION}/assets/Image3D.h
     ${RENDER_ENGINE_HEADER_LOCATION}/assets/VolumetricObject.h
     ${RENDER_ENGINE_HEADER_LOCATION}/assets/VolumeShader.h
     ${RENDER_ENGINE_HEADER_LOCATION}/assets/VolumeMaterial.h
@@ -154,6 +152,31 @@ set(RENDER_ENGINE_WINDOW_HEADERS
 
 source_group("src\\window" FILES ${RENDER_ENGINE_WINDOW_SRC})
 source_group("include\\window" FILES ${RENDER_ENGINE_WINDOW_HEADERS})
+
+###############
+# Rendergraph #
+###############
+
+set(RENDER_ENGINE_RENDERGRAPH_SRC
+    src/rendergraph/Node.cpp
+    src/rendergraph/Link.cpp
+    src/rendergraph/Job.cpp
+    src/rendergraph/Graph.cpp
+    src/rendergraph/GraphVisitor.cpp
+    src/rendergraph/TaskflowBuilder.cpp
+	)
+set(RENDER_ENGINE_RENDERGRAPH_HEADERS 
+	${RENDER_ENGINE_HEADER_LOCATION}/rendergraph/Node.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/rendergraph/Job.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/rendergraph/Link.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/rendergraph/Graph.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/rendergraph/GraphVisitor.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/rendergraph/TaskflowBuilder.h
+	)
+
+source_group("src\\rendergraph" FILES ${RENDER_ENGINE_RENDERGRAPH_SRC})
+source_group("include\\rendergraph" FILES ${RENDER_ENGINE_RENDERGRAPH_HEADERS})
+
 ########
 # root #
 ########
@@ -172,6 +195,7 @@ set(RENDER_ENGINE_ROOT_SRC
         src/DataTransferScheduler.cpp
         src/DataTransferTasks.cpp
         src/Debugger.cpp
+        src/ParallelRenderEngine.cpp
 )
 set(RENDER_ENGINE_ROOT_HEADERS
 	${RENDER_ENGINE_HEADER_LOCATION}/RenderEngine.h
@@ -187,6 +211,7 @@ set(RENDER_ENGINE_ROOT_HEADERS
     ${RENDER_ENGINE_HEADER_LOCATION}/DataTransferScheduler.h
     ${RENDER_ENGINE_HEADER_LOCATION}/DataTransferTasks.h
     ${RENDER_ENGINE_HEADER_LOCATION}/Debugger.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/ParallelRenderEngine.h
 )
 source_group("src" FILES ${RENDER_ENGINE_ROOT_SRC})
 source_group("include" FILES ${RENDER_ENGINE_ROOT_HEADERS})
@@ -200,7 +225,8 @@ set(RENDER_ENGINE_SRC
 	${RENDER_ENGINE_WINDOW_SRC}
 	${RENDER_ENGINE_MEMORY_SRC}
     ${RENDER_ENGINE_SYNCHRONIZATION_SRC}
-	${RENDER_ENGINE_ROOT_SRC})
+	${RENDER_ENGINE_ROOT_SRC}
+    ${RENDER_ENGINE_RENDERGRAPH_SRC})
 
 set(RENDER_ENGINE_HEADERS 
     ${RENDER_ENGINE_RENDERERS_HEADERS}
@@ -210,7 +236,8 @@ set(RENDER_ENGINE_HEADERS
 	${RENDER_ENGINE_WINDOW_HEADERS}
 	${RENDER_ENGINE_MEMORY_HEADERS}
     ${RENDER_ENGINE_SYNCHRONIZATION_HEADERS}
-	${RENDER_ENGINE_ROOT_HEADERS})
+	${RENDER_ENGINE_ROOT_HEADERS} 
+    ${RENDER_ENGINE_RENDERGRAPH_HEADERS})
 
 add_library(RenderEngine STATIC ${RENDER_ENGINE_SRC} ${RENDER_ENGINE_HEADERS})
 set_property(TARGET RenderEngine PROPERTY CXX_STANDARD 23)
@@ -269,7 +296,8 @@ target_link_libraries(RenderEngine
         CudaCompute
 		glfw
 		volk::volk
-        glm::glm)
+        glm::glm
+        Taskflow)
 		
 target_compile_definitions(RenderEngine 
 	PUBLIC
@@ -293,4 +321,9 @@ target_include_directories(RenderEngine SYSTEM
 		${GENERATED_INCLUDE_DIR}
 		${IMGUI_SRC}
 		${RENDERDOC_PATH}
+
+target_link_libraries(RenderEngine 
+    SYSTEM
+	PUBLIC 
+        Taskflow)
 )

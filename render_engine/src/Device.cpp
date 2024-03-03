@@ -158,10 +158,10 @@ namespace RenderEngine
         _command_buffer = VK_NULL_HANDLE;
     }
 
-    Device::StagingArea::StagingArea(std::unique_ptr<TransferEngine> transfer_engine,
-                                     std::set<uint32_t> queue_family_indexes,
-                                     VkPhysicalDevice physical_device,
-                                     LogicalDevice& logical_device)
+    Device::DataTransferContext::DataTransferContext(std::unique_ptr<TransferEngine> transfer_engine,
+                                                     std::set<uint32_t> queue_family_indexes,
+                                                     VkPhysicalDevice physical_device,
+                                                     LogicalDevice& logical_device)
         : _scheduler(std::make_unique<DataTransferScheduler>())
         , _transfer_engine(std::move(transfer_engine))
         , _texture_factory(std::make_unique<TextureFactory>(*_transfer_engine,
@@ -172,18 +172,18 @@ namespace RenderEngine
     {
 
     }
-    void Device::StagingArea::destroy()
+    void Device::DataTransferContext::destroy()
     {
         _scheduler.reset();
         _transfer_engine.reset();
         _texture_factory.reset();
     }
-    void Device::StagingArea::synchronizeStagingArea(SyncOperations sync_operations)
+    void Device::DataTransferContext::synchronizeScheduler(SyncOperations sync_operations)
     {
-        _scheduler->executeJobs(sync_operations, *_transfer_engine);
+        _scheduler->executeTasks(sync_operations, *_transfer_engine);
     }
 
-    Device::StagingArea::~StagingArea() = default;
+    Device::DataTransferContext::~DataTransferContext() = default;
 
     Device::Device(VkInstance instance,
                    VkPhysicalDevice physical_device,
@@ -252,7 +252,10 @@ namespace RenderEngine
                                                                                 _queue_family_present,
                                                                                 back_buffer_size });
             std::unique_ptr<RenderEngine> render_engine = createRenderEngine(back_buffer_size);
-            auto command_context = CommandContext::create(_logical_device, _queue_family_present, _device_info.queue_families[_queue_family_present]);
+            auto command_context = CommandContext::create(_logical_device,
+                                                          _queue_family_present,
+                                                          _device_info.queue_families[_queue_family_present],
+                                                          back_buffer_size);
             return std::make_unique<Window>(*this, std::move(render_engine),
                                             window,
                                             std::move(swap_chain)
@@ -294,15 +297,21 @@ namespace RenderEngine
     std::unique_ptr<RenderEngine> Device::createRenderEngine(uint32_t back_buffer_size)
     {
         return std::make_unique<RenderEngine>(*this,
+                                              SingleShotCommandContext::create(_logical_device,
+                                                                               _queue_family_graphics,
+                                                                               _device_info.queue_families[_queue_family_graphics]),
                                               CommandContext::create(_logical_device,
                                                                      _queue_family_graphics,
-                                                                     _device_info.queue_families[_queue_family_graphics]),
+                                                                     _device_info.queue_families[_queue_family_graphics],
+                                                                     back_buffer_size),
                                               back_buffer_size);
     }
 
     std::unique_ptr<TransferEngine> Device::createTransferEngine()
     {
-        return std::make_unique<TransferEngine>(CommandContext::create(_logical_device, _queue_family_transfer, _device_info.queue_families[_queue_family_transfer]));
+        return std::make_unique<TransferEngine>(SingleShotCommandContext::create(_logical_device,
+                                                                                 _queue_family_transfer,
+                                                                                 _device_info.queue_families[_queue_family_transfer]));
     }
 
     void Device::waitIdle()

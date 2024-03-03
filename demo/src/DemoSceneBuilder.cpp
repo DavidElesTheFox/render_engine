@@ -196,13 +196,13 @@ namespace
                 auto texture = _device.getTextureFactory().create(image, VK_IMAGE_ASPECT_COLOR_BIT,
                                                                   VK_SHADER_STAGE_FRAGMENT_BIT,
                                                                   sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal),
-                                                                  &_render_engine.getCommandContext(),
+                                                                  &_render_engine.getTransferCommandContext(),
                                                                   VK_IMAGE_USAGE_SAMPLED_BIT,
                                                                   RenderEngine::TextureState{}.setImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
                                                                   .setPipelineStage(VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT)
                                                                   .setAccessFlag(VK_ACCESS_2_SHADER_READ_BIT));
                 // TODO remove this and do proper synchronization with render graph
-                _device.getStagingArea().synchronizeStagingArea({});
+                _device.getDataTransferContext().synchronizeScheduler({});
                 sync_object.waitFence();
 
                 auto billboard_material = _assets.getBaseMaterial<Assets::BillboardMaterial>();
@@ -390,13 +390,13 @@ namespace
             auto texture = _device.getTextureFactory().createExternal(image_3d, VK_IMAGE_ASPECT_COLOR_BIT,
                                                                       VK_SHADER_STAGE_FRAGMENT_BIT,
                                                                       sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal),
-                                                                      &_render_engine.getCommandContext(),
+                                                                      &_render_engine.getTransferCommandContext(),
                                                                       VK_IMAGE_USAGE_SAMPLED_BIT,
                                                                       RenderEngine::TextureState{}.setImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
                                                                       .setPipelineStage(VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT)
                                                                       .setAccessFlag(VK_ACCESS_2_SHADER_READ_BIT));
             // TODO remove this and do proper synchronization with render graph
-            _device.getStagingArea().synchronizeStagingArea({});
+            _device.getDataTransferContext().synchronizeScheduler({});
             sync_object.waitFence();
             _ct_texture = std::move(texture);
 
@@ -408,13 +408,13 @@ namespace
             auto texture = _device.getTextureFactory().create(image_3d, VK_IMAGE_ASPECT_COLOR_BIT,
                                                               VK_SHADER_STAGE_FRAGMENT_BIT,
                                                               sync_object.getOperationsGroup(RenderEngine::SyncGroups::kInternal),
-                                                              &_render_engine.getCommandContext(),
+                                                              &_render_engine.getTransferCommandContext(),
                                                               VK_IMAGE_USAGE_SAMPLED_BIT,
                                                               RenderEngine::TextureState{}.setImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
                                                               .setPipelineStage(VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT)
                                                               .setAccessFlag(VK_ACCESS_2_SHADER_READ_BIT));
             // TODO remove this and do proper synchronization with render graph
-            _device.getStagingArea().synchronizeStagingArea({});
+            _device.getDataTransferContext().synchronizeScheduler({});
             sync_object.waitFence();
             _ct_texture = std::move(texture);
 

@@ -180,8 +180,8 @@ namespace RenderEngine
         {
             FrameData& frame_to_download = _back_buffer[getCurrentImageIndex()];
             // Start reading back the current image
-            _device.getStagingArea().getScheduler().download(frame_to_download.render_target_texture.get(),
-                                                             frame_to_download.synch_render.getOperationsGroup(SyncGroups::kPresent));
+            _device.getDataTransferContext().getScheduler().download(frame_to_download.render_target_texture.get(),
+                                                                     frame_to_download.synch_render.getOperationsGroup(SyncGroups::kPresent));
         }
         {
             FrameData& frame_to_read_back = _back_buffer[getOldestImageIndex()];

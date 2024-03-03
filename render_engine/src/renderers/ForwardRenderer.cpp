@@ -84,20 +84,20 @@ namespace RenderEngine
                 std::vector vertex_buffer = mesh->createVertexBuffer();
                 mesh_buffers.vertex_buffer = gpu_resource_manager.createAttributeBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                                                                                         vertex_buffer.size());
-                getWindow().getDevice().getStagingArea().getScheduler().upload(mesh_buffers.vertex_buffer.get(),
-                                                                               std::span(vertex_buffer),
-                                                                               getWindow().getRenderEngine().getCommandContext(),
-                                                                               mesh_buffers.vertex_buffer->getResourceState().clone());
+                getWindow().getDevice().getDataTransferContext().getScheduler().upload(mesh_buffers.vertex_buffer.get(),
+                                                                                       std::span(vertex_buffer),
+                                                                                       getWindow().getRenderEngine().getTransferCommandContext(),
+                                                                                       mesh_buffers.vertex_buffer->getResourceState().clone());
 
             }
             if (geometry.indexes.empty() == false)
             {
                 mesh_buffers.index_buffer = gpu_resource_manager.createAttributeBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
                                                                                        geometry.indexes.size() * sizeof(int16_t));
-                getWindow().getDevice().getStagingArea().getScheduler().upload(mesh_buffers.index_buffer.get(),
-                                                                               std::span(geometry.indexes),
-                                                                               getWindow().getRenderEngine().getCommandContext(),
-                                                                               mesh_buffers.index_buffer->getResourceState().clone());
+                getWindow().getDevice().getDataTransferContext().getScheduler().upload(mesh_buffers.index_buffer.get(),
+                                                                                       std::span(geometry.indexes),
+                                                                                       getWindow().getRenderEngine().getTransferCommandContext(),
+                                                                                       mesh_buffers.index_buffer->getResourceState().clone());
             }
             _mesh_buffers[mesh] = std::move(mesh_buffers);
         }

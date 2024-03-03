@@ -107,7 +107,7 @@ namespace RenderEngine
         _ongoing_download = task;
     }
 
-    void Buffer::setInitialCommandContext(std::weak_ptr<CommandContext> command_context)
+    void Buffer::setInitialCommandContext(std::weak_ptr<SingleShotCommandContext> command_context)
     {
         if (_buffer_state.command_context.expired() == false)
         {

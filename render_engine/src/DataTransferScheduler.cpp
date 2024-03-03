@@ -69,7 +69,7 @@ namespace RenderEngine
 
 #pragma region Texture Upload/Download Commands
         std::function<void(VkCommandBuffer)> createTextureUnifiedUploadCommand(Texture& texture,
-                                                                               CommandContext& dst_context,
+                                                                               SingleShotCommandContext& dst_context,
                                                                                TextureState final_state)
         {
             auto upload_command = [&](VkCommandBuffer command_buffer)
@@ -117,7 +117,7 @@ namespace RenderEngine
         }
 
         std::function<void(VkCommandBuffer)> createTextureNotUnifiedUploadCommand(Texture& texture,
-                                                                                  CommandContext* src_context,
+                                                                                  SingleShotCommandContext* src_context,
                                                                                   bool initial_transfer)
         {
             auto upload_command = [&texture, src_context, initial_transfer](VkCommandBuffer command_buffer)
@@ -167,7 +167,7 @@ namespace RenderEngine
         }
 
         std::function<void(VkCommandBuffer)> createTextureNotUnifiedDownloadCommand(Texture& texture,
-                                                                                    CommandContext& src_context)
+                                                                                    SingleShotCommandContext& src_context)
         {
             auto download_command = [&texture, &src_context](VkCommandBuffer command_buffer)
                 {
@@ -198,7 +198,7 @@ namespace RenderEngine
         }
 
         std::function<void(VkCommandBuffer)> createTextureUnifiedDownloadCommand(Texture& texture,
-                                                                                 CommandContext& src_context,
+                                                                                 SingleShotCommandContext& src_context,
                                                                                  TextureState final_state)
         {
             auto download_command = [&](VkCommandBuffer command_buffer)
@@ -246,7 +246,7 @@ namespace RenderEngine
 #pragma region Buffer Upload Commands
         std::function<void(VkCommandBuffer)> createBufferUnifiedUploadCommand(Buffer& buffer,
                                                                               VkBuffer staging_buffer,
-                                                                              CommandContext& src_context,
+                                                                              SingleShotCommandContext& src_context,
                                                                               BufferState final_buffer_state)
         {
             auto upload_command = [&buffer, &src_context, final_buffer_state, staging_buffer](VkCommandBuffer command_buffer)
@@ -275,7 +275,7 @@ namespace RenderEngine
 
         std::function<void(VkCommandBuffer)> createBufferNotUnifiedUploadCommand(Buffer& buffer,
                                                                                  VkBuffer staging_buffer,
-                                                                                 CommandContext& dst_context)
+                                                                                 SingleShotCommandContext& dst_context)
         {
             auto upload_command = [&buffer, staging_buffer, &dst_context](VkCommandBuffer command_buffer)
                 {
@@ -324,8 +324,8 @@ namespace RenderEngine
         std::vector<SyncObject> textureNotUnifiedQueueTransfer(Texture& texture,
                                                                SyncOperations sync_operations,
                                                                TransferEngine& transfer_engine,
-                                                               CommandContext& src_context,
-                                                               CommandContext& dst_context,
+                                                               SingleShotCommandContext& src_context,
+                                                               SingleShotCommandContext& dst_context,
                                                                TextureState final_state,
                                                                std::function<void(VkCommandBuffer)> upload_command,
                                                                DataTransferType transfer_type)
@@ -395,8 +395,8 @@ namespace RenderEngine
         std::vector<SyncObject> bufferNotUnifiedQueueTransfer(Buffer& buffer,
                                                               SyncOperations sync_operations,
                                                               TransferEngine& transfer_engine,
-                                                              CommandContext& src_context,
-                                                              CommandContext& dst_context,
+                                                              SingleShotCommandContext& src_context,
+                                                              SingleShotCommandContext& dst_context,
                                                               BufferState final_buffer_state,
                                                               std::function<void(VkCommandBuffer)> upload_command)
         {
@@ -463,7 +463,7 @@ namespace RenderEngine
 
     std::weak_ptr<UploadTask> DataTransferScheduler::upload(Texture* texture,
                                                             Image image,
-                                                            CommandContext& dst_context,
+                                                            SingleShotCommandContext& dst_context,
                                                             TextureState final_state,
                                                             SyncOperations additional_sync_operations)
     {
@@ -518,7 +518,7 @@ namespace RenderEngine
 
     std::weak_ptr<UploadTask> DataTransferScheduler::upload(Buffer* buffer,
                                                             std::vector<uint8_t> data,
-                                                            CommandContext& dst_context,
+                                                            SingleShotCommandContext& dst_context,
                                                             BufferState final_state)
     {
         auto task = [data_to_upload = std::move(data), &dst_context, buffer, final_buffer_state = std::move(final_state)]
@@ -617,7 +617,7 @@ namespace RenderEngine
         return result;
     }
 
-    void DataTransferScheduler::executeJobs(SyncOperations sync_operations, TransferEngine& transfer_engine)
+    void DataTransferScheduler::executeTasks(SyncOperations sync_operations, TransferEngine& transfer_engine)
     {
         for (auto [texture, task] : _textures_staging_area.uploads)
         {
@@ -644,7 +644,7 @@ namespace RenderEngine
         _buffers_staging_area.downloads.clear();
         _buffers_staging_area.uploads.clear();
     }
-    std::weak_ptr<UploadTask> DataTransferScheduler::upload(Buffer* buffer, std::span<const uint8_t> data, CommandContext& dst_context, BufferState final_state)
+    std::weak_ptr<UploadTask> DataTransferScheduler::upload(Buffer* buffer, std::span<const uint8_t> data, SingleShotCommandContext& dst_context, BufferState final_state)
     {
         return upload(buffer,
                       std::vector(data.begin(), data.end()),

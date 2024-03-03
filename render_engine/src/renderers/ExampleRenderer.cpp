@@ -396,18 +396,18 @@ namespace RenderEngine
             VkDeviceSize size = sizeof(Vertex) * vertices.size();
             _vertex_buffer = _window.getRenderEngine().getGpuResourceManager().createAttributeBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, size);
 
-            _window.getDevice().getStagingArea().getScheduler().upload(_vertex_buffer.get(),
-                                                                       std::span(vertices),
-                                                                       _window.getRenderEngine().getCommandContext(),
-                                                                       _vertex_buffer->getResourceState().clone());
+            _window.getDevice().getDataTransferContext().getScheduler().upload(_vertex_buffer.get(),
+                                                                               std::span(vertices),
+                                                                               _window.getRenderEngine().getTransferCommandContext(),
+                                                                               _vertex_buffer->getResourceState().clone());
         }
         {
             VkDeviceSize size = sizeof(uint16_t) * indicies.size();
             _index_buffer = _window.getRenderEngine().getGpuResourceManager().createAttributeBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, size);
-            _window.getDevice().getStagingArea().getScheduler().upload(_index_buffer.get(),
-                                                                       std::span(indicies),
-                                                                       _window.getRenderEngine().getCommandContext(),
-                                                                       _vertex_buffer->getResourceState().clone());
+            _window.getDevice().getDataTransferContext().getScheduler().upload(_index_buffer.get(),
+                                                                               std::span(indicies),
+                                                                               _window.getRenderEngine().getTransferCommandContext(),
+                                                                               _vertex_buffer->getResourceState().clone());
         }
 
         std::vector<CoherentBuffer*> created_buffers;
@@ -557,10 +557,11 @@ namespace RenderEngine
 
     void ExampleRenderer::createCommandBuffer()
     {
-        std::vector<VkCommandBuffer> command_buffers = _window.getRenderEngine().getCommandContext().createCommandBuffers(static_cast<uint32_t>(_back_buffer.size()), CommandContext::Usage::MultipleSubmit);
         for (uint32_t i = 0; i < _back_buffer.size(); ++i)
         {
-            _back_buffer[i].command_buffer = command_buffers[i];
+            VkCommandBuffer command_buffer = _window.getRenderEngine().getCommandContext().createCommandBuffer(i);
+
+            _back_buffer[i].command_buffer = command_buffer;
         }
     }
 }

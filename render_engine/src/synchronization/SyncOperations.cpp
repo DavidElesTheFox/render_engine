@@ -13,6 +13,7 @@ namespace RenderEngine
         submit_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
         submit_info.semaphore = sync_object.getSemaphore(semaphore_name);
         submit_info.stageMask = stage_mask;
+        _wait_semaphore_container.emplace_back(submit_info.semaphore);
         _wait_semaphore_dependency.emplace_back(std::move(submit_info));
     }
     void SyncOperations::addWaitOperation(SyncPrimitives& sync_object, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask, uint64_t value)
@@ -22,6 +23,7 @@ namespace RenderEngine
         submit_info.semaphore = sync_object.getSemaphore(semaphore_name);
         submit_info.stageMask = stage_mask;
         submit_info.value = sync_object.getTimelineOffset(semaphore_name) + value;
+        _wait_semaphore_container.emplace_back(submit_info.semaphore);
         _wait_semaphore_dependency.emplace_back(std::move(submit_info));
     }
     void SyncOperations::addSignalOperation(SyncPrimitives& sync_object, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask)
@@ -30,6 +32,7 @@ namespace RenderEngine
         submit_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
         submit_info.semaphore = sync_object.getSemaphore(semaphore_name);
         submit_info.stageMask = stage_mask;
+        _signal_semaphore_container.emplace_back(submit_info.semaphore);
         _signal_semaphore_dependency.emplace_back(std::move(submit_info));
     }
     void SyncOperations::addSignalOperation(SyncPrimitives& sync_object, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask, uint64_t value)
@@ -39,6 +42,7 @@ namespace RenderEngine
         submit_info.semaphore = sync_object.getSemaphore(semaphore_name);
         submit_info.stageMask = stage_mask;
         submit_info.value = sync_object.getTimelineOffset(semaphore_name) + value;
+        _signal_semaphore_container.emplace_back(submit_info.semaphore);
         _signal_semaphore_dependency.emplace_back(std::move(submit_info));
     }
     const SyncOperations& SyncOperations::fillInfo(VkSubmitInfo2& submit_info) const
@@ -48,6 +52,13 @@ namespace RenderEngine
 
         submit_info.signalSemaphoreInfoCount = static_cast<uint32_t>(_signal_semaphore_dependency.size());
         submit_info.pSignalSemaphoreInfos = _signal_semaphore_dependency.data();
+        return *this;
+    }
+
+    const SyncOperations& SyncOperations::fillInfo(VkPresentInfoKHR& present_info) const
+    {
+        present_info.waitSemaphoreCount = static_cast<uint32_t>(_wait_semaphore_container.size());
+        present_info.pWaitSemaphores = _wait_semaphore_container.data();
         return *this;
     }
     void SyncOperations::unionWith(const SyncOperations& o)
@@ -79,7 +90,7 @@ namespace RenderEngine
         _signal_semaphore_dependency.clear();
         _fence = VK_NULL_HANDLE;
     }
-    SyncOperations SyncOperations::restrict(const CommandContext& context) const
+    SyncOperations SyncOperations::restrict(const AbstractCommandContext& context) const
     {
         auto result = *this;
         std::erase_if(result._wait_semaphore_dependency, [&](auto& submit_info)

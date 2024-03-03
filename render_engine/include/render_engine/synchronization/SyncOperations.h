@@ -37,6 +37,7 @@ namespace RenderEngine
         void addSignalOperation(SyncPrimitives& sync_object, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask, uint64_t value);
 
         const SyncOperations& fillInfo(VkSubmitInfo2& submit_info) const;
+        const SyncOperations& fillInfo(VkPresentInfoKHR& submit_info) const;
         bool hasAnyFence() const { return _fence != VK_NULL_HANDLE; }
         const VkFence& getFence() const { return _fence; }
 
@@ -70,13 +71,15 @@ namespace RenderEngine
             return result;
         }
 
-        SyncOperations restrict(const CommandContext& context) const;
+        SyncOperations restrict(const AbstractCommandContext& context) const;
 
     private:
         void unionWith(const SyncOperations& o);
 
         std::vector<VkSemaphoreSubmitInfo> _wait_semaphore_dependency;
+        std::vector<VkSemaphore> _wait_semaphore_container;
         std::vector<VkSemaphoreSubmitInfo> _signal_semaphore_dependency;
+        std::vector<VkSemaphore> _signal_semaphore_container;
         VkFence _fence{ VK_NULL_HANDLE };
     };
 

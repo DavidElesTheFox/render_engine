@@ -29,7 +29,7 @@ namespace RenderEngine
         *
         * The solution for this a borrowed_ptr concept what Rust also has.
         */
-        std::weak_ptr<CommandContext> command_context{ };
+        std::weak_ptr<SingleShotCommandContext> command_context{ };
 
         TextureState&& setPipelineStage(VkPipelineStageFlagBits2 value)&&
         {
@@ -46,7 +46,7 @@ namespace RenderEngine
             this->layout = value;
             return std::move(*this);
         }
-        TextureState&& setCommandContext(std::weak_ptr<CommandContext> value)&&
+        TextureState&& setCommandContext(std::weak_ptr<SingleShotCommandContext> value)&&
         {
             this->command_context = value;
             return std::move(*this);
@@ -87,7 +87,7 @@ namespace RenderEngine
         VkPipelineStageFlagBits2 pipeline_stage{ VK_PIPELINE_STAGE_2_NONE };
         VkAccessFlags2 access_flag{ VK_ACCESS_2_NONE };
         // TODO: Implement borrow_ptr.
-        std::weak_ptr<CommandContext> command_context{ };
+        std::weak_ptr<SingleShotCommandContext> command_context{ };
 
         BufferState&& setPipelineStage(VkPipelineStageFlagBits2 value)&&
         {
@@ -102,7 +102,7 @@ namespace RenderEngine
         }
 
 
-        BufferState&& setCommandContext(std::weak_ptr<CommandContext> value)&&
+        BufferState&& setCommandContext(std::weak_ptr<SingleShotCommandContext> value)&&
         {
             this->command_context = value;
             return std::move(*this);
@@ -140,7 +140,7 @@ namespace RenderEngine
     concept ResourceState =
         std::is_same_v<decltype(std::remove_pointer_t<std::remove_const_t<std::remove_reference_t<T>>>::pipeline_stage), VkPipelineStageFlagBits2>
         && std::is_same_v<decltype(std::remove_pointer_t<std::remove_const_t<std::remove_reference_t<T>>>::access_flag), VkAccessFlags2>
-        && std::is_same_v<decltype(std::remove_pointer_t<std::remove_const_t<std::remove_reference_t<T>>>::command_context), std::weak_ptr<CommandContext>>;
+        && std::is_same_v<decltype(std::remove_pointer_t<std::remove_const_t<std::remove_reference_t<T>>>::command_context), std::weak_ptr<SingleShotCommandContext>>;
 
     template<typename T>
     concept TextureStateWriter = requires(T t, TextureState texture_state, ResourceAccessToken access_token)

@@ -3,6 +3,8 @@
 #include <render_engine/RenderContext.h>
 #include <render_engine/RendererFactory.h>
 
+#include <cassert>
+
 namespace RenderEngine
 {
     namespace
@@ -18,7 +20,7 @@ namespace RenderEngine
         , _command_context(std::move(command_context))
         , _transfer_engine(std::move(single_shot_command_context))
     {
-
+        assert(_command_context != nullptr);
     }
 
     void RenderEngine::submitDrawCalls(const std::vector<VkCommandBufferSubmitInfo>& command_buffers, const SyncOperations& sync_operations)
@@ -34,6 +36,11 @@ namespace RenderEngine
         {
             throw std::runtime_error("failed to submit draw command buffer!");
         }
+    }
+
+    SingleShotCommandContext& RenderEngine::getTransferCommandContext()
+    {
+        return _transfer_engine.getTransferContext();
     }
 
 }

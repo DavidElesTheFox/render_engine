@@ -21,120 +21,127 @@
 
 #include <render_engine/cuda_compute/CudaDevice.h>
 
-namespace
-{
-    // TODO support multiple queue count
-    constexpr uint32_t k_supported_queue_count = 1;
-    constexpr uint32_t k_num_of_cuda_streams = 8;
-
-    VkDevice createVulkanLogicalDevice(uint32_t queue_count,
-                                       VkPhysicalDevice physical_device,
-                                       uint32_t queue_family_index_graphics,
-                                       uint32_t queue_family_index_presentation,
-                                       uint32_t queue_family_index_transfer,
-                                       const std::vector<const char*>& device_extensions,
-                                       const std::vector<const char*>& validation_layers)
-    {
-
-        std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
-        std::set<uint32_t> unique_queue_families = { queue_family_index_graphics, queue_family_index_presentation, queue_family_index_transfer };
-
-        std::vector<float> queuePriority(queue_count, 1.0f);
-        for (uint32_t queueFamily : unique_queue_families)
-        {
-            VkDeviceQueueCreateInfo queue_create_info{};
-            queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-            queue_create_info.queueFamilyIndex = queueFamily;
-            queue_create_info.queueCount = queue_count;
-            queue_create_info.pQueuePriorities = queuePriority.data();
-            queue_create_infos.push_back(queue_create_info);
-        }
-
-        {
-
-
-            VkPhysicalDeviceTimelineSemaphoreFeatures timeline_semaphore_feature{};
-            timeline_semaphore_feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES;
-
-            VkPhysicalDeviceSynchronization2Features synchronization_2_feature{};
-            synchronization_2_feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
-            synchronization_2_feature.pNext = &timeline_semaphore_feature;
-
-            VkPhysicalDeviceFeatures2KHR features =
-            {
-                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2_KHR,
-                .pNext = &synchronization_2_feature,
-            };
-
-            vkGetPhysicalDeviceFeatures2KHR(physical_device, &features);
-            if (synchronization_2_feature.synchronization2 == false)
-            {
-                throw std::runtime_error("synchronization2 feature is not supported");
-            }
-            if (timeline_semaphore_feature.timelineSemaphore == false)
-            {
-                throw std::runtime_error("timeline semaphores feature is not supported");
-            }
-        }
-        VkPhysicalDeviceTimelineSemaphoreFeatures timeline_semaphore_feature{};
-        timeline_semaphore_feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES;
-        timeline_semaphore_feature.timelineSemaphore = true;
-
-        VkPhysicalDeviceSynchronization2Features synchronization_2_feature{};
-        synchronization_2_feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
-        synchronization_2_feature.synchronization2 = true;
-        synchronization_2_feature.pNext = &timeline_semaphore_feature;
-
-        VkPhysicalDeviceFeatures2 device_features{};
-        device_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-        device_features.pNext = &synchronization_2_feature;
-
-        VkDeviceCreateInfo create_info{};
-        create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-        create_info.pNext = &device_features;
-
-        create_info.pQueueCreateInfos = queue_create_infos.data();
-        create_info.queueCreateInfoCount = static_cast<uint32_t>(queue_create_infos.size());
-
-        create_info.pEnabledFeatures = VK_NULL_HANDLE;
-
-        create_info.enabledExtensionCount = static_cast<uint32_t>(device_extensions.size());
-        create_info.ppEnabledExtensionNames = device_extensions.data();
-
-
-        if (validation_layers.empty())
-        {
-            create_info.enabledLayerCount = 0;
-        }
-        else
-        {
-            create_info.enabledLayerCount = static_cast<uint32_t>(validation_layers.size());
-            create_info.ppEnabledLayerNames = validation_layers.data();
-        }
-        VkDevice device{ VK_NULL_HANDLE };
-        if (vkCreateDevice(physical_device, &create_info, nullptr, &device) != VK_SUCCESS)
-        {
-            throw std::runtime_error("failed to create logical device!");
-        }
-        return device;
-
-    }
-
-    VkPhysicalDeviceIDProperties getDeviceUUID(VkPhysicalDevice physical_device)
-    {
-        VkPhysicalDeviceIDProperties device_id_property = {};
-        device_id_property.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES;
-        device_id_property.pNext = nullptr;
-        VkPhysicalDeviceProperties2 device_property = {};
-        device_property.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-        device_property.pNext = &device_id_property;
-        vkGetPhysicalDeviceProperties2(physical_device, &device_property);
-        return device_id_property;
-    }
-}
 
 namespace RenderEngine
 {
+    namespace
+    {
+        // TODO support multiple queue count
+        constexpr uint32_t k_num_of_cuda_streams = 8;
+
+        VkDevice createVulkanLogicalDevice(VkPhysicalDevice physical_device,
+                                           uint32_t queue_family_index_graphics,
+                                           uint32_t queue_family_index_presentation,
+                                           uint32_t queue_family_index_transfer,
+                                           const std::vector<const char*>& device_extensions,
+                                           const std::vector<const char*>& validation_layers,
+                                           const DeviceLookup::DeviceInfo& device_info)
+        {
+
+            std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
+            std::set<uint32_t> unique_queue_families = { queue_family_index_graphics, queue_family_index_presentation, queue_family_index_transfer };
+            uint32_t max_queue_count = *device_info.queue_families[queue_family_index_graphics].queue_count;
+            max_queue_count = std::max(max_queue_count, *device_info.queue_families[queue_family_index_presentation].queue_count);
+            max_queue_count = std::max(max_queue_count, *device_info.queue_families[queue_family_index_transfer].queue_count);
+
+            std::vector<float> queue_priority(max_queue_count, 1.0f);
+
+            for (uint32_t queue_family : unique_queue_families)
+            {
+                uint32_t queue_count = *device_info.queue_families[queue_family].queue_count;
+
+                VkDeviceQueueCreateInfo queue_create_info{};
+                queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+                queue_create_info.queueFamilyIndex = queue_family;
+                queue_create_info.queueCount = queue_count;
+                queue_create_info.pQueuePriorities = queue_priority.data();
+                queue_create_infos.push_back(queue_create_info);
+            }
+
+            {
+
+
+                VkPhysicalDeviceTimelineSemaphoreFeatures timeline_semaphore_feature{};
+                timeline_semaphore_feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES;
+
+                VkPhysicalDeviceSynchronization2Features synchronization_2_feature{};
+                synchronization_2_feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
+                synchronization_2_feature.pNext = &timeline_semaphore_feature;
+
+                VkPhysicalDeviceFeatures2KHR features =
+                {
+                    .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2_KHR,
+                    .pNext = &synchronization_2_feature,
+                };
+
+                vkGetPhysicalDeviceFeatures2KHR(physical_device, &features);
+                if (synchronization_2_feature.synchronization2 == false)
+                {
+                    throw std::runtime_error("synchronization2 feature is not supported");
+                }
+                if (timeline_semaphore_feature.timelineSemaphore == false)
+                {
+                    throw std::runtime_error("timeline semaphores feature is not supported");
+                }
+            }
+            VkPhysicalDeviceTimelineSemaphoreFeatures timeline_semaphore_feature{};
+            timeline_semaphore_feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES;
+            timeline_semaphore_feature.timelineSemaphore = true;
+
+            VkPhysicalDeviceSynchronization2Features synchronization_2_feature{};
+            synchronization_2_feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
+            synchronization_2_feature.synchronization2 = true;
+            synchronization_2_feature.pNext = &timeline_semaphore_feature;
+
+            VkPhysicalDeviceFeatures2 device_features{};
+            device_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+            device_features.pNext = &synchronization_2_feature;
+
+            VkDeviceCreateInfo create_info{};
+            create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+            create_info.pNext = &device_features;
+
+            create_info.pQueueCreateInfos = queue_create_infos.data();
+            create_info.queueCreateInfoCount = static_cast<uint32_t>(queue_create_infos.size());
+
+            create_info.pEnabledFeatures = VK_NULL_HANDLE;
+
+            create_info.enabledExtensionCount = static_cast<uint32_t>(device_extensions.size());
+            create_info.ppEnabledExtensionNames = device_extensions.data();
+
+
+            if (validation_layers.empty())
+            {
+                create_info.enabledLayerCount = 0;
+            }
+            else
+            {
+                create_info.enabledLayerCount = static_cast<uint32_t>(validation_layers.size());
+                create_info.ppEnabledLayerNames = validation_layers.data();
+            }
+            VkDevice device{ VK_NULL_HANDLE };
+            if (vkCreateDevice(physical_device, &create_info, nullptr, &device) != VK_SUCCESS)
+            {
+                throw std::runtime_error("failed to create logical device!");
+            }
+            return device;
+
+        }
+
+        VkPhysicalDeviceIDProperties getDeviceUUID(VkPhysicalDevice physical_device)
+        {
+            VkPhysicalDeviceIDProperties device_id_property = {};
+            device_id_property.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES;
+            device_id_property.pNext = nullptr;
+            VkPhysicalDeviceProperties2 device_property = {};
+            device_property.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+            device_property.pNext = &device_id_property;
+            vkGetPhysicalDeviceProperties2(physical_device, &device_property);
+            return device_id_property;
+        }
+    }
+
+
     PerformanceMarkerFactory::Marker::~Marker()
     {
         if (_command_buffer == VK_NULL_HANDLE)
@@ -195,13 +202,13 @@ namespace RenderEngine
                    DeviceLookup::DeviceInfo device_info)
         : _instance(instance)
         , _physical_device(physical_device)
-        , _logical_device(createVulkanLogicalDevice(k_supported_queue_count,
-                                                    physical_device,
+        , _logical_device(createVulkanLogicalDevice(physical_device,
                                                     queue_family_index_graphics,
                                                     queue_family_index_presentation,
                                                     queue_family_index_transfer,
                                                     device_extensions,
-                                                    validation_layers))
+                                                    validation_layers,
+                                                    device_info))
         , _queue_family_present(queue_family_index_presentation)
         , _queue_family_graphics(queue_family_index_graphics)
         , _queue_family_transfer(queue_family_index_transfer)
@@ -270,10 +277,6 @@ namespace RenderEngine
 
     std::unique_ptr<OffScreenWindow> Device::createOffScreenWindow(uint32_t back_buffer_size)
     {
-        VkQueue render_queue;
-        VkQueue present_queue;
-        _logical_device->vkGetDeviceQueue(*_logical_device, _queue_family_graphics, 0, &render_queue);
-        _logical_device->vkGetDeviceQueue(*_logical_device, _queue_family_present, 0, &present_queue);
 
         constexpr auto width = 1024;
         constexpr auto height = 764;

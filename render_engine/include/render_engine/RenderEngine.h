@@ -56,7 +56,7 @@ namespace RenderEngine
         uint32_t getBackBufferSize() const { return _gpu_resource_manager.getBackBufferSize(); }
         TransferEngine& getTransferEngine() { return _transfer_engine; }
         CommandContext& getCommandContext() { return *_command_context; }
-        SingleShotCommandContext& getTransferCommandContext() { return *_transfer_command_context; }
+        SingleShotCommandContext& getTransferCommandContext();
     private:
         std::vector<VkCommandBufferSubmitInfo> executeDrawCalls(const std::ranges::input_range auto& renderers,
                                                                 uint32_t image_index)
@@ -101,7 +101,6 @@ namespace RenderEngine
         GpuResourceManager _gpu_resource_manager;
         // TODO make borrow_ptr
         std::shared_ptr<CommandContext> _command_context;
-        std::shared_ptr<SingleShotCommandContext> _transfer_command_context;
         TransferEngine _transfer_engine;
     };
 }

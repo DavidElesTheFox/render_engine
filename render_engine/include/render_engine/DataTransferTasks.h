@@ -1,5 +1,6 @@
 #pragma once
 
+#include <render_engine/QueueSubmitTracker.h>
 #include <render_engine/synchronization/SyncObject.h>
 #include <render_engine/synchronization/SyncOperations.h>
 #include <render_engine/TransferEngine.h>

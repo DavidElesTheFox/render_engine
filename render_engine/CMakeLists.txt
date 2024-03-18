@@ -196,6 +196,7 @@ set(RENDER_ENGINE_ROOT_SRC
         src/DataTransferTasks.cpp
         src/Debugger.cpp
         src/ParallelRenderEngine.cpp
+        src/QueueSubmitTracker.cpp
 )
 set(RENDER_ENGINE_ROOT_HEADERS
 	${RENDER_ENGINE_HEADER_LOCATION}/RenderEngine.h
@@ -212,6 +213,7 @@ set(RENDER_ENGINE_ROOT_HEADERS
     ${RENDER_ENGINE_HEADER_LOCATION}/DataTransferTasks.h
     ${RENDER_ENGINE_HEADER_LOCATION}/Debugger.h
     ${RENDER_ENGINE_HEADER_LOCATION}/ParallelRenderEngine.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/QueueSubmitTracker.h
 )
 source_group("src" FILES ${RENDER_ENGINE_ROOT_SRC})
 source_group("include" FILES ${RENDER_ENGINE_ROOT_HEADERS})

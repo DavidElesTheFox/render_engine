@@ -2,6 +2,7 @@
 
 
 #include <render_engine/CommandContext.h>
+#include <render_engine/QueueSubmitTracker.h>
 #include <render_engine/synchronization/ResourceStates.h>
 #include <render_engine/synchronization/SyncObject.h>
 

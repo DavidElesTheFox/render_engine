@@ -65,11 +65,6 @@ namespace RenderEngine
     {
         std::ranges::copy(o._wait_semaphore_dependency, std::back_inserter(_wait_semaphore_dependency));
         std::ranges::copy(o._signal_semaphore_dependency, std::back_inserter(_signal_semaphore_dependency));
-        assert((_fence == VK_NULL_HANDLE || o._fence == VK_NULL_HANDLE) && "fence conflict");
-        if (_fence == VK_NULL_HANDLE)
-        {
-            _fence = o._fence;
-        }
     }
     void SyncOperations::shiftTimelineSemaphoreValues(uint64_t offset)
     {
@@ -88,7 +83,6 @@ namespace RenderEngine
     {
         _wait_semaphore_dependency.clear();
         _signal_semaphore_dependency.clear();
-        _fence = VK_NULL_HANDLE;
     }
     SyncOperations SyncOperations::restrict(const AbstractCommandContext& context) const
     {

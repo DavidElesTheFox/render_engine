@@ -14,7 +14,8 @@ namespace RenderEngine
         explicit TransferEngine(std::shared_ptr<SingleShotCommandContext> transfer_context);
 
         void transfer(const SyncOperations& sync_operations,
-                      std::function<void(VkCommandBuffer)> record_transfer_command);
+                      std::function<void(VkCommandBuffer)> record_transfer_command,
+                      QueueSubmitTracker* queue_submit_tracker);
 
         const SingleShotCommandContext& getTransferContext() const { return *_transfer_context; }
         SingleShotCommandContext& getTransferContext() { return *_transfer_context; }

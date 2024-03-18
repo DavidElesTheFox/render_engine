@@ -17,6 +17,8 @@ namespace RenderEngine
 {
     class SyncOperations;
 
+
+
     class AbstractCommandContext
     {
     public:
@@ -34,7 +36,9 @@ namespace RenderEngine
             return o._queue_family_index == _queue_family_index;
         }
 
-        void queueSubmit(VkSubmitInfo2&& submit_info, const SyncOperations& sync_operations);
+        void queueSubmit(VkSubmitInfo2&& submit_info,
+                         const SyncOperations& sync_operations,
+                         VkFence fence);
         void queuePresent(VkPresentInfoKHR&& present_info, const SyncOperations& sync_operations);
     protected:
         AbstractCommandContext(LogicalDevice& logical_device,
@@ -143,5 +147,51 @@ namespace RenderEngine
 
         std::unordered_map<std::thread::id, std::unique_ptr<ThreadData>> _thread_data;
         mutable std::mutex _thread_data_mutex;
+    };
+
+    class QueueSubmitTracker
+    {
+    public:
+        QueueSubmitTracker(LogicalDevice& logical_device)
+            :_logical_device(&logical_device)
+        {}
+        ~QueueSubmitTracker();
+
+        QueueSubmitTracker(QueueSubmitTracker&& o)
+            : _logical_device(o._logical_device)
+            , _fences(std::move(o._fences))
+        {
+            o._logical_device = nullptr;
+        }
+        QueueSubmitTracker(const QueueSubmitTracker&) = delete;
+        QueueSubmitTracker& operator=(QueueSubmitTracker&& o)
+        {
+            using std::swap;
+            swap(_logical_device, o._logical_device);
+            swap(_fences, o._fences);
+            return *this;
+        }
+        QueueSubmitTracker& operator=(const QueueSubmitTracker&) = delete;
+
+        void queueSubmit(VkSubmitInfo2&& submit_info,
+                         const SyncOperations& sync_operations,
+                         AbstractCommandContext& command_context);
+
+        void wait();
+
+        [[nodiscard]]
+        uint32_t queryNumOfSuccess() const;
+        [[nodiscard]]
+        uint32_t getNumOfFences() const
+        {
+            return static_cast<uint32_t>(_fences.size());
+        }
+
+        bool isComplete() const { return queryNumOfSuccess() == getNumOfFences(); }
+        void clear();
+    private:
+        LogicalDevice* _logical_device{ nullptr };
+        // TODO implement object pool for fences
+        std::vector<VkFence> _fences;
     };
 }

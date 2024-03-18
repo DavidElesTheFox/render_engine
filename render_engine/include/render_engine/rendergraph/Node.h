@@ -48,10 +48,12 @@ namespace RenderEngine::RenderGraph
     public:
         RenderNode(std::string name,
                    std::shared_ptr<CommandContext> command_context,
-                   std::unique_ptr<AbstractRenderer> renderer)
+                   std::unique_ptr<AbstractRenderer> renderer,
+                   bool enable_tracking)
             : Node(std::move(name))
             , _command_context(command_context)
             , _renderer(std::move(renderer))
+            , _enable_tracking(enable_tracking)
         {}
         ~RenderNode() override = default;
 
@@ -62,6 +64,7 @@ namespace RenderEngine::RenderGraph
     private:
         std::shared_ptr<CommandContext> _command_context;
         std::unique_ptr<AbstractRenderer> _renderer;
+        bool _enable_tracking{ false };
     };
 
     class TransferNode final : public Node

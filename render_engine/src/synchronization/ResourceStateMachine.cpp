@@ -44,14 +44,15 @@ namespace RenderEngine
                                                            ResourceState auto new_state,
                                                            SingleShotCommandContext* src,
                                                            SingleShotCommandContext* dst,
-                                                           const SyncOperations& sync_operations)
+                                                           const SyncOperations& sync_operations,
+                                                           QueueSubmitTracker* submit_tracker)
     {
         auto src_command_buffer = src->createCommandBuffer();
         auto dst_command_buffer = dst->createCommandBuffer();
 
         assert(*src->getLogicalDevice() == *dst->getLogicalDevice());
         assert(dst->isPipelineStageSupported(new_state.pipeline_stage));
-        SyncObject sync_object = SyncObject::CreateEmpty(src->getLogicalDevice());
+        SyncObject sync_object(src->getLogicalDevice());
 
         const std::string texture_semaphore_name = std::format("{:#x}", reinterpret_cast<intptr_t>(resource));
         sync_object.createTimelineSemaphore(texture_semaphore_name, 0, 2);
@@ -66,20 +67,20 @@ namespace RenderEngine
             sync_object.addSignalOperationToGroup(SyncGroups::kRelease, texture_semaphore_name, new_state.pipeline_stage, 1);
             sync_object.addWaitOperationToGroup(SyncGroups::kAcquire, texture_semaphore_name, new_state.pipeline_stage, 1);
             ownershipTransformRelease(src_command_buffer,
-                                      src->getQueue(),
-                                      src->getLogicalDevice(),
+                                      src,
                                       resource,
                                       new_state,
                                       sync_object,
-                                      sync_operations.restrict(*src));
+                                      sync_operations.restrict(*src),
+                                      submit_tracker);
             ownershipTransformAcquire(dst_command_buffer,
-                                      dst->getQueue(),
-                                      dst->getLogicalDevice(),
+                                      dst,
                                       resource,
                                       new_state,
                                       sync_object,
                                       sync_operations.restrict(*dst),
-                                      nullptr);
+                                      nullptr,
+                                      submit_tracker);
         }
         else
         {
@@ -102,32 +103,33 @@ namespace RenderEngine
                 };
 
             ownershipTransformRelease(src_command_buffer,
-                                      src->getQueue(),
-                                      src->getLogicalDevice(),
+                                      src,
                                       resource,
                                       transition_state,
                                       sync_object,
-                                      sync_operations.restrict(*src));
+                                      sync_operations.restrict(*src),
+                                      submit_tracker);
             ownershipTransformAcquire(dst_command_buffer,
-                                      dst->getQueue(),
-                                      dst->getLogicalDevice(),
+                                      dst,
                                       resource,
                                       transition_state,
                                       sync_object,
                                       sync_operations.restrict(*dst),
-                                      extra_state_transition);
+                                      extra_state_transition,
+                                      submit_tracker);
         }
         return sync_object;
     }
 
     void ResourceStateMachine::ownershipTransformRelease(VkCommandBuffer src_command_buffer,
-                                                         VkQueue src_queue,
-                                                         LogicalDevice& logical_device,
+                                                         SingleShotCommandContext* command_context,
                                                          ResourceStateHolder auto* resource,
                                                          const ResourceState auto& transition_state,
                                                          const SyncObject& transformation_sync_object,
-                                                         const SyncOperations& external_operations)
+                                                         const SyncOperations& external_operations,
+                                                         QueueSubmitTracker* submit_tracker)
     {
+        auto& logical_device = command_context->getLogicalDevice();
         ResourceStateMachine src_state_machine(logical_device);
 
         VkCommandBufferBeginInfo src_begin_info{};
@@ -155,19 +157,26 @@ namespace RenderEngine
             transformation_sync_object.query()
             .select(SyncGroups::kRelease)
             .join(external_operations.extract(SyncOperations::ExtractWaitOperations)).get();
-        release_operations.fillInfo(src_submit_info);
-        logical_device->vkQueueSubmit2(src_queue, 1, &src_submit_info, VK_NULL_HANDLE);
+        if (submit_tracker != nullptr)
+        {
+            submit_tracker->queueSubmit(std::move(src_submit_info), release_operations, *command_context);
+        }
+        else
+        {
+            command_context->queueSubmit(std::move(src_submit_info), release_operations, VK_NULL_HANDLE);
+        }
     }
 
     void ResourceStateMachine::ownershipTransformAcquire(VkCommandBuffer dst_command_buffer,
-                                                         VkQueue dst_queue,
-                                                         LogicalDevice& logical_device,
+                                                         SingleShotCommandContext* command_context,
                                                          ResourceStateHolder auto* resource,
                                                          const ResourceState auto& transition_state,
                                                          const SyncObject& transformation_sync_object,
                                                          const SyncOperations& external_operations,
-                                                         const std::function<void(VkCommandBuffer, ResourceStateMachine&)>& additional_command)
+                                                         const std::function<void(VkCommandBuffer, ResourceStateMachine&)>& additional_command,
+                                                         QueueSubmitTracker* submit_tracker)
     {
+        auto& logical_device = command_context->getLogicalDevice();
         ResourceStateMachine dst_state_machine(logical_device);
 
         VkCommandBufferBeginInfo dst_begin_info{};
@@ -197,9 +206,15 @@ namespace RenderEngine
         dst_submit_info.pCommandBufferInfos = &dst_command_buffer_info;
         auto acquire_operations = transformation_sync_object.query()
             .select({ SyncGroups::kInternal, SyncGroups::kAcquire })
-            .join(external_operations.extract(SyncOperations::ExtractSignalOperations | SyncOperations::ExtractFence)).get();
-        acquire_operations.fillInfo(dst_submit_info);
-        logical_device->vkQueueSubmit2(dst_queue, 1, &dst_submit_info, acquire_operations.getFence());
+            .join(external_operations.extract(SyncOperations::ExtractSignalOperations)).get();
+        if (submit_tracker != nullptr)
+        {
+            submit_tracker->queueSubmit(std::move(dst_submit_info), acquire_operations, *command_context);
+        }
+        else
+        {
+            command_context->queueSubmit(std::move(dst_submit_info), acquire_operations, VK_NULL_HANDLE);
+        }
     }
 
     [[nodiscard]]
@@ -207,41 +222,52 @@ namespace RenderEngine
                                                        TextureState new_state,
                                                        SingleShotCommandContext* src,
                                                        SingleShotCommandContext* dst,
-                                                       const SyncOperations& sync_operations)
+                                                       const SyncOperations& sync_operations,
+                                                       QueueSubmitTracker* submit_tracker)
     {
         return transferOwnershipImpl(texture,
                                      new_state,
                                      src,
                                      dst,
-                                     sync_operations);
+                                     sync_operations,
+                                     submit_tracker);
     }
     [[nodiscard]]
     SyncObject ResourceStateMachine::transferOwnership(Buffer* buffer,
                                                        BufferState new_state,
                                                        SingleShotCommandContext* src,
                                                        SingleShotCommandContext* dst,
-                                                       const SyncOperations& sync_operations)
+                                                       const SyncOperations& sync_operations,
+                                                       QueueSubmitTracker* submit_tracker)
     {
         return transferOwnershipImpl(buffer,
                                      new_state,
                                      src,
                                      dst,
-                                     sync_operations);
+                                     sync_operations,
+                                     submit_tracker);
     }
 
-    SyncObject ResourceStateMachine::barrier(Texture& texture, SingleShotCommandContext& src, const SyncOperations& sync_operations)
+    SyncObject ResourceStateMachine::barrier(Texture& texture,
+                                             SingleShotCommandContext& src,
+                                             const SyncOperations& sync_operations,
+                                             QueueSubmitTracker* submit_tracker)
     {
-        return barrierImpl(texture, src, sync_operations);
+        return barrierImpl(texture, src, sync_operations, submit_tracker);
     }
-    SyncObject ResourceStateMachine::barrier(Buffer* buffer, SingleShotCommandContext* src, const SyncOperations& sync_operations)
+    SyncObject ResourceStateMachine::barrier(Buffer* buffer,
+                                             SingleShotCommandContext* src,
+                                             const SyncOperations& sync_operations,
+                                             QueueSubmitTracker* submit_tracker)
     {
-        return barrierImpl(*buffer, *src, sync_operations);
+        return barrierImpl(*buffer, *src, sync_operations, submit_tracker);
     }
     SyncObject ResourceStateMachine::barrierImpl(ResourceStateHolder auto& resource,
                                                  SingleShotCommandContext& src,
-                                                 const SyncOperations& sync_operations)
+                                                 const SyncOperations& sync_operations,
+                                                 QueueSubmitTracker* submit_tracker)
     {
-        SyncObject result = SyncObject::CreateEmpty(src.getLogicalDevice());
+        SyncObject result(src.getLogicalDevice());
         result.createTimelineSemaphore("BarrierFinished", 0, 2);
         result.addSignalOperationToGroup(SyncGroups::kInternal,
                                          "BarrierFinished",
@@ -280,8 +306,14 @@ namespace RenderEngine
             result.query()
             .select(SyncGroups::kInternal)
             .join(sync_operations.extract(SyncOperations::ExtractWaitOperations)).get();
-        operations.fillInfo(submit_info);
-        src.getLogicalDevice()->vkQueueSubmit2(src.getQueue(), 1, &submit_info, VK_NULL_HANDLE);
+        if (submit_tracker != nullptr)
+        {
+            submit_tracker->queueSubmit(std::move(submit_info), operations, src);
+        }
+        else
+        {
+            src.queueSubmit(std::move(submit_info), operations, VK_NULL_HANDLE);
+        }
         return result;
     }
 

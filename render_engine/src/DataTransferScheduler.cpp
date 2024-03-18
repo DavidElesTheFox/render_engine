@@ -303,9 +303,10 @@ namespace RenderEngine
         SyncObject unifiedQueueTransfer(
             SyncOperations sync_operations,
             TransferEngine& transfer_engine,
-            std::function<void(VkCommandBuffer)> upload_command)
+            std::function<void(VkCommandBuffer)> upload_command,
+            QueueSubmitTracker* submit_tracker)
         {
-            SyncObject transfer_sync_object = SyncObject::CreateEmpty(transfer_engine.getTransferContext().getLogicalDevice());
+            SyncObject transfer_sync_object(transfer_engine.getTransferContext().getLogicalDevice());
             transfer_sync_object.createTimelineSemaphore(DataTransferScheduler::kDataTransferFinishSemaphoreName, 0, 2);
             transfer_sync_object.addSignalOperationToGroup(SyncGroups::kInternal,
                                                            DataTransferScheduler::kDataTransferFinishSemaphoreName,
@@ -315,8 +316,9 @@ namespace RenderEngine
                                                          DataTransferScheduler::kDataTransferFinishSemaphoreName,
                                                          VK_PIPELINE_STAGE_2_TRANSFER_BIT,
                                                          1);
-            transfer_engine.transfer(sync_operations.createUnionWith(transfer_sync_object.getOperationsGroup(SyncGroups::kInternal))
-                                     , upload_command);
+            transfer_engine.transfer(sync_operations.createUnionWith(transfer_sync_object.getOperationsGroup(SyncGroups::kInternal)),
+                                     upload_command,
+                                     submit_tracker);
             return transfer_sync_object;
         }
 
@@ -328,13 +330,14 @@ namespace RenderEngine
                                                                SingleShotCommandContext& dst_context,
                                                                TextureState final_state,
                                                                std::function<void(VkCommandBuffer)> upload_command,
-                                                               DataTransferType transfer_type)
+                                                               DataTransferType transfer_type,
+                                                               QueueSubmitTracker* submit_tracker)
         {
             std::vector<SyncObject> result;
             const bool is_initial_transfer = texture.getResourceState().command_context.expired();
 
 
-            SyncObject transfer_sync_object = SyncObject::CreateEmpty(src_context.getLogicalDevice());
+            SyncObject transfer_sync_object(src_context.getLogicalDevice());
             transfer_sync_object.createTimelineSemaphore(DataTransferScheduler::kDataTransferFinishSemaphoreName, 0, 2);
             transfer_sync_object.addSignalOperationToGroup(SyncGroups::kInternal,
                                                            DataTransferScheduler::kDataTransferFinishSemaphoreName,
@@ -356,21 +359,24 @@ namespace RenderEngine
                                                                                                  .setImageLayout(layout_for_copy),
                                                                                                  texture.getResourceState().command_context.lock().get(),
                                                                                                  &transfer_engine.getTransferContext(),
-                                                                                                 sync_operations.extract(SyncOperations::ExtractWaitOperations));
+                                                                                                 sync_operations.extract(SyncOperations::ExtractWaitOperations),
+                                                                                                 submit_tracker);
 
                 transfer_engine.transfer(sync_object_src_to_transfer.getOperationsGroup(SyncGroups::kExternal)
                                          .createUnionWith(transfer_sync_object.getOperationsGroup(SyncGroups::kInternal)),
-                                         upload_command);
+                                         upload_command,
+                                         submit_tracker);
                 result.push_back(std::move(sync_object_src_to_transfer));
 
             }
             else
             {
-                SyncObject execution_barrier = ResourceStateMachine::barrier(texture, src_context, sync_operations);
+                SyncObject execution_barrier = ResourceStateMachine::barrier(texture, src_context, sync_operations, submit_tracker);
 
                 transfer_engine.transfer(transfer_sync_object.getOperationsGroup(SyncGroups::kInternal)
                                          .createUnionWith(execution_barrier.getOperationsGroup(SyncGroups::kExternal)),
-                                         upload_command);
+                                         upload_command,
+                                         submit_tracker);
                 result.push_back(std::move(execution_barrier));
 
             }
@@ -383,8 +389,9 @@ namespace RenderEngine
                                                                                              .setImageLayout(final_state.layout),
                                                                                              texture.getResourceState().command_context.lock().get(),
                                                                                              &dst_context,
-                                                                                             sync_operations.extract(SyncOperations::ExtractSignalOperations | SyncOperations::ExtractFence)
-                                                                                             .createUnionWith(transfer_sync_object.getOperationsGroup(SyncGroups::kExternal)));
+                                                                                             sync_operations.extract(SyncOperations::ExtractSignalOperations)
+                                                                                             .createUnionWith(transfer_sync_object.getOperationsGroup(SyncGroups::kExternal)),
+                                                                                             submit_tracker);
             assert(texture.getResourceState().getQueueFamilyIndex() == dst_context.getQueueFamilyIndex());
             result.push_back(std::move(sync_object_transfer_to_dst));
             result.push_back(std::move(transfer_sync_object));
@@ -398,11 +405,12 @@ namespace RenderEngine
                                                               SingleShotCommandContext& src_context,
                                                               SingleShotCommandContext& dst_context,
                                                               BufferState final_buffer_state,
-                                                              std::function<void(VkCommandBuffer)> upload_command)
+                                                              std::function<void(VkCommandBuffer)> upload_command,
+                                                              QueueSubmitTracker* submit_tracker)
         {
             std::vector<SyncObject> result;
 
-            SyncObject transfer_sync_object = SyncObject::CreateEmpty(src_context.getLogicalDevice());
+            SyncObject transfer_sync_object(src_context.getLogicalDevice());
             transfer_sync_object.createTimelineSemaphore(DataTransferScheduler::kDataTransferFinishSemaphoreName, 0, 2);
             transfer_sync_object.addSignalOperationToGroup(SyncGroups::kInternal,
                                                            DataTransferScheduler::kDataTransferFinishSemaphoreName,
@@ -425,7 +433,8 @@ namespace RenderEngine
                                                                                                  sync_operations.extract(SyncOperations::ExtractWaitOperations));
                 transfer_engine.transfer(sync_object_src_to_transfer.getOperationsGroup(SyncGroups::kExternal)
                                          .createUnionWith(transfer_sync_object.getOperationsGroup(SyncGroups::kInternal)),
-                                         upload_command);
+                                         upload_command,
+                                         submit_tracker);
                 result.push_back(std::move(sync_object_src_to_transfer));
 
             }
@@ -434,7 +443,8 @@ namespace RenderEngine
                 SyncObject execution_barrier = ResourceStateMachine::barrier(&buffer, &src_context, sync_operations);
                 transfer_engine.transfer(execution_barrier.getOperationsGroup(SyncGroups::kExternal)
                                          .createUnionWith(transfer_sync_object.getOperationsGroup(SyncGroups::kInternal)),
-                                         upload_command);
+                                         upload_command,
+                                         submit_tracker);
                 result.push_back(std::move(execution_barrier));
             }
             assert(buffer.getResourceState().getQueueFamilyIndex() == transfer_engine.getTransferContext().getQueueFamilyIndex());
@@ -468,7 +478,7 @@ namespace RenderEngine
                                                             SyncOperations additional_sync_operations)
     {
         auto task = [image_to_upload = std::move(image), &dst_context, texture, final_texture_state = std::move(final_state), additional_sync_operations]
-        (SyncOperations sync_operations, TransferEngine& transfer_engine, UploadTask::Storage&) -> std::vector<SyncObject>
+        (SyncOperations sync_operations, TransferEngine& transfer_engine, UploadTask::Storage&, QueueSubmitTracker& submit_tracker) -> std::vector<SyncObject>
             {
                 if (texture->isImageCompatible(image_to_upload) == false)
                 {
@@ -499,19 +509,21 @@ namespace RenderEngine
                                                           dst_context,
                                                           std::move(final_texture_state),
                                                           createTextureNotUnifiedUploadCommand(*texture, src_context, is_initial_transfer),
-                                                          DataTransferType::Upload);
+                                                          DataTransferType::Upload,
+                                                          &submit_tracker);
                 }
                 else
                 {
                     SyncObject transfer_sync_object = unifiedQueueTransfer(sync_operations.createUnionWith(additional_sync_operations),
                                                                            transfer_engine,
-                                                                           createTextureUnifiedUploadCommand(*texture, dst_context, std::move(final_texture_state)));
+                                                                           createTextureUnifiedUploadCommand(*texture, dst_context, std::move(final_texture_state)),
+                                                                           &submit_tracker);
                     std::vector<SyncObject> result;
                     result.push_back(std::move(transfer_sync_object));
                     return result;
                 }
             };
-        std::shared_ptr<UploadTask> result = std::make_shared<UploadTask>(std::move(task));
+        std::shared_ptr<UploadTask> result = std::make_shared<UploadTask>(dst_context.getLogicalDevice(), std::move(task));
         _textures_staging_area.uploads[texture] = result;
         return result;
     }
@@ -522,7 +534,7 @@ namespace RenderEngine
                                                             BufferState final_state)
     {
         auto task = [data_to_upload = std::move(data), &dst_context, buffer, final_buffer_state = std::move(final_state)]
-        (SyncOperations sync_operations, TransferEngine& transfer_engine, UploadTask::Storage& task_storage) -> std::vector<SyncObject>
+        (SyncOperations sync_operations, TransferEngine& transfer_engine, UploadTask::Storage& task_storage, QueueSubmitTracker& submit_tracker) -> std::vector<SyncObject>
             {
                 auto& logical_device = buffer->getLogicalDevice();
                 const auto device_size = buffer->getDeviceSize();
@@ -558,7 +570,10 @@ namespace RenderEngine
                                                            *src_context,
                                                            dst_context,
                                                            final_buffer_state,
-                                                           createBufferNotUnifiedUploadCommand(*buffer, staging_buffer, dst_context));
+                                                           createBufferNotUnifiedUploadCommand(*buffer,
+                                                                                               staging_buffer,
+                                                                                               dst_context),
+                                                           &submit_tracker);
                 }
                 else
                 {
@@ -567,14 +582,15 @@ namespace RenderEngine
                                                                            createBufferUnifiedUploadCommand(*buffer,
                                                                                                             staging_buffer,
                                                                                                             *src_context,
-                                                                                                            final_buffer_state));
+                                                                                                            final_buffer_state),
+                                                                           &submit_tracker);
                     result.push_back(std::move(transfer_sync_object));
                 }
                 task_storage.storeStagingData(staging_buffer, staging_memory, &logical_device);
                 return result;
 
             };
-        std::shared_ptr<UploadTask> result = std::make_shared<UploadTask>(std::move(task));
+        std::shared_ptr<UploadTask> result = std::make_shared<UploadTask>(dst_context.getLogicalDevice(), std::move(task));
         _buffers_staging_area.uploads[buffer] = result;
         return result;
     }
@@ -582,11 +598,10 @@ namespace RenderEngine
     std::weak_ptr<DownloadTask> DataTransferScheduler::download(Texture* texture,
                                                                 SyncOperations sync_operations)
     {
-
         assert(texture->getResourceState().command_context.expired() == false && "For download it should never be an initial transfer");
 
         auto task = [texture, additional_sync_operations = sync_operations]
-        (SyncOperations sync_operations, TransferEngine& transfer_engine) -> std::vector<SyncObject>
+        (SyncOperations sync_operations, TransferEngine& transfer_engine, QueueSubmitTracker& submit_tracker) -> std::vector<SyncObject>
             {
                 auto src_context = texture->getResourceState().command_context.lock();
                 if (src_context->getQueueFamilyIndex() != transfer_engine.getTransferContext().getQueueFamilyIndex())
@@ -598,7 +613,8 @@ namespace RenderEngine
                                                           *src_context,
                                                           texture->getResourceState().clone(),
                                                           createTextureNotUnifiedDownloadCommand(*texture, *src_context),
-                                                          DataTransferType::Download);
+                                                          DataTransferType::Download,
+                                                          &submit_tracker);
                 }
                 else
                 {
@@ -606,13 +622,14 @@ namespace RenderEngine
                                                                            transfer_engine,
                                                                            createTextureUnifiedDownloadCommand(*texture,
                                                                                                                *src_context,
-                                                                                                               texture->getResourceState().clone()));
+                                                                                                               texture->getResourceState().clone()),
+                                                                           &submit_tracker);
                     std::vector<SyncObject> result;
                     result.push_back(std::move(transfer_sync_object));
                     return result;
                 }
             };
-        std::shared_ptr<DownloadTask> result = std::make_shared<DownloadTask>(std::move(task), texture);
+        std::shared_ptr<DownloadTask> result = std::make_shared<DownloadTask>(std::move(task), texture, texture->getResourceState().command_context.lock()->getLogicalDevice());
         _textures_staging_area.downloads[texture] = result;
         return result;
     }

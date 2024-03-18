@@ -36,7 +36,8 @@ namespace RenderEngine
         [[nodiscard]]
         bool render(const SyncOperations& sync_operations,
                     const std::ranges::input_range auto& renderers,
-                    uint32_t image_index)
+                    uint32_t image_index,
+                    QueueSubmitTracker* submit_tracker)
         {
             std::vector<VkCommandBufferSubmitInfo> command_buffer_infos = executeDrawCalls(renderers, image_index);
             // TODO: Do not synchronize per window draw rather once per all widnow draw. Currently it is necessary to start the uploads properly.
@@ -46,7 +47,7 @@ namespace RenderEngine
 
             if (command_buffer_infos.empty() == false)
             {
-                submitDrawCalls(command_buffer_infos, all_sync_operations);
+                submitDrawCalls(command_buffer_infos, all_sync_operations, submit_tracker);
                 return true;
             }
             return false;
@@ -94,7 +95,8 @@ namespace RenderEngine
         }
 
         void submitDrawCalls(const std::vector<VkCommandBufferSubmitInfo>& command_buffers,
-                             const SyncOperations& sync_operations);
+                             const SyncOperations& sync_operations,
+                             QueueSubmitTracker* submit_tracker);
 
 
         Device& _device;

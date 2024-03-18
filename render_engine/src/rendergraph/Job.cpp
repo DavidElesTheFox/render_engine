@@ -9,7 +9,11 @@ namespace RenderEngine::RenderGraph
     {
         try
         {
-            _job(execution_context);
+            if (_queue_tracker != nullptr)
+            {
+                _queue_tracker->clear();
+            }
+            _job(execution_context, _queue_tracker.get());
         }
         catch (const std::exception& error)
         {

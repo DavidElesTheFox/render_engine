@@ -23,7 +23,9 @@ namespace RenderEngine
         assert(_command_context != nullptr);
     }
 
-    void RenderEngine::submitDrawCalls(const std::vector<VkCommandBufferSubmitInfo>& command_buffers, const SyncOperations& sync_operations)
+    void RenderEngine::submitDrawCalls(const std::vector<VkCommandBufferSubmitInfo>& command_buffers,
+                                       const SyncOperations& sync_operations,
+                                       QueueSubmitTracker* submit_tracker)
     {
         VkSubmitInfo2 submit_info{};
         submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
@@ -31,10 +33,13 @@ namespace RenderEngine
         submit_info.commandBufferInfoCount = static_cast<uint32_t>(command_buffers.size());
         submit_info.pCommandBufferInfos = command_buffers.data();
 
-        sync_operations.fillInfo(submit_info);
-        if (_device.getLogicalDevice()->vkQueueSubmit2(_command_context->getQueue(), 1, &submit_info, sync_operations.getFence()) != VK_SUCCESS)
+        if (submit_tracker != nullptr)
         {
-            throw std::runtime_error("failed to submit draw command buffer!");
+            submit_tracker->queueSubmit(std::move(submit_info), sync_operations, *_command_context);
+        }
+        else
+        {
+            _command_context->queueSubmit(std::move(submit_info), sync_operations, VK_NULL_HANDLE);
         }
     }
 

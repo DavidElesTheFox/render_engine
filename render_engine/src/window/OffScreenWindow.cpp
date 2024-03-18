@@ -44,7 +44,7 @@ namespace RenderEngine
         {
             auto& texture = *textures[i];
             _back_buffer.emplace_back(FrameData{
-                .synch_render = SyncObject::CreateEmpty(device.getLogicalDevice()),
+                .synch_render = SyncObject(device.getLogicalDevice()),
                 .contains_image = false,
                 .render_target_texture = std::move(textures[i]),
                 .render_target_texture_view = texture.createTextureView(image_view_data, std::nullopt) });
@@ -172,7 +172,8 @@ namespace RenderEngine
 
         bool draw_call_submitted = _render_engine->render(frame_data.synch_render.getOperationsGroup(operation_group_name),
                                                           _renderers | std::views::transform([](const auto& ptr) { return ptr.get(); }),
-                                                          getCurrentImageIndex());
+                                                          getCurrentImageIndex(),
+                                                          nullptr);
         frame_data.contains_image = draw_call_submitted;
     }
     void OffScreenWindow::readBack()
@@ -198,6 +199,7 @@ namespace RenderEngine
             */
             auto download_task = frame_to_read_back.render_target_texture->clearDownloadTask();
             assert(download_task != nullptr && "When the frame contains image it should have a download task");
+
 
             auto image = download_task->getImage();
             _image_stream << std::move(std::get<std::vector<uint8_t>>(image.getData()));

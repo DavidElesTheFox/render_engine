@@ -40,20 +40,9 @@ namespace RenderEngine
             }
             Query&& select(std::initializer_list<std::string> name_container)&&
             {
-                // Fences are needed only once to avoid 'fence-conflict' See more in the unionWith function
-                bool need_fence = true;
                 for (auto name : name_container)
                 {
-                    if (need_fence == false)
-                    {
-                        constexpr int32_t everything_except_fence_bit = ~SyncOperations::ExtractFence;
-                        _operations = _operations.createUnionWith(_sync_object.getOperationsGroup(name).extract(everything_except_fence_bit));
-                    }
-                    else
-                    {
-                        need_fence = false;
-                        _operations = _operations.createUnionWith(_sync_object.getOperationsGroup(name));
-                    }
+                    _operations = _operations.createUnionWith(_sync_object.getOperationsGroup(name));
                 }
                 return std::move(*this);
             }
@@ -94,14 +83,8 @@ namespace RenderEngine
         SyncObject& operator=(const SyncObject&) = delete;
         SyncObject& operator=(SyncObject&&) = default;
 
-        static SyncObject CreateEmpty(LogicalDevice& logical_device)
-        {
-            return SyncObject(logical_device, false);
-        }
-        static SyncObject CreateWithFence(LogicalDevice& logical_device, VkFenceCreateFlags create_flags)
-        {
-            return SyncObject(logical_device, true, create_flags);
-        }
+        explicit SyncObject(LogicalDevice& logical_device);
+
         const SyncOperations& getOperationsGroup(const std::string& name) const { return _operation_groups.at(name); }
 
         void addSignalOperationToGroup(const std::string& group_name, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask);
@@ -116,9 +99,6 @@ namespace RenderEngine
         void waitSemaphore(const std::string& name, uint64_t value);
         uint64_t getSemaphoreValue(const std::string& name);
 
-        void waitFence();
-        void resetFence();
-
         const SyncPrimitives& getPrimitives() const { return _primitives; }
 
         void createSemaphore(std::string name);
@@ -130,7 +110,6 @@ namespace RenderEngine
         Query query() const { return Query::from(*this); }
 
     private:
-        SyncObject(LogicalDevice& logical_device, bool create_with_fence, VkFenceCreateFlags create_flags = 0);
 
         SyncPrimitives _primitives;
         std::unordered_map<std::string, SyncOperations> _operation_groups;

@@ -7,27 +7,9 @@
 
 namespace RenderEngine
 {
-    SyncPrimitives SyncPrimitives::CreateWithFence(LogicalDevice& logical_device, VkFenceCreateFlags flags)
-    {
-        SyncPrimitives synchronization_primitives{ logical_device };
-        VkFenceCreateInfo fence_info{};
-        fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-        fence_info.flags = flags;
-        VkFence fence;
-        if (logical_device->vkCreateFence(*logical_device, &fence_info, nullptr, &fence) != VK_SUCCESS)
-        {
-            throw std::runtime_error("Cannot create fence for upload");
-        }
-        synchronization_primitives._fence = fence;
-        synchronization_primitives._logical_device = &logical_device;
-        return synchronization_primitives;
-    }
+
     SyncPrimitives::~SyncPrimitives()
     {
-        if (_fence != VK_NULL_HANDLE)
-        {
-            getLogicalDevice()->vkDestroyFence(*getLogicalDevice(), _fence, nullptr);
-        }
         for (VkSemaphore semaphore : _semaphore_map | std::views::values)
         {
             getLogicalDevice()->vkDestroySemaphore(*getLogicalDevice(), semaphore, nullptr);
@@ -37,10 +19,8 @@ namespace RenderEngine
         : _semaphore_map(std::move(o._semaphore_map))
         , _timeline_data(std::move(o._timeline_data))
         , _logical_device(o._logical_device)
-        , _fence(o._fence)
     {
         o._logical_device = nullptr;
-        o._fence = VK_NULL_HANDLE;
         o._semaphore_map.clear();
         o._timeline_data.clear();
     }
@@ -49,7 +29,6 @@ namespace RenderEngine
         std::swap(o._semaphore_map, _semaphore_map);
         std::swap(o._timeline_data, _timeline_data);
         std::swap(o._logical_device, _logical_device);
-        std::swap(o._fence, _fence);
         return *this;
     }
     void SyncPrimitives::createSemaphore(std::string name)

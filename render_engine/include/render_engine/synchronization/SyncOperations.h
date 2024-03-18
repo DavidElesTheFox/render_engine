@@ -14,13 +14,9 @@ namespace RenderEngine
         enum ExtractBits : int32_t
         {
             ExtractWaitOperations = 1,
-            ExtractSignalOperations = 1 << 1,
-            ExtractFence = 1 << 2
+            ExtractSignalOperations = 1 << 1
         };
 
-        explicit SyncOperations(VkFence fence)
-            : _fence(fence)
-        {}
         SyncOperations() = default;
         ~SyncOperations() = default;
         SyncOperations(const SyncOperations&) = default;
@@ -38,8 +34,6 @@ namespace RenderEngine
 
         const SyncOperations& fillInfo(VkSubmitInfo2& submit_info) const;
         const SyncOperations& fillInfo(VkPresentInfoKHR& submit_info) const;
-        bool hasAnyFence() const { return _fence != VK_NULL_HANDLE; }
-        const VkFence& getFence() const { return _fence; }
 
 
         SyncOperations createUnionWith(const SyncOperations& o) const
@@ -64,10 +58,6 @@ namespace RenderEngine
             {
                 result._signal_semaphore_dependency = _signal_semaphore_dependency;
             }
-            if (extract_bits & ExtractFence)
-            {
-                result._fence = _fence;
-            }
             return result;
         }
 
@@ -80,7 +70,6 @@ namespace RenderEngine
         std::vector<VkSemaphore> _wait_semaphore_container;
         std::vector<VkSemaphoreSubmitInfo> _signal_semaphore_dependency;
         std::vector<VkSemaphore> _signal_semaphore_container;
-        VkFence _fence{ VK_NULL_HANDLE };
     };
 
 }

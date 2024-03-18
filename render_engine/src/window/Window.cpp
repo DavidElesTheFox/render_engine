@@ -43,8 +43,7 @@ namespace RenderEngine
         _back_buffer.reserve(_render_engine->getBackBufferSize());
         for (uint32_t i = 0; i < _render_engine->getBackBufferSize(); ++i)
         {
-            _back_buffer.emplace_back(FrameData{
-                .synch_render = SyncObject::CreateWithFence(device.getLogicalDevice(), VK_FENCE_CREATE_SIGNALED_BIT) });
+            _back_buffer.emplace_back(FrameData{ device.getLogicalDevice() });
         }
         initSynchronizationObjects();
     }
@@ -188,7 +187,7 @@ namespace RenderEngine
         if (_swap_chain_image_index == std::nullopt)
         {
             uint32_t image_index = 0;
-            frame_data.synch_render.waitFence();
+            frame_data.submit_tracker.wait();
             auto call_result = logical_device->vkAcquireNextImageKHR(*logical_device,
                                                                      _swap_chain->getDetails().swap_chain,
                                                                      UINT64_MAX,
@@ -208,13 +207,14 @@ namespace RenderEngine
             }
             _swap_chain_image_index = image_index;
         }
-        frame_data.synch_render.resetFence();
+        frame_data.submit_tracker.clear();
         _render_engine->onFrameBegin(renderers, *_swap_chain_image_index);
 
 
         bool draw_call_recorded = _render_engine->render(frame_data.synch_render.getOperationsGroup(SyncGroups::kInternal),
                                                          renderers,
-                                                         *_swap_chain_image_index);
+                                                         *_swap_chain_image_index,
+                                                         &frame_data.submit_tracker);
         if (draw_call_recorded)
         {
             VkPresentInfoKHR presentInfo{};

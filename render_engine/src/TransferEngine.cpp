@@ -7,7 +7,8 @@ namespace RenderEngine
     {}
 
     void TransferEngine::transfer(const SyncOperations& sync_operations,
-                                  std::function<void(VkCommandBuffer)> record_transfer_command)
+                                  std::function<void(VkCommandBuffer)> record_transfer_command,
+                                  QueueSubmitTracker* queue_submit_tracker)
     {
 
         VkCommandBuffer command_buffer = _transfer_context->createCommandBuffer();
@@ -30,7 +31,13 @@ namespace RenderEngine
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
         submitInfo.commandBufferInfoCount = 1;
         submitInfo.pCommandBufferInfos = &command_buffer_info;
-        sync_operations.fillInfo(submitInfo);
-        _transfer_context->getLogicalDevice()->vkQueueSubmit2(_transfer_context->getQueue(), 1, &submitInfo, sync_operations.getFence());
+        if (queue_submit_tracker != nullptr)
+        {
+            queue_submit_tracker->queueSubmit(std::move(submitInfo), sync_operations, *_transfer_context);
+        }
+        else
+        {
+            _transfer_context->queueSubmit(std::move(submitInfo), sync_operations, VK_NULL_HANDLE);
+        }
     }
 }

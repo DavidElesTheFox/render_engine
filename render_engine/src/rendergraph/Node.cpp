@@ -1,5 +1,6 @@
 #include <render_engine/rendergraph/Node.h>
 
+#include <render_engine/CommandContext.h>
 #include <render_engine/rendergraph/GraphVisitor.h>
 
 #include <format>
@@ -12,7 +13,7 @@ namespace RenderEngine::RenderGraph
     }
     std::unique_ptr<Job> RenderNode::createJob(const SyncOperations& in_operations)
     {
-        auto callback = [=](Job::ExecutionContext& execution_context)
+        auto callback = [=](Job::ExecutionContext& execution_context, QueueSubmitTracker* queue_tracker)
             {
                 auto render_target_image_index = execution_context.getRenderTargetIndex();
 
@@ -37,14 +38,29 @@ namespace RenderEngine::RenderGraph
                 submit_info.commandBufferInfoCount = static_cast<uint32_t>(command_buffer_infos.size());
                 submit_info.pCommandBufferInfos = command_buffer_infos.data();
 
-                _command_context->queueSubmit(std::move(submit_info),
-                                              in_operations);
+                if (queue_tracker != nullptr)
+                {
+                    queue_tracker->queueSubmit(std::move(submit_info),
+                                               in_operations,
+                                               *_command_context);
+                }
+                else
+                {
+                    _command_context->queueSubmit(std::move(submit_info),
+                                                  in_operations,
+                                                  VK_NULL_HANDLE);
+                }
             };
-        return std::make_unique<Job>(getName(), std::move(callback));
+        std::unique_ptr<QueueSubmitTracker> tracker;
+        if (_enable_tracking)
+        {
+            tracker = std::make_unique<QueueSubmitTracker>(_command_context->getLogicalDevice());
+        }
+        return std::make_unique<Job>(getName(), std::move(callback), std::move(tracker));
     }
     std::unique_ptr<Job> TransferNode::createJob(const SyncOperations& in_operations)
     {
-        auto callback = [=](Job::ExecutionContext&)
+        auto callback = [=](Job::ExecutionContext&, QueueSubmitTracker*)
             {
                 _scheduler.executeTasks(in_operations, _transfer_engine);
             };
@@ -61,7 +77,7 @@ namespace RenderEngine::RenderGraph
 
     std::unique_ptr<Job> ComputeNode::createJob(const SyncOperations& in_operations)
     {
-        auto callback = [=](Job::ExecutionContext& execution_context)
+        auto callback = [=](Job::ExecutionContext& execution_context, QueueSubmitTracker*)
             {
                 _compute_task->run(in_operations, execution_context);
             };
@@ -76,7 +92,7 @@ namespace RenderEngine::RenderGraph
 
     std::unique_ptr<Job> PresentNode::createJob(const SyncOperations& in_operations)
     {
-        auto callback = [=](Job::ExecutionContext& execution_context)
+        auto callback = [=](Job::ExecutionContext& execution_context, QueueSubmitTracker*)
             {
                 auto render_target_image_index = execution_context.getRenderTargetIndex();
 
@@ -100,7 +116,7 @@ namespace RenderEngine::RenderGraph
 
     std::unique_ptr<Job> CpuNode::createJob(const SyncOperations& in_operations)
     {
-        auto callback = [=](Job::ExecutionContext& execution_context)
+        auto callback = [=](Job::ExecutionContext& execution_context, QueueSubmitTracker*)
             {
                 _cpu_task->run(in_operations, execution_context);
             };

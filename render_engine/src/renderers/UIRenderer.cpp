@@ -226,15 +226,17 @@ namespace RenderEngine
 
             ImGui_ImplVulkan_Init(&init_info, getRenderPass());
             {
-                SyncObject sync_object = SyncObject::CreateWithFence(logical_device, 0);
+                QueueSubmitTracker submit_tracker{ logical_device };
+                SyncObject sync_object(logical_device);
 
                 // Using the render engine's transfer capability
                 window.getRenderEngine().getTransferEngine().transfer(sync_object.getOperationsGroup(SyncGroups::kInternal),
                                                                       [](VkCommandBuffer command_buffer)
                                                                       {
                                                                           ImGui_ImplVulkan_CreateFontsTexture(command_buffer);
-                                                                      });
-                sync_object.waitFence();
+                                                                      },
+                                                                      &submit_tracker);
+                submit_tracker.wait();
 
             }
             ImGui_ImplVulkan_DestroyFontUploadObjects();

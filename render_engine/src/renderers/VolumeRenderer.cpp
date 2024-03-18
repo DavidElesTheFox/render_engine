@@ -569,7 +569,7 @@ namespace RenderEngine
             for (uint32_t i = 0; i < back_buffer_size; ++i)
             {
 
-                result.synchronization_objects.emplace_back(SyncObject::CreateEmpty(getLogicalDevice()));
+                result.synchronization_objects.emplace_back(SyncObject(getLogicalDevice()));
                 result.synchronization_objects.back().createTimelineSemaphore(DistanceFieldFinishedCallback::kSemaphoreName,
                                                                               DistanceFieldFinishedCallback::kReadyValue,
                                                                               DistanceFieldFinishedCallback::kReadyValue - DistanceFieldFinishedCallback::kProcessValue + 1);

@@ -30,9 +30,13 @@ namespace RenderEngine
             VkDeviceMemory _staging_memory{ VK_NULL_HANDLE };
             LogicalDevice* _logical_device{ nullptr };
         };
-        explicit UploadTask(std::function<std::vector<SyncObject>(SyncOperations sync_operations, TransferEngine& transfer_engine, Storage&)>&& task)
+        explicit UploadTask(LogicalDevice& logical_device,
+                            std::function<std::vector<SyncObject>(SyncOperations, TransferEngine&, Storage&, QueueSubmitTracker&)>&& task)
             : _task(std::move(task))
+            , _submit_tracker(std::make_unique<QueueSubmitTracker>(logical_device))
         {}
+
+        ~UploadTask();
 
         UploadTask(UploadTask&&) = default;
         UploadTask(const UploadTask&) = default;
@@ -44,21 +48,28 @@ namespace RenderEngine
         SyncOperations getSyncOperations() const;
         void start(StartToken, SyncOperations in_operations, TransferEngine& transfer_engine);
         bool isFinished();
+        void wait();
     private:
-        std::function<std::vector<SyncObject>(SyncOperations sync_operations, TransferEngine& transfer_engine, Storage&)> _task;
+        std::function<std::vector<SyncObject>(SyncOperations sync_operations, TransferEngine& transfer_engine, Storage&, QueueSubmitTracker&)> _task;
         bool _started{ false };
         std::vector<SyncObject> _transfer_objects;
         Storage _storage;
+        std::unique_ptr<QueueSubmitTracker> _submit_tracker;
     };
 
     class DownloadTask
     {
     public:
-        DownloadTask(std::function<std::vector<SyncObject>(SyncOperations sync_operations, TransferEngine& transfer_engine)>&& task,
-                     Texture* texture)
+        DownloadTask(std::function<std::vector<SyncObject>(SyncOperations sync_operations,
+                                                           TransferEngine& transfer_engine,
+                                                           QueueSubmitTracker& submit_tracker)>&& task,
+                     Texture* texture,
+                     LogicalDevice& logical_device)
             : _task(std::move(task))
             , _texture(texture)
+            , _submit_tracker(std::make_unique<QueueSubmitTracker>(logical_device))
         {}
+        ~DownloadTask();
 
         DownloadTask(DownloadTask&&) = default;
         DownloadTask(const DownloadTask&) = delete;
@@ -73,10 +84,11 @@ namespace RenderEngine
         void start(StartToken, SyncOperations in_operations, TransferEngine& transfer_engine);
 
     private:
-        std::function<std::vector<SyncObject>(SyncOperations sync_operations, TransferEngine& transfer_engine)> _task;
+        std::function<std::vector<SyncObject>(SyncOperations, TransferEngine&, QueueSubmitTracker&)> _task;
         bool _started{ false };
         std::vector<SyncObject> _transfer_objects;
         Texture* _texture{ nullptr };
+        std::unique_ptr<QueueSubmitTracker> _submit_tracker;
     };
 
 }

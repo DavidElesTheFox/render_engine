@@ -190,8 +190,7 @@ namespace
         {
             {
                 auto& logical_device = _device.getLogicalDevice();
-                RenderEngine::SyncObject sync_object =
-                    RenderEngine::SyncObject::CreateWithFence(logical_device, 0);
+                RenderEngine::SyncObject sync_object(logical_device);
                 RenderEngine::Image image(std::filesystem::path{ IMAGE_BASE } / "statue.jpg");
                 auto texture = _device.getTextureFactory().create(image, VK_IMAGE_ASPECT_COLOR_BIT,
                                                                   VK_SHADER_STAGE_FRAGMENT_BIT,
@@ -203,7 +202,7 @@ namespace
                                                                   .setAccessFlag(VK_ACCESS_2_SHADER_READ_BIT));
                 // TODO remove this and do proper synchronization with render graph
                 _device.getDataTransferContext().synchronizeScheduler({});
-                sync_object.waitFence();
+                texture->getUploadTask()->wait();
 
                 auto billboard_material = _assets.getBaseMaterial<Assets::BillboardMaterial>();
                 _statue_texture = std::move(texture);
@@ -381,8 +380,7 @@ namespace
             ct_image_path_container.push_back(ct_base_path / std::format("IMG-0003-{:0>5d}.jpg", i + 1));
         }
 
-        RenderEngine::SyncObject sync_object =
-            RenderEngine::SyncObject::CreateWithFence(logical_device, 0);
+        RenderEngine::SyncObject sync_object(logical_device);
         RenderEngine::Image image_3d(ct_image_path_container);
 
         if (_use_ao)
@@ -397,7 +395,7 @@ namespace
                                                                       .setAccessFlag(VK_ACCESS_2_SHADER_READ_BIT));
             // TODO remove this and do proper synchronization with render graph
             _device.getDataTransferContext().synchronizeScheduler({});
-            sync_object.waitFence();
+            texture->getUploadTask()->wait();
             _ct_texture = std::move(texture);
 
         }
@@ -415,7 +413,7 @@ namespace
                                                               .setAccessFlag(VK_ACCESS_2_SHADER_READ_BIT));
             // TODO remove this and do proper synchronization with render graph
             _device.getDataTransferContext().synchronizeScheduler({});
-            sync_object.waitFence();
+            texture->getUploadTask()->wait();
             _ct_texture = std::move(texture);
 
 

@@ -281,15 +281,14 @@ namespace RenderEngine
             return {};
         }
 
-        return it->second.synchronization_object.getOperationsGroup(SyncGroups::kExternal)
-            .extract(~SyncOperations::ExtractFence);
+        return it->second.synchronization_object.getOperationsGroup(SyncGroups::kExternal);
     }
 
     void ImageStreamRenderer::destroy() noexcept
     {
         for (auto& upload_data : _upload_data | std::ranges::views::values)
         {
-            upload_data.synchronization_object = SyncObject::CreateEmpty(getLogicalDevice());
+            upload_data.synchronization_object = SyncObject(getLogicalDevice());
         }
     }
 
@@ -309,7 +308,7 @@ namespace RenderEngine
             auto it = _upload_data.find(upload_texture.get());
             if (it == _upload_data.end())
             {
-                SyncObject sync_objcet = SyncObject::CreateEmpty(logical_device);
+                SyncObject sync_objcet(logical_device);
 
                 sync_objcet.createSemaphore("copy-finished");
                 sync_objcet.addSignalOperationToGroup(SyncGroups::kInternal,

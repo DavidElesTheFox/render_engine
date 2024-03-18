@@ -26,23 +26,27 @@ namespace RenderEngine
                                             TextureState new_state,
                                             SingleShotCommandContext* src,
                                             SingleShotCommandContext* dst,
-                                            const SyncOperations& sync_operations);
+                                            const SyncOperations& sync_operations,
+                                            QueueSubmitTracker* submit_tracker = nullptr);
 
         [[nodiscard]]
         static SyncObject transferOwnership(Buffer* buffer,
                                             BufferState new_state,
                                             SingleShotCommandContext* src,
                                             SingleShotCommandContext* dst,
-                                            const SyncOperations& sync_operations);
+                                            const SyncOperations& sync_operations,
+                                            QueueSubmitTracker* submit_tracker = nullptr);
 
         [[nodiscard]]
         static SyncObject barrier(Texture& texture,
                                   SingleShotCommandContext& src,
-                                  const SyncOperations& sync_operations);
+                                  const SyncOperations& sync_operations,
+                                  QueueSubmitTracker* submit_tracker = nullptr);
         [[nodiscard]]
         static SyncObject barrier(Buffer* buffer,
                                   SingleShotCommandContext* src,
-                                  const SyncOperations& sync_operations);
+                                  const SyncOperations& sync_operations,
+                                  QueueSubmitTracker* submit_tracker = nullptr);
         explicit ResourceStateMachine(LogicalDevice& logical_device)
             : _logical_device(logical_device)
         {}
@@ -59,28 +63,30 @@ namespace RenderEngine
                                                 ResourceState auto new_state,
                                                 SingleShotCommandContext* src,
                                                 SingleShotCommandContext* dst,
-                                                const SyncOperations& sync_operations);
+                                                const SyncOperations& sync_operations,
+                                                QueueSubmitTracker* submit_tracker);
 
         static void ownershipTransformRelease(VkCommandBuffer src_command_buffer,
-                                              VkQueue src_queue,
-                                              LogicalDevice& logical_device,
-                                              ResourceStateHolder auto* texture,
-                                              const ResourceState auto& transition_state,
-                                              const SyncObject& transformation_sync_object,
-                                              const SyncOperations& external_operations);
-
-        static void ownershipTransformAcquire(VkCommandBuffer dst_command_buffer,
-                                              VkQueue dst_queue,
-                                              LogicalDevice& logical_device,
+                                              SingleShotCommandContext* command_context,
                                               ResourceStateHolder auto* texture,
                                               const ResourceState auto& transition_state,
                                               const SyncObject& transformation_sync_object,
                                               const SyncOperations& external_operations,
-                                              const std::function<void(VkCommandBuffer, ResourceStateMachine&)>& additional_command);
+                                              QueueSubmitTracker* submit_tracker);
+
+        static void ownershipTransformAcquire(VkCommandBuffer dst_command_buffer,
+                                              SingleShotCommandContext* command_context,
+                                              ResourceStateHolder auto* texture,
+                                              const ResourceState auto& transition_state,
+                                              const SyncObject& transformation_sync_object,
+                                              const SyncOperations& external_operations,
+                                              const std::function<void(VkCommandBuffer, ResourceStateMachine&)>& additional_command,
+                                              QueueSubmitTracker* submit_tracker);
 
         static SyncObject barrierImpl(ResourceStateHolder auto& resource,
                                       SingleShotCommandContext& src,
-                                      const SyncOperations& sync_operations);
+                                      const SyncOperations& sync_operations,
+                                      QueueSubmitTracker* submit_tracker);
 
         void commitChanges(VkCommandBuffer command_buffer, bool apply_state_change_on_objects);
 

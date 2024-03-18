@@ -28,7 +28,7 @@ void runOffScreenApplication()
 void runVolumeRendererDemo()
 {
     VolumeRendererDemo application;
-    constexpr bool use_ao = false;
+    constexpr bool use_ao = true;
     application.init(use_ao);
     application.run();
 }
@@ -37,7 +37,7 @@ int main()
 {
     try
     {
-        runDemoApplication();
+        runMultiWindowApplication();
         RenderEngine::RenderContext::context().reset();
         return 0;
     }

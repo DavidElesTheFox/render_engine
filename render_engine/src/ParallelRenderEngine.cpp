@@ -7,7 +7,9 @@ namespace RenderEngine
     using namespace RenderGraph;
     void ParallelRenderEngine::RenderGraphBuilder::addRenderNode(std::string name, std::unique_ptr<AbstractRenderer> renderer)
     {
-        _graph->addNode(std::make_unique<RenderNode>(std::move(name), _render_engine._render_context, std::move(renderer)));
+        // TODO add debug UI
+        constexpr bool enable_tracking = false;
+        _graph->addNode(std::make_unique<RenderNode>(std::move(name), _render_engine._render_context, std::move(renderer), enable_tracking));
     }
     void ParallelRenderEngine::RenderGraphBuilder::addTransferNode(std::string name)
     {
@@ -60,7 +62,8 @@ namespace RenderEngine
 
         for (auto& rendering_process : _rendering_processes)
         {
-            rendering_process->task_flow = task_flow_builder.createTaskflow(*_skeleton, rendering_process->execution_contexts);
+            rendering_process->task_flow = task_flow_builder.createTaskflow(*_skeleton,
+                                                                            rendering_process->execution_contexts);
         }
     }
 

@@ -62,7 +62,12 @@ namespace RenderEngine
     private:
         struct FrameData
         {
+            FrameData(LogicalDevice& logical_device)
+                : synch_render(logical_device)
+                , submit_tracker(logical_device)
+            {}
             SyncObject synch_render;
+            QueueSubmitTracker submit_tracker;
         };
         void initSynchronizationObjects();
         void handleEvents();

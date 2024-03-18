@@ -17,6 +17,11 @@ namespace RenderEngine
         }
     }
 
+    UploadTask::~UploadTask()
+    {
+        _submit_tracker->wait();
+    }
+
     void UploadTask::Storage::storeStagingData(VkBuffer buffer, VkDeviceMemory memory, LogicalDevice* logical_device)
     {
         _logical_device = logical_device;
@@ -28,10 +33,15 @@ namespace RenderEngine
     {
         return _started;
     }
+    void UploadTask::wait()
+    {
+        _submit_tracker->wait();
+    }
+
 
     void UploadTask::start(StartToken, SyncOperations in_operations, TransferEngine& transfer_engine)
     {
-        _transfer_objects = _task(in_operations, transfer_engine, _storage);
+        _transfer_objects = _task(in_operations, transfer_engine, _storage, *_submit_tracker);
         assert(_transfer_objects.empty() == false && "transfer must return at leas one sync objects to be able to wait for its finish");
         assert(_transfer_objects.back().getPrimitives().hasTimelineSemaphore(DataTransferScheduler::kDataTransferFinishSemaphoreName)
                && "The last object needs to have the timeline semaphore that can be waited");
@@ -42,6 +52,11 @@ namespace RenderEngine
         // TODO: Implement multi threaded upload
         assert(isStarted() && "Until the engine is not multi threaded the operation needs to be started before it is waited.");
         return _transfer_objects.back().getOperationsGroup(SyncGroups::kExternal);
+    }
+
+    DownloadTask::~DownloadTask()
+    {
+        _submit_tracker->wait();
     }
 
     bool DownloadTask::isStarted() const
@@ -56,7 +71,7 @@ namespace RenderEngine
 
     void DownloadTask::start(StartToken, SyncOperations in_operations, TransferEngine& transfer_engine)
     {
-        _transfer_objects = _task(in_operations, transfer_engine);
+        _transfer_objects = _task(in_operations, transfer_engine, *_submit_tracker);
         assert(_transfer_objects.empty() == false && "transfer must return at leas one sync objects to be able to wait for its finish");
         assert(_transfer_objects.back().getPrimitives().hasTimelineSemaphore(DataTransferScheduler::kDataTransferFinishSemaphoreName)
                && "The last object needs to have the timeline semaphore that can be waited");

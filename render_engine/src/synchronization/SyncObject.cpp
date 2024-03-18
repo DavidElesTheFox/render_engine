@@ -10,7 +10,7 @@ namespace RenderEngine
         auto it = _operation_groups.find(group_name);
         if (it == _operation_groups.end())
         {
-            it = _operation_groups.insert({ group_name, SyncOperations{ _primitives.getFence() } }).first;
+            it = _operation_groups.insert({ group_name, SyncOperations{ } }).first;
         }
         it->second.addSignalOperation(_primitives, semaphore_name, stage_mask);
     }
@@ -20,7 +20,7 @@ namespace RenderEngine
         auto it = _operation_groups.find(group_name);
         if (it == _operation_groups.end())
         {
-            it = _operation_groups.insert({ group_name, SyncOperations{ _primitives.getFence() } }).first;
+            it = _operation_groups.insert({ group_name, SyncOperations{ } }).first;
         }
         it->second.addSignalOperation(_primitives, semaphore_name, stage_mask, value);
     }
@@ -29,7 +29,7 @@ namespace RenderEngine
         auto it = _operation_groups.find(group_name);
         if (it == _operation_groups.end())
         {
-            it = _operation_groups.insert({ group_name, SyncOperations{ _primitives.getFence() } }).first;
+            it = _operation_groups.insert({ group_name, SyncOperations{ } }).first;
         }
         it->second.addWaitOperation(_primitives, semaphore_name, stage_mask);
     }
@@ -38,7 +38,7 @@ namespace RenderEngine
         auto it = _operation_groups.find(group_name);
         if (it == _operation_groups.end())
         {
-            it = _operation_groups.insert({ group_name, SyncOperations{ _primitives.getFence() } }).first;
+            it = _operation_groups.insert({ group_name, SyncOperations{ } }).first;
         }
         it->second.addWaitOperation(_primitives, semaphore_name, stage_mask, value);
     }
@@ -84,17 +84,6 @@ namespace RenderEngine
         return value % _primitives.getTimelineWidth(name);
     }
 
-    void SyncObject::waitFence()
-    {
-        _primitives.getLogicalDevice()->vkWaitForFences(*_primitives.getLogicalDevice(), 1, &_primitives.getFence(), VK_TRUE, UINT64_MAX);
-    }
-    void SyncObject::resetFence()
-    {
-        _primitives.getLogicalDevice()->vkResetFences(*_primitives.getLogicalDevice(), 1, &_primitives.getFence());
-
-    }
-
-
     void SyncObject::createSemaphore(std::string name)
     {
         _primitives.createSemaphore(std::move(name));
@@ -112,10 +101,9 @@ namespace RenderEngine
         }
     }
 
-    SyncObject::SyncObject(LogicalDevice& logical_device, bool create_with_fence, VkFenceCreateFlags create_flags)
-        : _primitives(create_with_fence ? SyncPrimitives::CreateWithFence(logical_device, create_flags)
-                      : SyncPrimitives::CreateEmpty(logical_device))
-        , _operation_groups{ { std::string(SyncGroups::kInternal), SyncOperations{_primitives.getFence()} },
-        { std::string(SyncGroups::kExternal), SyncOperations{_primitives.getFence()} } }
+    SyncObject::SyncObject(LogicalDevice& logical_device)
+        : _primitives(logical_device)
+        , _operation_groups{ { std::string(SyncGroups::kInternal), SyncOperations{} },
+        { std::string(SyncGroups::kExternal), SyncOperations{} } }
     {}
 }

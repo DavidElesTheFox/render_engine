@@ -129,7 +129,7 @@ void DemoApplication::onGui()
 void DemoApplication::createWindowSetup()
 {
     using namespace RenderEngine;
-    constexpr bool use_offscreen_rendering = false;
+    constexpr bool use_offscreen_rendering = true;
 
     if constexpr (use_offscreen_rendering)
     {

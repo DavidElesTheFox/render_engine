@@ -64,10 +64,10 @@ namespace RenderEngine
         {
             FrameData(LogicalDevice& logical_device)
                 : synch_render(logical_device)
-                , submit_tracker(logical_device)
+                , submit_tracker(std::make_unique<QueueSubmitTracker>(logical_device))
             {}
             SyncObject synch_render;
-            QueueSubmitTracker submit_tracker;
+            std::unique_ptr<QueueSubmitTracker> submit_tracker;
         };
         void initSynchronizationObjects();
         void handleEvents();

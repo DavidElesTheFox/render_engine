@@ -187,7 +187,7 @@ namespace RenderEngine
         if (_swap_chain_image_index == std::nullopt)
         {
             uint32_t image_index = 0;
-            frame_data.submit_tracker.wait();
+            frame_data.submit_tracker->wait();
             auto call_result = logical_device->vkAcquireNextImageKHR(*logical_device,
                                                                      _swap_chain->getDetails().swap_chain,
                                                                      UINT64_MAX,
@@ -207,14 +207,14 @@ namespace RenderEngine
             }
             _swap_chain_image_index = image_index;
         }
-        frame_data.submit_tracker.clear();
+        frame_data.submit_tracker->clear();
         _render_engine->onFrameBegin(renderers, *_swap_chain_image_index);
 
 
         bool draw_call_recorded = _render_engine->render(frame_data.synch_render.getOperationsGroup(SyncGroups::kInternal),
                                                          renderers,
                                                          *_swap_chain_image_index,
-                                                         &frame_data.submit_tracker);
+                                                         frame_data.submit_tracker.get());
         if (draw_call_recorded)
         {
             VkPresentInfoKHR presentInfo{};

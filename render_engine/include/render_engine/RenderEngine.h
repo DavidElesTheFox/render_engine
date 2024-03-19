@@ -2,11 +2,9 @@
 
 #include <volk.h>
 
-#include <render_engine/CommandContext.h>
 #include <render_engine/Device.h>
-#include <render_engine/GpuResourceManager.h>
+#include <render_engine/IRenderEngine.h>
 #include <render_engine/synchronization/SyncOperations.h>
-#include <render_engine/TransferEngine.h>
 
 #include <unordered_map>
 
@@ -17,7 +15,7 @@ namespace RenderEngine
 {
     class AbstractRenderer;
 
-    class RenderEngine
+    class RenderEngine : public IRenderEngine
     {
     public:
 
@@ -58,6 +56,7 @@ namespace RenderEngine
         TransferEngine& getTransferEngine() { return _transfer_engine; }
         CommandContext& getCommandContext() { return *_command_context; }
         SingleShotCommandContext& getTransferCommandContext();
+        Device& getDevice() { return _device; }
     private:
         std::vector<VkCommandBufferSubmitInfo> executeDrawCalls(const std::ranges::input_range auto& renderers,
                                                                 uint32_t image_index)

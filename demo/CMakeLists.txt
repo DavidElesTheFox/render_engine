@@ -22,7 +22,10 @@ src/WindowSetup.cpp
 src/VolumeRendererDemo.h
 src/VolmeRendererDemo.cpp
 src/DeviceSelector.h
-src/DeviceSelector.cpp)
+src/DeviceSelector.cpp 
+#src/ParallelDemoApplication.h
+#src/ParallelDemoApplication.cpp
+)
 
 set(RENDERING_SYSTEM_DEMO_SCENE_FILE
 src/scene/Camera.h

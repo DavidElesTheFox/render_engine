@@ -16,9 +16,8 @@ namespace RenderEngine
     public:
         static constexpr uint32_t kRendererId = 4u;
 
-        VolumeRenderer(IWindow& window,
-                       RenderTarget render_target,
-                       bool last_renderer);
+        VolumeRenderer(IRenderEngine& render_engine,
+                       RenderTarget render_target);
         ~VolumeRenderer() override = default;
         void onFrameBegin(uint32_t image_index) override;
         void addVolumeObject(const VolumetricObjectInstance* mesh_instance);

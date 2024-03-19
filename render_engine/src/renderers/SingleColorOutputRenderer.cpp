@@ -5,8 +5,8 @@
 
 namespace RenderEngine
 {
-    SingleColorOutputRenderer::SingleColorOutputRenderer(IWindow& window)
-        : _window(window)
+    SingleColorOutputRenderer::SingleColorOutputRenderer(IRenderEngine& render_engine)
+        : _render_engine(render_engine)
     {
 
     }
@@ -36,11 +36,11 @@ namespace RenderEngine
         {
             if (render_target.getTextureView(i).getTexture().getResourceState().command_context.expired())
             {
-                render_target.getTextureView(i).getTexture().setInitialCommandContext(_window.getRenderEngine().getTransferCommandContext().getWeakReference());
+                render_target.getTextureView(i).getTexture().setInitialCommandContext(_render_engine.getTransferCommandContext().getWeakReference());
             }
             else
             {
-                assert(render_target.getTextureView(i).getTexture().getResourceState().command_context.lock()->isCompatibleWith(_window.getRenderEngine().getCommandContext())
+                assert(render_target.getTextureView(i).getTexture().getResourceState().command_context.lock()->isCompatibleWith(_render_engine.getCommandContext())
                        && "The render target current context needs to be compatible with the current render engine command context");
             }
         }
@@ -48,7 +48,7 @@ namespace RenderEngine
 
     void SingleColorOutputRenderer::destroyRenderOutput()
     {
-        auto& logical_device = _window.getDevice().getLogicalDevice();
+        auto& logical_device = _render_engine.getDevice().getLogicalDevice();
 
         resetFrameBuffers();
 
@@ -56,7 +56,7 @@ namespace RenderEngine
     }
     void SingleColorOutputRenderer::createFrameBuffers(const RenderTarget& render_target, const std::vector<AttachmentInfo>& render_pass_attachments)
     {
-        auto& logical_device = _window.getDevice().getLogicalDevice();
+        auto& logical_device = _render_engine.getDevice().getLogicalDevice();
 
         _frame_buffers.resize(render_target.getTexturesCount());
         for (uint32_t i = 0; i < _frame_buffers.size(); ++i)
@@ -77,7 +77,7 @@ namespace RenderEngine
                                                       uint32_t frame_buffer_index,
                                                       const AttachmentInfo& render_pass_attachment)
     {
-        auto& logical_device = _window.getDevice().getLogicalDevice();
+        auto& logical_device = _render_engine.getDevice().getLogicalDevice();
 
         std::vector<VkImageView> attachments = {
                 render_target.getTextureView(frame_buffer_index).getImageView()
@@ -101,14 +101,14 @@ namespace RenderEngine
 
         for (uint32_t i = 0; i < _back_buffer.size(); ++i)
         {
-            VkCommandBuffer command_buffer = _window.getRenderEngine().getCommandContext().createCommandBuffer(i);
+            VkCommandBuffer command_buffer = _render_engine.getCommandContext().createCommandBuffer(i);
 
             _back_buffer[i].command_buffer = command_buffer;
         }
     }
     void SingleColorOutputRenderer::resetFrameBuffers()
     {
-        auto& logical_device = _window.getDevice().getLogicalDevice();
+        auto& logical_device = _render_engine.getDevice().getLogicalDevice();
 
         for (auto framebuffer : _frame_buffers)
         {

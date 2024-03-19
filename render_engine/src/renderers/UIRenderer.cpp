@@ -99,17 +99,17 @@ namespace RenderEngine
         }
 
 
-        VkRenderPass createRenderPass(const RenderTarget& render_target, LogicalDevice& logical_device, bool first_renderer)
+        VkRenderPass createRenderPass(const RenderTarget& render_target, LogicalDevice& logical_device)
         {
             VkAttachmentDescription color_attachment{};
             color_attachment.format = render_target.getImageFormat();
             color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-            color_attachment.loadOp = first_renderer ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
-            color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+            color_attachment.loadOp = render_target.getLoadOperation();
+            color_attachment.storeOp = render_target.getStoreOperation();
             color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
             color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-            color_attachment.initialLayout = first_renderer ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-            color_attachment.finalLayout = render_target.getLayout();
+            color_attachment.initialLayout = render_target.getInitialLayout();
+            color_attachment.finalLayout = render_target.getFinalLayout();
 
             VkAttachmentReference colorAttachmentRef{};
             colorAttachmentRef.attachment = 0;
@@ -187,9 +187,8 @@ namespace RenderEngine
 
     UIRenderer::UIRenderer(Window& window,
                            RenderTarget render_target,
-                           uint32_t back_buffer_size,
-                           bool first_renderer)
-        : SingleColorOutputRenderer(window)
+                           uint32_t back_buffer_size)
+        : SingleColorOutputRenderer(window.getRenderEngine())
     {
         _imgui_context_during_init = ImGui::GetCurrentContext();
         _imgui_context = ImGui::CreateContext();
@@ -208,7 +207,7 @@ namespace RenderEngine
 
         try
         {
-            auto render_pass = createRenderPass(render_target, logical_device, first_renderer);
+            auto render_pass = createRenderPass(render_target, logical_device);
             initializeRendererOutput(render_target, render_pass, back_buffer_size);
             _descriptor_pool = createDescriptorPool(logical_device);
 

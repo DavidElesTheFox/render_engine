@@ -250,6 +250,9 @@ namespace RenderEngine
         _details.extent.width,
         _details.extent.height,
         _details.image_format,
-        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR };
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+        VK_ATTACHMENT_LOAD_OP_CLEAR,
+        VK_ATTACHMENT_STORE_OP_STORE };
     }
 }

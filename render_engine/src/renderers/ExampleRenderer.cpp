@@ -61,17 +61,17 @@ namespace
         return buffer;
     }
 
-    VkRenderPass createRenderPass(const RenderTarget& render_target, LogicalDevice& logical_device, bool last_ExampleRenderer)
+    VkRenderPass createRenderPass(const RenderTarget& render_target, LogicalDevice& logical_device)
     {
         VkAttachmentDescription color_attachment{};
         color_attachment.format = render_target.getImageFormat();
         color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-        color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        color_attachment.loadOp = render_target.getLoadOperation();
+        color_attachment.storeOp = render_target.getStoreOperation();
         color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        color_attachment.finalLayout = last_ExampleRenderer ? render_target.getLayout() : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        color_attachment.initialLayout = render_target.getInitialLayout();
+        color_attachment.finalLayout = render_target.getFinalLayout();
 
         VkAttachmentReference colorAttachmentRef{};
         colorAttachmentRef.attachment = 0;
@@ -347,13 +347,12 @@ namespace
 
 namespace RenderEngine
 {
-    ExampleRenderer::ExampleRenderer(IWindow& window,
+    ExampleRenderer::ExampleRenderer(IRenderEngine& render_engine,
                                      const RenderTarget& render_target,
-                                     uint32_t back_buffer_size,
-                                     bool last_ExampleRenderer)
-        : _window(window)
+                                     uint32_t back_buffer_size)
+        : _render_engine(render_engine)
     {
-        auto& logical_device = window.getDevice().getLogicalDevice();
+        auto& logical_device = getLogicalDevice();
         auto [vert_shader, frag_shader] = loadShaders(logical_device, BASE_VERT_SHADER, BASE_FRAG_SHADER);
 
         try
@@ -361,7 +360,7 @@ namespace RenderEngine
             _descriptor_set_layout = createDescriptorSetLayout(logical_device);
             _descriptor_pool = createDescriptorPool(logical_device, back_buffer_size);
             _pipeline_layout = createPipelineLayout(logical_device, _descriptor_set_layout, vert_shader, frag_shader);
-            _render_pass = createRenderPass(render_target, logical_device, last_ExampleRenderer);
+            _render_pass = createRenderPass(render_target, logical_device);
             _pipeline = createGraphicsPipeline(logical_device, _render_pass, _pipeline_layout, vert_shader, frag_shader);
 
             _back_buffer.resize(back_buffer_size);
@@ -394,30 +393,30 @@ namespace RenderEngine
     {
         {
             VkDeviceSize size = sizeof(Vertex) * vertices.size();
-            _vertex_buffer = _window.getRenderEngine().getGpuResourceManager().createAttributeBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, size);
+            _vertex_buffer = _render_engine.getGpuResourceManager().createAttributeBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, size);
 
-            _window.getDevice().getDataTransferContext().getScheduler().upload(_vertex_buffer.get(),
-                                                                               std::span(vertices),
-                                                                               _window.getRenderEngine().getTransferCommandContext(),
-                                                                               _vertex_buffer->getResourceState().clone());
+            _render_engine.getDevice().getDataTransferContext().getScheduler().upload(_vertex_buffer.get(),
+                                                                                      std::span(vertices),
+                                                                                      _render_engine.getTransferCommandContext(),
+                                                                                      _vertex_buffer->getResourceState().clone());
         }
         {
             VkDeviceSize size = sizeof(uint16_t) * indicies.size();
-            _index_buffer = _window.getRenderEngine().getGpuResourceManager().createAttributeBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, size);
-            _window.getDevice().getDataTransferContext().getScheduler().upload(_index_buffer.get(),
-                                                                               std::span(indicies),
-                                                                               _window.getRenderEngine().getTransferCommandContext(),
-                                                                               _vertex_buffer->getResourceState().clone());
+            _index_buffer = _render_engine.getGpuResourceManager().createAttributeBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, size);
+            _render_engine.getDevice().getDataTransferContext().getScheduler().upload(_index_buffer.get(),
+                                                                                      std::span(indicies),
+                                                                                      _render_engine.getTransferCommandContext(),
+                                                                                      _vertex_buffer->getResourceState().clone());
         }
 
         std::vector<CoherentBuffer*> created_buffers;
         for (auto& frame_data : _back_buffer)
         {
-            frame_data.color_offset = _window.getRenderEngine().getGpuResourceManager().createUniformBuffer(sizeof(ColorOffset));
+            frame_data.color_offset = _render_engine.getGpuResourceManager().createUniformBuffer(sizeof(ColorOffset));
             created_buffers.push_back(frame_data.color_offset.get());
         }
 
-        auto descriptor_sets = createDescriptorSets(_window.getDevice().getLogicalDevice(),
+        auto descriptor_sets = createDescriptorSets(_render_engine.getDevice().getLogicalDevice(),
                                                     _descriptor_pool,
                                                     _descriptor_set_layout,
                                                     static_cast<uint32_t>(_back_buffer.size()),
@@ -488,7 +487,7 @@ namespace RenderEngine
 
     ExampleRenderer::~ExampleRenderer()
     {
-        auto& logical_device = _window.getDevice().getLogicalDevice();
+        auto& logical_device = getLogicalDevice();
 
         resetFrameBuffers();
 
@@ -501,7 +500,7 @@ namespace RenderEngine
     }
     void ExampleRenderer::resetFrameBuffers()
     {
-        auto& logical_device = _window.getDevice().getLogicalDevice();
+        auto& logical_device = getLogicalDevice();
 
         for (auto framebuffer : _frame_buffers)
         {
@@ -520,7 +519,7 @@ namespace RenderEngine
     }
     void ExampleRenderer::createFrameBuffers(const RenderTarget& render_target)
     {
-        auto& logical_device = _window.getDevice().getLogicalDevice();
+        auto& logical_device = getLogicalDevice();
 
         _frame_buffers.resize(render_target.getTexturesCount());
         for (uint32_t i = 0; i < _frame_buffers.size(); ++i)
@@ -538,7 +537,7 @@ namespace RenderEngine
     }
     bool ExampleRenderer::createFrameBuffer(const RenderTarget& render_target, uint32_t frame_buffer_index)
     {
-        auto& logical_device = _window.getDevice().getLogicalDevice();
+        auto& logical_device = getLogicalDevice();
 
         VkImageView attachments[] = {
                 render_target.getTextureView(frame_buffer_index).getImageView()
@@ -559,7 +558,7 @@ namespace RenderEngine
     {
         for (uint32_t i = 0; i < _back_buffer.size(); ++i)
         {
-            VkCommandBuffer command_buffer = _window.getRenderEngine().getCommandContext().createCommandBuffer(i);
+            VkCommandBuffer command_buffer = _render_engine.getCommandContext().createCommandBuffer(i);
 
             _back_buffer[i].command_buffer = command_buffer;
         }

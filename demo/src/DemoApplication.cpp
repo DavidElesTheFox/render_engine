@@ -81,20 +81,41 @@ void DemoApplication::initializeRenderers()
 
     std::unique_ptr<RendererFeactory> renderers = std::make_unique<RendererFeactory>();
     renderers->registerRenderer(UIRenderer::kRendererId,
-                                [](auto& window, auto render_target, uint32_t back_buffer_count, AbstractRenderer* previous_renderer, bool) -> std::unique_ptr<AbstractRenderer>
+                                [](auto& window, RenderTarget render_target, uint32_t back_buffer_count, AbstractRenderer* previous_renderer, bool) -> std::unique_ptr<AbstractRenderer>
                                 {
-                                    return std::make_unique<UIRenderer>(dynamic_cast<Window&>(window), render_target, back_buffer_count, previous_renderer == nullptr);
+                                    const bool first_renderer = previous_renderer == nullptr;
+                                    if (first_renderer)
+                                    {
+                                        render_target = render_target.clone()
+                                            .changeLoadOperation(VK_ATTACHMENT_LOAD_OP_CLEAR)
+                                            .changeInitialLayout(VK_IMAGE_LAYOUT_UNDEFINED);
+                                    }
+                                    else
+                                    {
+                                        render_target = render_target.clone()
+                                            .changeLoadOperation(VK_ATTACHMENT_LOAD_OP_LOAD)
+                                            .changeInitialLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+                                    }
+                                    return std::make_unique<UIRenderer>(dynamic_cast<Window&>(window), render_target, back_buffer_count);
                                 });
     renderers->registerRenderer(ForwardRenderer::kRendererId,
-                                [](auto& window, auto render_target, uint32_t, AbstractRenderer*, bool has_next) -> std::unique_ptr<AbstractRenderer>
+                                [](IWindow& window, RenderTarget render_target, uint32_t, AbstractRenderer*, bool last_renderer) -> std::unique_ptr<AbstractRenderer>
                                 {
-                                    return std::make_unique<ForwardRenderer>(window, render_target, has_next);
+                                    if (last_renderer == false)
+                                    {
+                                        render_target = render_target.clone().changeFinalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+                                    }
+                                    return std::make_unique<ForwardRenderer>(window.getRenderEngine(), render_target);
                                 });
     renderers->registerRenderer(ImageStreamRenderer::kRendererId,
-                                [](IWindow& window, auto render_target, uint32_t back_buffer_count, AbstractRenderer*, bool has_next) -> std::unique_ptr<AbstractRenderer>
+                                [](IWindow& window, auto render_target, uint32_t back_buffer_count, AbstractRenderer*, bool last_renderer) -> std::unique_ptr<AbstractRenderer>
                                 {
                                     assert(window.getTunnel() != nullptr && "No tunnel defined for the given window. Cannot connect with its origin's stream");
-                                    return std::make_unique<ImageStreamRenderer>(window, window.getTunnel()->getOriginWindow().getImageStream(), render_target, back_buffer_count, has_next);
+                                    if (last_renderer == false)
+                                    {
+                                        render_target = render_target.clone().changeFinalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+                                    }
+                                    return std::make_unique<ImageStreamRenderer>(window.getRenderEngine(), window.getTunnel()->getOriginWindow().getImageStream(), render_target, back_buffer_count);
 
                                 });
 

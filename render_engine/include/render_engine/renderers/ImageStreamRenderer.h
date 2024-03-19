@@ -12,11 +12,10 @@ namespace RenderEngine
     {
     public:
         static constexpr uint32_t kRendererId = 3u;
-        ImageStreamRenderer(IWindow& window,
+        ImageStreamRenderer(IRenderEngine& render_engine,
                             ImageStream& image_stream,
                             RenderTarget render_target,
-                            uint32_t back_buffer_size,
-                            bool last_renderer);
+                            uint32_t back_buffer_size);
         ~ImageStreamRenderer()
         {
             destroy();

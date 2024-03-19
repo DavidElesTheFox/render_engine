@@ -19,21 +19,20 @@
 
 namespace RenderEngine
 {
-    ForwardRenderer::ForwardRenderer(IWindow& window,
-                                     RenderTarget render_target,
-                                     bool last_renderer)
-        try : SingleColorOutputRenderer(window)
+    ForwardRenderer::ForwardRenderer(IRenderEngine& render_engine,
+                                     RenderTarget render_target)
+        try : SingleColorOutputRenderer(render_engine)
     {
 
         VkAttachmentDescription color_attachment{};
         color_attachment.format = render_target.getImageFormat();
         color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-        color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        color_attachment.loadOp = render_target.getLoadOperation();
+        color_attachment.storeOp = render_target.getStoreOperation();
         color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        color_attachment.finalLayout = last_renderer ? render_target.getLayout() : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        color_attachment.initialLayout = render_target.getInitialLayout();
+        color_attachment.finalLayout = render_target.getFinalLayout();
 
         VkAttachmentReference colorAttachmentRef{};
         colorAttachmentRef.attachment = 0;
@@ -52,13 +51,13 @@ namespace RenderEngine
         renderPassInfo.pSubpasses = &subpass;
         renderPassInfo.dependencyCount = 0;
 
-        auto& logical_device = window.getDevice().getLogicalDevice();
+        auto& logical_device = getLogicalDevice();
         VkRenderPass render_pass{ VK_NULL_HANDLE };
         if (logical_device->vkCreateRenderPass(*logical_device, &renderPassInfo, nullptr, &render_pass) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to create render pass!");
         }
-        initializeRendererOutput(render_target, render_pass, window.getRenderEngine().getGpuResourceManager().getBackBufferSize());
+        initializeRendererOutput(render_target, render_pass, getRenderEngine().getGpuResourceManager().getBackBufferSize());
     }
     catch (const std::exception&)
     {
@@ -72,7 +71,7 @@ namespace RenderEngine
     {
         const auto* mesh = mesh_instance->getMesh();
         const uint32_t material_instance_id = mesh_instance->getMaterialInstance()->getId();
-        auto& gpu_resource_manager = getWindow().getRenderEngine().getGpuResourceManager();
+        auto& gpu_resource_manager = getRenderEngine().getGpuResourceManager();
 
         if (_mesh_buffers.contains(mesh) == false)
         {
@@ -84,20 +83,20 @@ namespace RenderEngine
                 std::vector vertex_buffer = mesh->createVertexBuffer();
                 mesh_buffers.vertex_buffer = gpu_resource_manager.createAttributeBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                                                                                         vertex_buffer.size());
-                getWindow().getDevice().getDataTransferContext().getScheduler().upload(mesh_buffers.vertex_buffer.get(),
-                                                                                       std::span(vertex_buffer),
-                                                                                       getWindow().getRenderEngine().getTransferCommandContext(),
-                                                                                       mesh_buffers.vertex_buffer->getResourceState().clone());
+                getRenderEngine().getDevice().getDataTransferContext().getScheduler().upload(mesh_buffers.vertex_buffer.get(),
+                                                                                             std::span(vertex_buffer),
+                                                                                             getRenderEngine().getTransferCommandContext(),
+                                                                                             mesh_buffers.vertex_buffer->getResourceState().clone());
 
             }
             if (geometry.indexes.empty() == false)
             {
                 mesh_buffers.index_buffer = gpu_resource_manager.createAttributeBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
                                                                                        geometry.indexes.size() * sizeof(int16_t));
-                getWindow().getDevice().getDataTransferContext().getScheduler().upload(mesh_buffers.index_buffer.get(),
-                                                                                       std::span(geometry.indexes),
-                                                                                       getWindow().getRenderEngine().getTransferCommandContext(),
-                                                                                       mesh_buffers.index_buffer->getResourceState().clone());
+                getRenderEngine().getDevice().getDataTransferContext().getScheduler().upload(mesh_buffers.index_buffer.get(),
+                                                                                             std::span(geometry.indexes),
+                                                                                             getRenderEngine().getTransferCommandContext(),
+                                                                                             mesh_buffers.index_buffer->getResourceState().clone());
             }
             _mesh_buffers[mesh] = std::move(mesh_buffers);
         }

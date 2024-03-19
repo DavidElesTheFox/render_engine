@@ -109,18 +109,39 @@ void MultiWindowApplication::initEngine()
     renderers->registerRenderer(UIRenderer::kRendererId,
                                 [](auto& window, auto render_target, uint32_t back_buffer_count, AbstractRenderer* previous_renderer, bool) -> std::unique_ptr<AbstractRenderer>
                                 {
-                                    return std::make_unique<UIRenderer>(static_cast<Window&>(window), render_target, back_buffer_count, previous_renderer == nullptr);
+                                    const bool first_renderer = previous_renderer == nullptr;
+                                    if (first_renderer)
+                                    {
+                                        render_target = render_target.clone()
+                                            .changeLoadOperation(VK_ATTACHMENT_LOAD_OP_CLEAR)
+                                            .changeInitialLayout(VK_IMAGE_LAYOUT_UNDEFINED);
+                                    }
+                                    else
+                                    {
+                                        render_target = render_target.clone()
+                                            .changeLoadOperation(VK_ATTACHMENT_LOAD_OP_LOAD)
+                                            .changeInitialLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+                                    }
+                                    return std::make_unique<UIRenderer>(static_cast<Window&>(window), render_target, back_buffer_count);
                                 });
 
     renderers->registerRenderer(ExampleRenderer::kRendererId,
-                                [](auto& window, auto render_target, uint32_t back_buffer_count, AbstractRenderer*, bool has_next) -> std::unique_ptr<AbstractRenderer>
+                                [](auto& window, auto render_target, uint32_t back_buffer_count, AbstractRenderer*, bool last_renderer) -> std::unique_ptr<AbstractRenderer>
                                 {
-                                    return std::make_unique<ExampleRenderer>(window, render_target, back_buffer_count, has_next);
+                                    if (last_renderer == false)
+                                    {
+                                        render_target = render_target.clone().changeFinalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+                                    }
+                                    return std::make_unique<ExampleRenderer>(window.getRenderEngine(), render_target, back_buffer_count);
                                 });
     renderers->registerRenderer(ImageStreamRenderer::kRendererId,
-                                [&](auto& window, auto render_target, uint32_t back_buffer_count, AbstractRenderer*, bool has_next) -> std::unique_ptr<AbstractRenderer>
+                                [&](auto& window, auto render_target, uint32_t back_buffer_count, AbstractRenderer*, bool last_renderer) -> std::unique_ptr<AbstractRenderer>
                                 {
-                                    return std::make_unique<ImageStreamRenderer>(window, *_image_stream, render_target, back_buffer_count, has_next);
+                                    if (last_renderer == false)
+                                    {
+                                        render_target = render_target.clone().changeFinalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+                                    }
+                                    return std::make_unique<ImageStreamRenderer>(window.getRenderEngine(), *_image_stream, render_target, back_buffer_count);
                                 });
     constexpr bool enable_multiple_device_selection = kPrimaryDeviceIndex != kSecondaryDeviceIndex;
     DeviceSelector device_selector(enable_multiple_device_selection);

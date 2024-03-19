@@ -34,9 +34,8 @@ namespace RenderEngine
         };
     public:
         static constexpr uint32_t kRendererId = 2u;
-        ForwardRenderer(IWindow& window,
-                        RenderTarget render_target,
-                        bool last_renderer);
+        ForwardRenderer(IRenderEngine& render_engine,
+                        RenderTarget render_target);
         ~ForwardRenderer() override;
         void onFrameBegin(uint32_t image_index) override;
         void addMesh(const MeshInstance* mesh_instance);

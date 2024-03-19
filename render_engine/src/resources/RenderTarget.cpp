@@ -11,11 +11,17 @@ namespace RenderEngine
                                uint32_t width,
                                uint32_t height,
                                VkFormat image_format,
-                               VkImageLayout layout)
+                               VkImageLayout initial_layout,
+                               VkImageLayout final_layout,
+                               VkAttachmentLoadOp load_operation,
+                               VkAttachmentStoreOp store_operation)
         : _texture_views(std::move(texture_views))
         , _extent{ .width = width, .height = height }
         , _image_format(image_format)
-        , _layout(layout)
+        , _initial_layout(initial_layout)
+        , _final_layout(final_layout)
+        , _load_operation(load_operation)
+        , _store_operation(store_operation)
     {}
     const Image& RenderTarget::getImage(uint32_t index) const
     {

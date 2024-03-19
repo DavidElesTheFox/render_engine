@@ -30,10 +30,9 @@ namespace RenderEngine
             float r;
         };
 
-        ExampleRenderer(IWindow& window,
+        ExampleRenderer(IRenderEngine& render_engine,
                         const RenderTarget& render_target,
-                        uint32_t back_buffer_size,
-                        bool last_ExampleRenderer);
+                        uint32_t back_buffer_size);
 
         void init(const std::vector<Vertex>& vertices, const std::vector<uint16_t>& indicies);
         void onFrameBegin(uint32_t) override  final {}
@@ -72,8 +71,9 @@ namespace RenderEngine
         void resetFrameBuffers();
         void beforeReinit() override;
         void finalizeReinit(const RenderTarget& swap_chain) override final;
-        LogicalDevice& getLogicalDevice() { return _window.getDevice().getLogicalDevice(); }
-        IWindow& _window;
+        LogicalDevice& getLogicalDevice() { return _render_engine.getDevice().getLogicalDevice(); }
+
+        IRenderEngine& _render_engine;
         VkRenderPass _render_pass;
         VkPipelineLayout _pipeline_layout;
         VkPipeline _pipeline;

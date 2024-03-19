@@ -100,8 +100,8 @@ namespace RenderEngine
         }
     }
 
-    VolumeRenderer::VolumeRenderer(IWindow& window, RenderTarget render_target, bool last_renderer)
-        try : SingleColorOutputRenderer(window)
+    VolumeRenderer::VolumeRenderer(IRenderEngine& render_engine, RenderTarget render_target)
+        try : SingleColorOutputRenderer(render_engine)
         , _render_target(render_target)
 
     {
@@ -115,12 +115,12 @@ namespace RenderEngine
             VkAttachmentDescription& color_attachment = attachments[0];
             color_attachment.format = render_target.getImageFormat();
             color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-            color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-            color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+            color_attachment.loadOp = render_target.getLoadOperation();
+            color_attachment.storeOp = render_target.getStoreOperation();
             color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
             color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-            color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-            color_attachment.finalLayout = last_renderer ? render_target.getLayout() : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            color_attachment.initialLayout = render_target.getInitialLayout();
+            color_attachment.finalLayout = render_target.getFinalLayout();
         }
         {
             VkAttachmentDescription& front_face_attachment = attachments[1];
@@ -216,14 +216,14 @@ namespace RenderEngine
         renderPassInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());
         renderPassInfo.pDependencies = dependencies.data();
 
-        auto& logical_device = window.getDevice().getLogicalDevice();
+        auto& logical_device = getRenderEngine().getDevice().getLogicalDevice();
         VkRenderPass render_pass{ VK_NULL_HANDLE };
         if (logical_device->vkCreateRenderPass(*logical_device, &renderPassInfo, nullptr, &render_pass) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to create render pass!");
         }
 
-        const uint32_t back_buffer_size = window.getRenderEngine().getGpuResourceManager().getBackBufferSize();
+        const uint32_t back_buffer_size = getRenderEngine().getGpuResourceManager().getBackBufferSize();
 
         auto render_pass_attachments = createFrameBuffersAndAttachments(render_target);
 
@@ -257,26 +257,26 @@ namespace RenderEngine
 
 
         MeshBuffers mesh_buffers;
-        auto& gpu_resource_manager = getWindow().getRenderEngine().getGpuResourceManager();
+        auto& gpu_resource_manager = getRenderEngine().getGpuResourceManager();
         if (geometry.positions.empty() == false)
         {
             std::vector vertex_buffer = mesh->createVertexBuffer();
             mesh_buffers.vertex_buffer = gpu_resource_manager.createAttributeBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                                                                                     vertex_buffer.size());
-            getWindow().getDevice().getDataTransferContext().getScheduler().upload(mesh_buffers.vertex_buffer.get(),
-                                                                                   std::span(vertex_buffer),
-                                                                                   getWindow().getRenderEngine().getTransferCommandContext(),
-                                                                                   mesh_buffers.vertex_buffer->getResourceState().clone());
+            getRenderEngine().getDevice().getDataTransferContext().getScheduler().upload(mesh_buffers.vertex_buffer.get(),
+                                                                                         std::span(vertex_buffer),
+                                                                                         getRenderEngine().getTransferCommandContext(),
+                                                                                         mesh_buffers.vertex_buffer->getResourceState().clone());
 
         }
         if (geometry.indexes.empty() == false)
         {
             mesh_buffers.index_buffer = gpu_resource_manager.createAttributeBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
                                                                                    geometry.indexes.size() * sizeof(int16_t));
-            getWindow().getDevice().getDataTransferContext().getScheduler().upload(mesh_buffers.index_buffer.get(),
-                                                                                   std::span(geometry.indexes),
-                                                                                   getWindow().getRenderEngine().getTransferCommandContext(),
-                                                                                   mesh_buffers.index_buffer->getResourceState().clone());
+            getRenderEngine().getDevice().getDataTransferContext().getScheduler().upload(mesh_buffers.index_buffer.get(),
+                                                                                         std::span(geometry.indexes),
+                                                                                         getRenderEngine().getTransferCommandContext(),
+                                                                                         mesh_buffers.index_buffer->getResourceState().clone());
         }
         _mesh_buffers[mesh_instance->getMesh()] = std::move(mesh_buffers);
         if (mesh_instance->getVolumeMaterialInstance()->getVolumeMaterial().isRequireDistanceField())
@@ -436,9 +436,9 @@ namespace RenderEngine
 
         CudaCompute::DistanceFieldTask distance_field_task(CudaCompute::DistanceFieldTask::ExecutionParameters{ .thread_count_per_block = 512 });
 
-        assert(getWindow().getDevice().hasCudaDevice());
+        assert(getRenderEngine().getDevice().hasCudaDevice());
 
-        auto& cuda_device = getWindow().getDevice().getCudaDevice();
+        auto& cuda_device = getRenderEngine().getDevice().getCudaDevice();
         distance_field_task.execute(std::move(task_description),
                                     &cuda_device);
         mesh_group.tasks.emplace_back(std::move(distance_field_task));
@@ -533,7 +533,7 @@ namespace RenderEngine
         TechniqueData result;
 
 
-        auto& gpu_resource_manager = getWindow().getRenderEngine().getGpuResourceManager();
+        auto& gpu_resource_manager = getRenderEngine().getGpuResourceManager();
         const auto* material_instance = mesh.getVolumeMaterialInstance();
         auto front_face_material_data = material_instance->cloneForFrontFacePass(createPrePassFragmentShader(),
                                                                                  RenderContext::context().generateId());
@@ -661,7 +661,7 @@ namespace RenderEngine
 
     std::vector<VolumeRenderer::AttachmentInfo> VolumeRenderer::createFrameBuffersAndAttachments(const RenderTarget& render_target)
     {
-        auto& gpu_resource_manager = getWindow().getRenderEngine().getGpuResourceManager();
+        auto& gpu_resource_manager = getRenderEngine().getGpuResourceManager();
         const uint32_t back_buffer_size = gpu_resource_manager.getBackBufferSize();
 
         initializeFrameBuffers(back_buffer_size, render_target.getImage(0));

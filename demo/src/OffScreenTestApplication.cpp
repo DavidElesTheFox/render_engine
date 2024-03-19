@@ -77,9 +77,13 @@ void OffScreenTestApplication::initializeRenderers()
     std::unique_ptr<RendererFeactory> renderers = std::make_unique<RendererFeactory>();
 
     renderers->registerRenderer(ForwardRenderer::kRendererId,
-                                [&](auto& window, auto render_target, uint32_t, AbstractRenderer*, bool has_next) -> std::unique_ptr<AbstractRenderer>
+                                [&](auto& window, auto render_target, uint32_t, AbstractRenderer*, bool last_renderer) -> std::unique_ptr<AbstractRenderer>
                                 {
-                                    return std::make_unique<ForwardRenderer>(window, render_target, has_next);
+                                    if (last_renderer == false)
+                                    {
+                                        render_target = render_target.clone().changeFinalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+                                    }
+                                    return std::make_unique<ForwardRenderer>(window.getRenderEngine(), render_target);
                                 });
 
     DeviceSelector device_selector;

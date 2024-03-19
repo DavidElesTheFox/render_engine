@@ -142,7 +142,10 @@ namespace RenderEngine
             image_stream_description.width,
             image_stream_description.height,
             image_stream_description.format,
-            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            VK_ATTACHMENT_LOAD_OP_CLEAR,
+            VK_ATTACHMENT_STORE_OP_STORE
         };
     }
 

@@ -34,8 +34,7 @@ namespace RenderEngine
 
         UIRenderer(Window& window,
                    RenderTarget render_target,
-                   uint32_t back_buffer_size,
-                   bool first_renderer);
+                   uint32_t back_buffer_size);
         void onFrameBegin(uint32_t) override final {}
         void draw(uint32_t swap_chain_image_index) override final
         {

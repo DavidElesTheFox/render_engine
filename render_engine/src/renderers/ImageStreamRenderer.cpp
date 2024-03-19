@@ -162,11 +162,11 @@ namespace RenderEngine
  0x00000009,0x00000013,0x000100fd,0x00010038 }
         ;
     }
-    ImageStreamRenderer::ImageStreamRenderer(IWindow& window,
+    ImageStreamRenderer::ImageStreamRenderer(IRenderEngine& render_engine,
                                              ImageStream& image_stream,
                                              RenderTarget render_target,
-                                             uint32_t back_buffer_size, bool last_renderer)
-        try : SingleColorOutputRenderer(window)
+                                             uint32_t back_buffer_size)
+        try : SingleColorOutputRenderer(render_engine)
         , _image_stream(image_stream)
         , _image_cache(image_stream.getImageDescription().width,
                        image_stream.getImageDescription().height,
@@ -175,12 +175,12 @@ namespace RenderEngine
         VkAttachmentDescription color_attachment{};
         color_attachment.format = render_target.getImageFormat();
         color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-        color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        color_attachment.loadOp = render_target.getLoadOperation();
+        color_attachment.storeOp = render_target.getStoreOperation();
         color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        color_attachment.finalLayout = last_renderer ? render_target.getLayout() : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        color_attachment.initialLayout = render_target.getInitialLayout();
+        color_attachment.finalLayout = render_target.getFinalLayout();
 
         VkAttachmentReference colorAttachmentRef{};
         colorAttachmentRef.attachment = 0;
@@ -199,20 +199,20 @@ namespace RenderEngine
         renderPassInfo.pSubpasses = &subpass;
         renderPassInfo.dependencyCount = 0;
 
-        auto& logical_device = window.getDevice().getLogicalDevice();
+        auto& logical_device = getRenderEngine().getDevice().getLogicalDevice();
         VkRenderPass render_pass{ VK_NULL_HANDLE };
         if (logical_device->vkCreateRenderPass(*logical_device, &renderPassInfo, nullptr, &render_pass) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to create render pass!");
         }
-        initializeRendererOutput(render_target, render_pass, window.getRenderEngine().getGpuResourceManager().getBackBufferSize());
+        initializeRendererOutput(render_target, render_pass, getRenderEngine().getGpuResourceManager().getBackBufferSize());
 
         for (uint32_t i = 0; i < back_buffer_size; ++i)
         {
-            _texture_container.push_back(getWindow().getTextureFactory().createNoUpload(_image_cache,
-                                                                                        VK_IMAGE_ASPECT_COLOR_BIT,
-                                                                                        VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                                                        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT));
+            _texture_container.push_back(getRenderEngine().getDevice().getTextureFactory().createNoUpload(_image_cache,
+                                                                                                          VK_IMAGE_ASPECT_COLOR_BIT,
+                                                                                                          VK_SHADER_STAGE_FRAGMENT_BIT,
+                                                                                                          VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT));
         }
         {
             Shader::MetaData fragment_metadata{ .samplers = {{0, {.binding = 0, .update_frequency = Shader::MetaData::UpdateFrequency::PerFrame }}} };
@@ -243,7 +243,7 @@ namespace RenderEngine
                                                                     MaterialInstance::CallbackContainer{},
                                                                     material_id);
 
-            _technique = _material_instance->createTechnique(getWindow().getRenderEngine().getGpuResourceManager(),
+            _technique = _material_instance->createTechnique(getRenderEngine().getGpuResourceManager(),
                                                              {},
                                                              getRenderPass(),
                                                              0);
@@ -320,28 +320,28 @@ namespace RenderEngine
                                                     "copy-finished",
                                                     VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT); // TODO add as pipeline dependency
 
-                getWindow().getDevice().getDataTransferContext().getScheduler().upload(upload_texture.get(),
-                                                                                       _image_cache,
-                                                                                       getWindow().getRenderEngine().getTransferCommandContext(),
-                                                                                       upload_texture->getResourceState().clone()
-                                                                                       .setPipelineStage(VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT)
-                                                                                       .setAccessFlag(VK_ACCESS_2_SHADER_READ_BIT)
-                                                                                       .setImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
-                                                                                       sync_objcet.getOperationsGroup(SyncGroups::kInternal));
+                getRenderEngine().getDevice().getDataTransferContext().getScheduler().upload(upload_texture.get(),
+                                                                                             _image_cache,
+                                                                                             getRenderEngine().getTransferCommandContext(),
+                                                                                             upload_texture->getResourceState().clone()
+                                                                                             .setPipelineStage(VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT)
+                                                                                             .setAccessFlag(VK_ACCESS_2_SHADER_READ_BIT)
+                                                                                             .setImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+                                                                                             sync_objcet.getOperationsGroup(SyncGroups::kInternal));
 
                 _upload_data.insert(std::make_pair(upload_texture.get(),
                                                    UploadData(std::move(sync_objcet))));
             }
             else
             {
-                getWindow().getDevice().getDataTransferContext().getScheduler().upload(upload_texture.get(),
-                                                                                       _image_cache,
-                                                                                       getWindow().getRenderEngine().getTransferCommandContext(),
-                                                                                       upload_texture->getResourceState().clone()
-                                                                                       .setPipelineStage(VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT)
-                                                                                       .setAccessFlag(VK_ACCESS_2_SHADER_READ_BIT)
-                                                                                       .setImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
-                                                                                       it->second.synchronization_object.getOperationsGroup(SyncGroups::kInternal));
+                getRenderEngine().getDevice().getDataTransferContext().getScheduler().upload(upload_texture.get(),
+                                                                                             _image_cache,
+                                                                                             getRenderEngine().getTransferCommandContext(),
+                                                                                             upload_texture->getResourceState().clone()
+                                                                                             .setPipelineStage(VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT)
+                                                                                             .setAccessFlag(VK_ACCESS_2_SHADER_READ_BIT)
+                                                                                             .setImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+                                                                                             it->second.synchronization_object.getOperationsGroup(SyncGroups::kInternal));
             }
         }
         _draw_call_recorded = false;

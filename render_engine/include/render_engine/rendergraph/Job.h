@@ -27,11 +27,15 @@ namespace RenderEngine
                 ExecutionContext& operator=(ExecutionContext&&) noexcept = default;
 
                 uint32_t getRenderTargetIndex() const;
+                bool hasRenderTargetIndex() const;
                 void setRenderTargetIndex(uint32_t index);
 
                 void reset();
+                bool isDrawCallRecorded() const { return _draw_call_recorded.load(std::memory_order_relaxed); }
+                void setDrawCallRecorded(bool v) { _draw_call_recorded.store(v, std::memory_order_relaxed); }
             private:
                 std::optional<uint32_t> _render_target_index{ std::nullopt };
+                std::atomic_bool _draw_call_recorded{ false };
                 mutable std::shared_mutex _render_target_index_mutex;
             };
 

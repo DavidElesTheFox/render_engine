@@ -27,8 +27,8 @@ namespace RenderEngine::RenderGraph
         Graph& operator=(Graph&&) = default;
         Graph& operator=(const Graph&) = delete;
 
-        void addNode(std::unique_ptr<Node> node);
-        void addEdge(std::unique_ptr<Link> edge);
+        Node& addNode(std::unique_ptr<Node> node);
+        Link& addEdge(std::unique_ptr<Link> edge);
 
         void removeNode(const Node* node);
         void removeEdge(const Node* from, const Node* to);

@@ -31,7 +31,7 @@ namespace
         QuadSceneBuilder(Assets::AssetDatabase& assets,
                          Scene::Scene& scene,
                          RenderEngine::Device& device,
-                         RenderEngine::RenderEngine& render_engine)
+                         RenderEngine::IRenderEngine& render_engine)
             : _assets(assets)
             , _scene(scene)
             , _device(device)
@@ -66,7 +66,7 @@ namespace
         Scene::Scene& _scene;
         RenderEngine::Device& _device;
         std::unique_ptr<RenderEngine::Texture> _statue_texture;
-        RenderEngine::RenderEngine& _render_engine;
+        RenderEngine::IRenderEngine& _render_engine;
     };
     void QuadSceneBuilder::createGeometries()
     {
@@ -267,7 +267,7 @@ namespace
         VolumetricSceneBuilder(Assets::AssetDatabase& assets,
                                Scene::Scene& scene,
                                RenderEngine::Device& device,
-                               RenderEngine::RenderEngine& render_engine,
+                               RenderEngine::IRenderEngine& render_engine,
                                bool use_ao)
             : _assets(assets)
             , _scene(scene)
@@ -303,7 +303,7 @@ namespace
         Scene::Scene& _scene;
         RenderEngine::Device& _device;
         std::unique_ptr<RenderEngine::Texture> _ct_texture;
-        RenderEngine::RenderEngine& _render_engine;
+        RenderEngine::IRenderEngine& _render_engine;
         bool _use_ao{ false };
     };
 
@@ -448,7 +448,7 @@ namespace
 DemoSceneBuilder::CreationResult DemoSceneBuilder::buildSceneOfQuads(Assets::AssetDatabase& assets,
                                                                      Scene::Scene& scene,
                                                                      RenderEngine::Device& device,
-                                                                     RenderEngine::RenderEngine& render_engine)
+                                                                     RenderEngine::IRenderEngine& render_engine)
 {
     QuadSceneBuilder scene_builder(assets, scene, device, render_engine);
 
@@ -458,7 +458,7 @@ DemoSceneBuilder::CreationResult DemoSceneBuilder::buildSceneOfQuads(Assets::Ass
 DemoSceneBuilder::CreationResult DemoSceneBuilder::buildVolumetricScene(Assets::AssetDatabase& assets,
                                                                         Scene::Scene& scene,
                                                                         RenderEngine::Device& device,
-                                                                        RenderEngine::RenderEngine& render_engine,
+                                                                        RenderEngine::IRenderEngine& render_engine,
                                                                         bool use_ao)
 {
     VolumetricSceneBuilder scene_builder(assets, scene, device, render_engine, use_ao);

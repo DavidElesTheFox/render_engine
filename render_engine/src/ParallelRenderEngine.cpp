@@ -32,13 +32,15 @@ namespace RenderEngine
         auto node = std::make_unique<PresentNode>(std::move(name), swap_chain, _render_engine._present_context);
         _graph->addNode(std::move(node));
     }
-    void ParallelRenderEngine::RenderGraphBuilder::addCpuSyncLink(std::string from, std::string to, SyncObject&& sync_object)
+    ParallelRenderEngine::RenderGraphBuilder::GpuLinkBuilder ParallelRenderEngine::RenderGraphBuilder::addCpuSyncLink(const std::string& from, const std::string& to)
     {
-        _graph->addEdge(std::make_unique<Link>(_graph->findNode(from), _graph->findNode(to), LinkType::CpuSync, std::move(sync_object)));
+        auto& link = _graph->addEdge(std::make_unique<Link>(_graph->findNode(from), _graph->findNode(to), LinkType::CpuSync));
+        return GpuLinkBuilder(link);
     }
-    void ParallelRenderEngine::RenderGraphBuilder::addCpuAsyncLink(std::string from, std::string to, SyncObject&& sync_object)
+    ParallelRenderEngine::RenderGraphBuilder::GpuLinkBuilder ParallelRenderEngine::RenderGraphBuilder::addCpuAsyncLink(const std::string& from, const std::string& to)
     {
-        _graph->addEdge(std::make_unique<Link>(_graph->findNode(from), _graph->findNode(to), LinkType::CpuAsync, std::move(sync_object)));
+        auto& link = _graph->addEdge(std::make_unique<Link>(_graph->findNode(from), _graph->findNode(to), LinkType::CpuAsync));
+        return GpuLinkBuilder(link);
     }
 
     ParallelRenderEngine::RenderGraphBuilder ParallelRenderEngine::createRenderGraphBuilder(std::string graph_name)
@@ -63,7 +65,9 @@ namespace RenderEngine
         for (auto& rendering_process : _rendering_processes)
         {
             rendering_process->task_flow = task_flow_builder.createTaskflow(*_skeleton,
-                                                                            rendering_process->execution_contexts);
+                                                                            rendering_process->execution_contexts,
+                                                                            _device.getLogicalDevice(),
+                                                                            _gpu_resource_manager->getBackBufferSize());
         }
     }
 

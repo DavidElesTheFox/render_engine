@@ -23,8 +23,8 @@ src/VolumeRendererDemo.h
 src/VolmeRendererDemo.cpp
 src/DeviceSelector.h
 src/DeviceSelector.cpp 
-#src/ParallelDemoApplication.h
-#src/ParallelDemoApplication.cpp
+src/ParallelDemoApplication.h
+src/ParallelDemoApplication.cpp
 )
 
 set(RENDERING_SYSTEM_DEMO_SCENE_FILE

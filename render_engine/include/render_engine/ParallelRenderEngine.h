@@ -15,6 +15,27 @@ namespace RenderEngine
         class RenderGraphBuilder
         {
         public:
+            class SemaphoreValue
+            {
+            public:
+                explicit SemaphoreValue(uint64_t value);
+                explicit operator uint64_t();
+            private:
+                uint64_t _value{ 0 };
+            };
+            class GpuLinkBuilder
+            {
+            public:
+                explicit GpuLinkBuilder(RenderGraph::Link& link)
+                    : _link(link)
+                {}
+                GpuLinkBuilder&& attachGpuLink(VkPipelineStageFlagBits2 stage_mask)&&;
+                GpuLinkBuilder&& attachGpuLink(VkPipelineStageFlagBits2 stage_mask, uint64_t value)&&;
+                GpuLinkBuilder&& attachGpuLink(const std::string& signaled_semaphore_name, VkPipelineStageFlagBits2 wait_mask);
+                GpuLinkBuilder&& attachGpuLink(const std::string& signaled_semaphore_name, SemaphoreValue value);
+            private:
+                RenderGraph::Link& _link;
+            };
             friend class ParallelRenderEngine;
             ~RenderGraphBuilder() = default;
 
@@ -24,8 +45,8 @@ namespace RenderEngine
             void addCpuNode(std::string name, std::unique_ptr<RenderGraph::CpuNode::ICpuTask> task);
             void addPresentNode(std::string name, SwapChain& swap_chain);
 
-            void addCpuSyncLink(std::string from, std::string to, SyncObject&& sync_object);
-            void addCpuAsyncLink(std::string from, std::string to, SyncObject&& sync_object);
+            GpuLinkBuilder addCpuSyncLink(const std::string& from, const std::string& to);
+            GpuLinkBuilder addCpuAsyncLink(const std::string& from, const std::string& to);
 
             std::unique_ptr<RenderGraph::Graph> reset(std::string new_name)
             {
@@ -60,7 +81,7 @@ namespace RenderEngine
             tf::Executor executor;
             tf::Future<void> calling_token;
         };
-
+        Device& _device;
         std::shared_ptr<CommandContext> _render_context;
         std::shared_ptr<CommandContext> _present_context;
         std::shared_ptr<SingleShotCommandContext> _transfer_context;

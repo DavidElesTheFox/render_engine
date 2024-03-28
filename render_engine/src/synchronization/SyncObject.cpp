@@ -5,42 +5,40 @@
 
 namespace RenderEngine
 {
+    SyncOperationGroups RenderEngine::SyncOperationGroups::merge(const SyncOperationGroups& other) const
+    {
+        SyncOperationGroups result;
+        for (const auto& [key, value] : other._operation_groups)
+        {
+            auto it = _operation_groups.find(key);
+            if (it == _operation_groups.end())
+            {
+                continue;
+            }
+            result._operation_groups[key] = it->second.createUnionWith(value);
+        }
+    }
+
     void SyncObject::addSignalOperationToGroup(const std::string& group_name, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask)
     {
-        auto it = _operation_groups.find(group_name);
-        if (it == _operation_groups.end())
-        {
-            it = _operation_groups.insert({ group_name, SyncOperations{ } }).first;
-        }
-        it->second.addSignalOperation(_primitives, semaphore_name, stage_mask);
+        _operation_groups[group_name].addSignalOperation(_primitives, semaphore_name, stage_mask);
     }
 
     void SyncObject::addSignalOperationToGroup(const std::string& group_name, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask, uint64_t value)
     {
-        auto it = _operation_groups.find(group_name);
-        if (it == _operation_groups.end())
-        {
-            it = _operation_groups.insert({ group_name, SyncOperations{ } }).first;
-        }
-        it->second.addSignalOperation(_primitives, semaphore_name, stage_mask, value);
+        _operation_groups[group_name].addSignalOperation(_primitives, semaphore_name, stage_mask, value);
     }
     void SyncObject::addWaitOperationToGroup(const std::string& group_name, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask)
     {
-        auto it = _operation_groups.find(group_name);
-        if (it == _operation_groups.end())
-        {
-            it = _operation_groups.insert({ group_name, SyncOperations{ } }).first;
-        }
-        it->second.addWaitOperation(_primitives, semaphore_name, stage_mask);
+        _operation_groups[group_name].addWaitOperation(_primitives, semaphore_name, stage_mask);
     }
     void SyncObject::addWaitOperationToGroup(const std::string& group_name, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask, uint64_t value)
     {
-        auto it = _operation_groups.find(group_name);
-        if (it == _operation_groups.end())
-        {
-            it = _operation_groups.insert({ group_name, SyncOperations{ } }).first;
-        }
-        it->second.addWaitOperation(_primitives, semaphore_name, stage_mask, value);
+        _operation_groups[group_name].addWaitOperation(_primitives, semaphore_name, stage_mask, value);
+    }
+    void SyncObject::addSemaphoreForHostOperations(const std::string& group_name, const std::string& semaphore_name)
+    {
+        _operation_groups[group_name].getHostOperations().addSemaphore(_primitives, semaphore_name);
     }
     void SyncObject::signalSemaphore(const std::string& name, uint64_t value)
     {
@@ -55,7 +53,7 @@ namespace RenderEngine
             throw std::runtime_error("Couldn't signal semaphore: " + name);
         }
     }
-    void SyncObject::waitSemaphore(const std::string& name, uint64_t value)
+    void SyncObject::waitSemaphore(const std::string& name, uint64_t value) const
     {
         auto semaphore = _primitives.getSemaphore(name);
 
@@ -72,7 +70,7 @@ namespace RenderEngine
         }
     }
 
-    uint64_t RenderEngine::SyncObject::getSemaphoreValue(const std::string& name)
+    uint64_t RenderEngine::SyncObject::getSemaphoreValue(const std::string& name) const
     {
         auto semaphore = _primitives.getSemaphore(name);
 
@@ -95,15 +93,15 @@ namespace RenderEngine
     void SyncObject::stepTimeline(const std::string& name)
     {
         const uint64_t offset = _primitives.stepTimeline(name);
+        VkSemaphore semaphore = _primitives.getSemaphore(name);
         for (auto& sync_operation : _operation_groups | std::views::values)
         {
-            sync_operation.shiftTimelineSemaphoreValues(offset);
+            sync_operation.shiftTimelineSemaphoreValues(offset, semaphore);
         }
     }
 
     SyncObject::SyncObject(LogicalDevice& logical_device)
         : _primitives(logical_device)
-        , _operation_groups{ { std::string(SyncGroups::kInternal), SyncOperations{} },
-        { std::string(SyncGroups::kExternal), SyncOperations{} } }
+        , _operation_groups{ }
     {}
 }

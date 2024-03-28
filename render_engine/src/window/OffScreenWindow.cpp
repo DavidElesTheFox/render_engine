@@ -27,7 +27,7 @@ namespace RenderEngine
     }
 
     OffScreenWindow::OffScreenWindow(Device& device,
-                                     std::unique_ptr<RenderEngine>&& render_engine,
+                                     std::unique_ptr<IRenderEngine>&& render_engine,
                                      std::vector<std::unique_ptr<Texture>>&& textures)
         try : _device(device)
         , _render_engine(std::move(render_engine))
@@ -130,7 +130,7 @@ namespace RenderEngine
         _render_engine.reset();
     }
 
-    RenderTarget OffScreenWindow::createRenderTarget()
+    RenderTarget OffScreenWindow::createRenderTarget() const
     {
         std::vector<ITextureView*> image_views;
         for (auto& frame_data : _back_buffer)
@@ -168,15 +168,15 @@ namespace RenderEngine
             return;
         }
         auto renderers = _renderers | std::views::transform([](const auto& ptr) { return ptr.get(); });
-
-        _render_engine->onFrameBegin(renderers, getCurrentImageIndex());
+        auto& render_engine = dynamic_cast<RenderEngine&>(*_render_engine);
+        render_engine.onFrameBegin(renderers, getCurrentImageIndex());
 
         const std::string operation_group_name = frame_data.contains_image ? SyncGroups::kInternal : SyncGroups::kEmpty;
 
-        bool draw_call_submitted = _render_engine->render(frame_data.synch_render.getOperationsGroup(operation_group_name),
-                                                          _renderers | std::views::transform([](const auto& ptr) { return ptr.get(); }),
-                                                          getCurrentImageIndex(),
-                                                          nullptr);
+        bool draw_call_submitted = render_engine.render(frame_data.synch_render.getOperationsGroup(operation_group_name),
+                                                        _renderers | std::views::transform([](const auto& ptr) { return ptr.get(); }),
+                                                        getCurrentImageIndex(),
+                                                        nullptr);
         frame_data.contains_image = draw_call_submitted;
     }
     void OffScreenWindow::readBack()

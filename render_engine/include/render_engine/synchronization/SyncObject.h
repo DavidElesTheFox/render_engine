@@ -35,14 +35,14 @@ namespace RenderEngine
 
             Query&& select(const std::string& name)&&
             {
-                _operations = _sync_object.getOperationsGroup(name);
+                _operations = sync_object.getOperationsGroup(name);
                 return std::move(*this);
             }
             Query&& select(std::initializer_list<std::string> name_container)&&
             {
                 for (auto name : name_container)
                 {
-                    _operations = _operations.createUnionWith(_sync_object.getOperationsGroup(name));
+                    _operations = _operations.createUnionWith(sync_object.getOperationsGroup(name));
                 }
                 return std::move(*this);
             }
@@ -69,11 +69,11 @@ namespace RenderEngine
                 return _operations;
             }
         private:
-            Query(const SyncObject& sync_object)
-                : _sync_object(sync_object)
+            explicit Query(const SyncObject& sync_object)
+                : sync_object(sync_object)
             {}
 
-            const SyncObject& _sync_object;
+            const SyncObject& sync_object;
             SyncOperations _operations;
         };
 
@@ -87,17 +87,31 @@ namespace RenderEngine
 
         const SyncOperations& getOperationsGroup(const std::string& name) const { return _operation_groups.at(name); }
 
-        void addSignalOperationToGroup(const std::string& group_name, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask);
-        void addSignalOperationToGroup(const std::string& group_name, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask, uint64_t value);
+        void addSignalOperationToGroup(const std::string& group_name,
+                                       const std::string& semaphore_name,
+                                       VkPipelineStageFlags2 stage_mask);
+        void addSignalOperationToGroup(const std::string& group_name,
+                                       const std::string& semaphore_name,
+                                       VkPipelineStageFlags2 stage_mask,
+                                       uint64_t value);
 
-        void addWaitOperationToGroup(const std::string& group_name, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask);
+        void addWaitOperationToGroup(const std::string& group_name,
+                                     const std::string& semaphore_name,
+                                     VkPipelineStageFlags2 stage_mask);
 
-        void addWaitOperationToGroup(const std::string& group_name, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask, uint64_t value);
+        void addWaitOperationToGroup(const std::string& group_name,
+                                     const std::string& semaphore_name,
+                                     VkPipelineStageFlags2 stage_mask,
+                                     uint64_t value);
+
+        void addSemaphoreForHostOperations(const std::string& group_name,
+                                           const std::string& semaphore_name);
 
         void signalSemaphore(const std::string& name, uint64_t value);
 
-        void waitSemaphore(const std::string& name, uint64_t value);
-        uint64_t getSemaphoreValue(const std::string& name);
+        void waitSemaphore(const std::string& name, uint64_t value) const;
+        uint32_t waitSemaphore(const std::vector<std::string>& semaphore_names, uint64_t value) const;
+        uint64_t getSemaphoreValue(const std::string& name) const;
 
         const SyncPrimitives& getPrimitives() const { return _primitives; }
 
@@ -108,10 +122,10 @@ namespace RenderEngine
         void stepTimeline(const std::string& name);
 
         Query query() const { return Query::from(*this); }
-
     private:
 
         SyncPrimitives _primitives;
         std::unordered_map<std::string, SyncOperations> _operation_groups;
+
     };
 }

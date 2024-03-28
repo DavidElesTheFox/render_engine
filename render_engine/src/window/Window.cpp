@@ -30,7 +30,7 @@ struct NullRenderdocApi
 namespace RenderEngine
 {
     Window::Window(Device& device,
-                   std::unique_ptr<RenderEngine>&& render_engine,
+                   std::unique_ptr<IRenderEngine>&& render_engine,
                    GLFWwindow* window,
                    std::unique_ptr<SwapChain> swap_chain,
                    std::shared_ptr<CommandContext>&& present_context)
@@ -208,13 +208,14 @@ namespace RenderEngine
             _swap_chain_image_index = image_index;
         }
         frame_data.submit_tracker->clear();
-        _render_engine->onFrameBegin(renderers, *_swap_chain_image_index);
+        auto& render_engine = dynamic_cast<RenderEngine&>(*_render_engine);
+        render_engine.onFrameBegin(renderers, *_swap_chain_image_index);
 
 
-        bool draw_call_recorded = _render_engine->render(frame_data.synch_render.getOperationsGroup(SyncGroups::kInternal),
-                                                         renderers,
-                                                         *_swap_chain_image_index,
-                                                         frame_data.submit_tracker.get());
+        bool draw_call_recorded = render_engine.render(frame_data.synch_render.getOperationsGroup(SyncGroups::kInternal),
+                                                       renderers,
+                                                       *_swap_chain_image_index,
+                                                       frame_data.submit_tracker.get());
         if (draw_call_recorded)
         {
             VkPresentInfoKHR presentInfo{};

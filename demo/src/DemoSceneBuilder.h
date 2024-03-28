@@ -1,4 +1,5 @@
 #pragma once
+#include <render_engine/IRenderEngine.h>
 #include <render_engine/resources/Texture.h>
 
 #include <assets/AssetDatabase.h>
@@ -22,11 +23,11 @@ public:
     CreationResult buildSceneOfQuads(Assets::AssetDatabase& assets,
                                      Scene::Scene& scene,
                                      RenderEngine::Device& device,
-                                     RenderEngine::RenderEngine& render_engine);
+                                     RenderEngine::IRenderEngine& render_engine);
 
     CreationResult buildVolumetricScene(Assets::AssetDatabase& assets,
                                         Scene::Scene& scene,
                                         RenderEngine::Device& device,
-                                        RenderEngine::RenderEngine& render_engine,
+                                        RenderEngine::IRenderEngine& render_engine,
                                         bool use_ao);
 };

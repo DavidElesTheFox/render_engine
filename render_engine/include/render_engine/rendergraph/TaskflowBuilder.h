@@ -15,6 +15,9 @@ namespace RenderEngine::RenderGraph
     public:
         TaskflowBuilder() = default;
 
-        tf::Taskflow createTaskflow(Graph& graph, Job::ExecutionContext& execution_context);
+        tf::Taskflow createTaskflow(Graph& graph,
+                                    Job::ExecutionContext& execution_context,
+                                    LogicalDevice& logical_device,
+                                    uint32_t backbuffer_count);
     };
 }

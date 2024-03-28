@@ -6,6 +6,7 @@
 #include <render_engine/Device.h>
 #include <render_engine/RenderEngine.h>
 #include <render_engine/renderers/AbstractRenderer.h>
+#include <render_engine/resources/RenderTarget.h>
 #include <render_engine/synchronization/SyncObject.h>
 #include <render_engine/TransferEngine.h>
 #include <render_engine/window/IWindow.h>
@@ -28,7 +29,7 @@ namespace RenderEngine
 
         static constexpr std::array<const char*, 1> kDeviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
         Window(Device& device,
-               std::unique_ptr<RenderEngine>&& render_engine,
+               std::unique_ptr<IRenderEngine>&& render_engine,
                GLFWwindow* window,
                std::unique_ptr<SwapChain> swap_chain,
                std::shared_ptr<CommandContext>&& present_context);
@@ -42,7 +43,7 @@ namespace RenderEngine
         Device& getDevice() override final { return _device; }
         void enableRenderdocCapture() override final;
         void disableRenderdocCapture() override final;
-        RenderEngine& getRenderEngine()  override final { return *_render_engine; }
+        IRenderEngine& getRenderEngine()  override final { return *_render_engine; }
 
         GLFWwindow* getWindowHandle() { return _window; }
         template<typename T>
@@ -59,6 +60,10 @@ namespace RenderEngine
         void registerTunnel(WindowTunnel& tunnel) override final;
         WindowTunnel* getTunnel() override final;
         TextureFactory& getTextureFactory() final;
+        RenderTarget createRenderTarget() const final { return _swap_chain->createRenderTarget(); }
+        SwapChain& getSwapChain() { return *_swap_chain; }
+        void reinitSwapChain();
+
     private:
         struct FrameData
         {
@@ -73,11 +78,10 @@ namespace RenderEngine
         void handleEvents();
         void present();
         void present(FrameData& current_frame_data);
-        void reinitSwapChain();
         void destroy();
 
         Device& _device;
-        std::unique_ptr<RenderEngine> _render_engine;
+        std::unique_ptr<IRenderEngine> _render_engine;
         GLFWwindow* _window{ nullptr };
         std::unique_ptr<SwapChain> _swap_chain;
         std::shared_ptr<CommandContext> _present_context;

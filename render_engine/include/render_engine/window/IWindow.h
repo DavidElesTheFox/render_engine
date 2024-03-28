@@ -4,6 +4,7 @@
 namespace RenderEngine
 {
     class WindowTunnel;
+    class RenderTarget;
 
     class IWindow
     {
@@ -16,10 +17,11 @@ namespace RenderEngine
         virtual Device& getDevice() = 0;
         virtual void enableRenderdocCapture() = 0;
         virtual void disableRenderdocCapture() = 0;
-        virtual RenderEngine& getRenderEngine() = 0;
+        virtual IRenderEngine& getRenderEngine() = 0;
         virtual TextureFactory& getTextureFactory() = 0;
         virtual AbstractRenderer* findRenderer(uint32_t renderer_id) const = 0;
         virtual WindowTunnel* getTunnel() = 0;
         virtual void registerTunnel(WindowTunnel&) = 0;
+        virtual RenderTarget createRenderTarget() const = 0;
     };
 }

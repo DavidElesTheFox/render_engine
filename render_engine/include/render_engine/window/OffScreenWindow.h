@@ -14,7 +14,7 @@ namespace RenderEngine
 
     public:
         OffScreenWindow(Device& device,
-                        std::unique_ptr<RenderEngine>&& render_engine,
+                        std::unique_ptr<IRenderEngine>&& render_engine,
                         std::vector<std::unique_ptr<Texture>>&& textures);
         ~OffScreenWindow();
         void update() override final;
@@ -22,7 +22,7 @@ namespace RenderEngine
         Device& getDevice()  override final { return _device; }
         void enableRenderdocCapture() override final;
         void disableRenderdocCapture() override final;
-        RenderEngine& getRenderEngine()  override final { return *_render_engine; }
+        IRenderEngine& getRenderEngine()  override final { return *_render_engine; }
         bool isClosed() const override final { return false; }
 
         template<typename T>
@@ -42,6 +42,8 @@ namespace RenderEngine
         WindowTunnel* getTunnel() override final;
 
         TextureFactory& getTextureFactory() final;
+        RenderTarget createRenderTarget() const final;
+
     private:
         struct FrameData
         {
@@ -55,12 +57,11 @@ namespace RenderEngine
         void present(FrameData& current_frame_data) const;
         void readBack();
         void destroy();
-        RenderTarget createRenderTarget();
         uint32_t getCurrentImageIndex() const { return _current_render_target_index; }
         uint32_t getOldestImageIndex() const { return (_current_render_target_index + 1) % _back_buffer_size; }
 
         Device& _device;
-        std::unique_ptr<RenderEngine> _render_engine;
+        std::unique_ptr<IRenderEngine> _render_engine;
         std::vector<FrameData> _back_buffer;
         uint32_t _render_queue_family{ 0 };
 

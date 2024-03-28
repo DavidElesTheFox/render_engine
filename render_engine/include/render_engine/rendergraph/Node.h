@@ -4,7 +4,7 @@
 #include <render_engine/DataTransferScheduler.h>
 #include <render_engine/renderers/AbstractRenderer.h>
 #include <render_engine/rendergraph/Job.h>
-#include <render_engine/synchronization/SyncOperations.h>
+#include <render_engine/synchronization/SyncObject.h>
 #include <render_engine/TransferEngine.h>
 #include <render_engine/window/SwapChain.h>
 
@@ -34,7 +34,7 @@ namespace RenderEngine::RenderGraph
             return _name;
         }
 
-        virtual std::unique_ptr<Job> createJob(const SyncOperations& in_operations) = 0;
+        virtual std::unique_ptr<Job> createJob(const SyncObject& in_operations) = 0;
 
         virtual void accept(GraphVisitor&) = 0;
 
@@ -59,7 +59,7 @@ namespace RenderEngine::RenderGraph
 
         void accept(GraphVisitor& visitor) override;
 
-        std::unique_ptr<Job> createJob(const SyncOperations& in_operations) override;
+        std::unique_ptr<Job> createJob(const SyncObject& in_operations) override;
         bool isActive() const override { return true; }
     private:
         std::shared_ptr<CommandContext> _command_context;
@@ -78,7 +78,7 @@ namespace RenderEngine::RenderGraph
         ~TransferNode() override = default;
 
         DataTransferScheduler& getScheduler() { return _scheduler; }
-        std::unique_ptr<Job> createJob(const SyncOperations& in_operations) override;
+        std::unique_ptr<Job> createJob(const SyncObject& in_operations) override;
 
         void accept(GraphVisitor& visitor) override;
         bool isActive() const override;
@@ -95,7 +95,7 @@ namespace RenderEngine::RenderGraph
         public:
             virtual ~IComputeTask() = default;
             virtual bool isActive() const = 0;
-            virtual void run(const SyncOperations& in_operations, Job::ExecutionContext& execution_context) = 0;
+            virtual void run(const SyncObject& in_operations, Job::ExecutionContext& execution_context) = 0;
         };
         ComputeNode(std::string name,
                     std::unique_ptr<IComputeTask> compute_task)
@@ -104,7 +104,7 @@ namespace RenderEngine::RenderGraph
         {}
 
         ~ComputeNode() override = default;
-        std::unique_ptr<Job> createJob(const SyncOperations& in_operations) override;
+        std::unique_ptr<Job> createJob(const SyncObject& in_operations) override;
         bool isActive() const override { return _compute_task->isActive(); }
 
         void accept(GraphVisitor& visitor) override;
@@ -122,7 +122,7 @@ namespace RenderEngine::RenderGraph
             , _swap_chain(swap_chain)
             , _command_context(command_context)
         {}
-        std::unique_ptr<Job> createJob(const SyncOperations& in_operations) override;
+        std::unique_ptr<Job> createJob(const SyncObject& in_operations) override;
 
         void accept(GraphVisitor& visitor) final;
         bool isActive() const final { return true; }
@@ -139,14 +139,14 @@ namespace RenderEngine::RenderGraph
         {
         public:
             virtual ~ICpuTask() = default;
-            virtual void run(const SyncOperations& in_operations, Job::ExecutionContext& execution_context) = 0;
+            virtual void run(const SyncObject& in_operations, Job::ExecutionContext& execution_context) = 0;
             virtual bool isActive() const = 0;
         };
         CpuNode(std::string name, std::unique_ptr<ICpuTask> cpu_task)
             : Node(std::move(name))
             , _cpu_task(std::move(cpu_task))
         {}
-        std::unique_ptr<Job> createJob(const SyncOperations& in_operations) override;
+        std::unique_ptr<Job> createJob(const SyncObject& in_operations) override;
 
         void accept(GraphVisitor& visitor) final;
         bool isActive() const final { return _cpu_task->isActive(); }

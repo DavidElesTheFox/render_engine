@@ -32,6 +32,11 @@ namespace RenderEngine::RenderGraph
         std::shared_lock lock(_render_target_index_mutex);
         return *_render_target_index;
     }
+    bool Job::ExecutionContext::hasRenderTargetIndex() const
+    {
+        std::shared_lock lock(_render_target_index_mutex);
+        return _render_target_index != std::nullopt;
+    }
     void Job::ExecutionContext::setRenderTargetIndex(uint32_t index)
     {
         std::unique_lock lock(_render_target_index_mutex);
@@ -39,7 +44,10 @@ namespace RenderEngine::RenderGraph
     }
     void Job::ExecutionContext::reset()
     {
-        std::unique_lock lock(_render_target_index_mutex);
-        _render_target_index = std::nullopt;
+        if (isDrawCallRecorded())
+        {
+            std::unique_lock lock(_render_target_index_mutex);
+            _render_target_index = std::nullopt;
+        }
     }
 }

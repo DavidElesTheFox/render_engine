@@ -10,9 +10,14 @@ namespace RenderEngine::RenderGraph
         {
         public:
             VisitorForTaskCreation(Graph& graph,
-                                   Job::ExecutionContext& execution_context)
+                                   Job::ExecutionContext& execution_context,
+                                   LogicalDevice& logical_device,
+                                   uint32_t backbuffer_count)
                 : GraphVisitor(graph)
+                , _logical_device(logical_device)
+                , _backbuffer_size(backbuffer_count)
                 , _execution_context(execution_context)
+
             {}
 
             void visit(RenderNode* node) override { visitImpl(node); }
@@ -39,13 +44,13 @@ namespace RenderEngine::RenderGraph
             };
 
             void visitImpl(Node* node);
-            SyncOperations collectSyncOperationForNode(const Node* node) const
+            void collectSyncOperationForNode(const Node* node, SyncObject& sync_object) const
             {
+
                 if (node == nullptr)
                 {
-                    return {};
+                    return;
                 }
-                SyncOperations sync_operations;
                 for (auto* link : getGraph().findEdgesTo(node))
                 {
                     if (link->getFromNode() == nullptr)
@@ -54,20 +59,21 @@ namespace RenderEngine::RenderGraph
                     }
                     if (link->getFromNode()->isActive() == false)
                     {
-                        sync_operations = sync_operations.createUnionWith(collectSyncOperationForNode(link->getFromNode()));
+                        collectSyncOperationForNode(link->getFromNode(), sync_object);
                     }
                     else
                     {
-                        sync_operations = sync_operations.createUnionWith(link->getSyncObject().getOperationsGroup(SyncGroups::kExternal));
+                        link->addSyncOperationsForDestination(sync_object, _backbuffer_size);
                     }
                 }
                 for (auto* link : getGraph().findEdgesFrom(node))
                 {
-                    sync_operations = sync_operations.createUnionWith(link->getSyncObject().getOperationsGroup(SyncGroups::kInternal));
+                    link->addSyncOperationsForSource(sync_object, _backbuffer_size);
                 }
-                return sync_operations;
             }
 
+            LogicalDevice& _logical_device;
+            uint32_t _backbuffer_size{ 0 };
             Job::ExecutionContext& _execution_context;
             tf::Taskflow _task_container;
             std::unordered_map<std::string, TaskDetails> _task_map;
@@ -85,7 +91,7 @@ namespace RenderEngine::RenderGraph
             {
                 auto& task_later = _task_map.at(edge->getToNode()->getName());
 
-                std::vector<const Node*> all_node_before = getGraph().findAllPredecessors(edge->getFromNode(), LinkType::CpuAsync);
+                std::vector<const Node*> all_node_before = getGraph().findAllPredecessors(edge->getFromNode(), LinkType::CpuSync);
                 all_node_before.push_back(edge->getFromNode());
 
                 for (auto& node_before : all_node_before)
@@ -98,7 +104,7 @@ namespace RenderEngine::RenderGraph
             {
                 auto& task_before = _task_map.at(edge->getFromNode()->getName());
 
-                std::vector<const Node*> all_node_after = getGraph().findAllSuccessor(edge->getToNode(), LinkType::CpuAsync);
+                std::vector<const Node*> all_node_after = getGraph().findAllSuccessor(edge->getToNode(), LinkType::CpuSync);
                 all_node_after.push_back(edge->getToNode());
 
                 for (auto& node_after : all_node_after)
@@ -115,9 +121,11 @@ namespace RenderEngine::RenderGraph
             {
                 return;
             }
-
-            auto job = node->createJob(collectSyncOperationForNode(node));
+            SyncObject sync_object{ _logical_device };
+            collectSyncOperationForNode(node, sync_object);
+            auto job = node->createJob(sync_object.getOperationsGroups());
             auto tf_task = _task_container.emplace([job_to_execute = job.get(),
+                                                   stored_sync_object = std::move(sync_object),
                                                    &execution_context_for_job = _execution_context]
                                                    {
                                                        job_to_execute->execute(execution_context_for_job);
@@ -127,9 +135,12 @@ namespace RenderEngine::RenderGraph
     }
 
 
-    tf::Taskflow TaskflowBuilder::createTaskflow(Graph& graph, Job::ExecutionContext& execution_context)
+    tf::Taskflow TaskflowBuilder::createTaskflow(Graph& graph,
+                                                 Job::ExecutionContext& execution_context,
+                                                 LogicalDevice& logical_device,
+                                                 uint32_t backbuffer_count)
     {
-        VisitorForTaskCreation visitor(graph, execution_context);
+        VisitorForTaskCreation visitor(graph, execution_context, logical_device, backbuffer_count);
         visitor.run();
         return visitor.clear();
     }

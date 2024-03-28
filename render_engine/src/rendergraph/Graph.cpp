@@ -160,18 +160,22 @@ namespace RenderEngine::RenderGraph
         return found_link_it == it->second.end() ? nullptr : found_link_it->get();
     }
 
-    void Graph::addNode(std::unique_ptr<Node> node)
+    Node& Graph::addNode(std::unique_ptr<Node> node)
     {
+        Node& result = *node;
+
         std::lock_guard lock{ _staging_area_mutex };
         auto callback = [](GraphRepresentation& graph, std::unique_ptr<Node>&& node_to_add, const Node*)
             {
                 graph.addNode(std::move(node_to_add));
             };
         _add_node_commands.emplace_back(CommandWrapper<Node>{ std::move(callback), std::move(node) });
+        return result;
     }
 
-    void Graph::addEdge(std::unique_ptr<Link> edge)
+    Link& Graph::addEdge(std::unique_ptr<Link> edge)
     {
+        Link& result = *edge;
         std::lock_guard lock{ _staging_area_mutex };
         auto callback = [](GraphRepresentation& graph, std::unique_ptr<Link>&& link_to_add, const Link*)
             {
@@ -179,6 +183,7 @@ namespace RenderEngine::RenderGraph
             };
 
         _add_edge_commands.emplace_back(CommandWrapper<Link>{ std::move(callback), std::move(edge) });
+        return result;
     }
 
     void Graph::removeNode(const Node* node)

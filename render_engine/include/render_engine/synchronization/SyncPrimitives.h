@@ -34,12 +34,12 @@ namespace RenderEngine
 
         LogicalDevice& getLogicalDevice() const { return *_logical_device; }
 
-        uint64_t getTimelineOffset(const std::string& name)
+        uint64_t getTimelineOffset(const std::string& name) const
         {
             return _timeline_data.at(name).timeline_offset;
         }
 
-        uint64_t getTimelineWidth(const std::string& name)
+        uint64_t getTimelineWidth(const std::string& name) const
         {
             return _timeline_data.at(name).timeline_width;
         }

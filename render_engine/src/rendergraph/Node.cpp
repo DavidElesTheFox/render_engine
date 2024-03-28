@@ -11,12 +11,12 @@ namespace RenderEngine::RenderGraph
     {
         visitor.visit(this);
     }
-    std::unique_ptr<Job> RenderNode::createJob(const SyncOperations& in_operations)
+    std::unique_ptr<Job> RenderNode::createJob(const SyncObject& in_operation_group)
     {
-        auto callback = [=](Job::ExecutionContext& execution_context, QueueSubmitTracker* queue_tracker)
+        auto callback = [&](Job::ExecutionContext& execution_context, QueueSubmitTracker* queue_tracker)
             {
-                auto render_target_image_index = execution_context.getRenderTargetIndex();
-
+                const auto render_target_image_index = execution_context.getRenderTargetIndex();
+                const auto& in_operations = in_operation_group.getOperationsGroup(Link::syncGroup(render_target_image_index));
                 _renderer->draw(render_target_image_index);
                 std::vector<VkCommandBufferSubmitInfo> command_buffer_infos;
 
@@ -52,16 +52,14 @@ namespace RenderEngine::RenderGraph
                 }
             };
         std::unique_ptr<QueueSubmitTracker> tracker;
-        if (_enable_tracking)
-        {
-            tracker = std::make_unique<QueueSubmitTracker>(_command_context->getLogicalDevice());
-        }
         return std::make_unique<Job>(getName(), std::move(callback), std::move(tracker));
     }
-    std::unique_ptr<Job> TransferNode::createJob(const SyncOperations& in_operations)
+    std::unique_ptr<Job> TransferNode::createJob(const SyncObject& in_operation_group)
     {
-        auto callback = [=](Job::ExecutionContext&, QueueSubmitTracker*)
+        auto callback = [&](Job::ExecutionContext& execution_context, QueueSubmitTracker*)
             {
+                const auto render_target_image_index = execution_context.getRenderTargetIndex();
+                const auto& in_operations = in_operation_group.getOperationsGroup(Link::syncGroup(render_target_image_index));
                 _scheduler.executeTasks(in_operations, _transfer_engine);
             };
         return std::make_unique<Job>(getName(), std::move(callback));
@@ -75,11 +73,11 @@ namespace RenderEngine::RenderGraph
         return _scheduler.hasAnyTask();
     }
 
-    std::unique_ptr<Job> ComputeNode::createJob(const SyncOperations& in_operations)
+    std::unique_ptr<Job> ComputeNode::createJob(const SyncObject& in_operation_group)
     {
-        auto callback = [=](Job::ExecutionContext& execution_context, QueueSubmitTracker*)
+        auto callback = [&](Job::ExecutionContext& execution_context, QueueSubmitTracker*)
             {
-                _compute_task->run(in_operations, execution_context);
+                _compute_task->run(in_operation_group, execution_context);
             };
         return std::make_unique<Job>(getName(), std::move(callback));
 
@@ -90,11 +88,12 @@ namespace RenderEngine::RenderGraph
         visitor.visit(this);
     }
 
-    std::unique_ptr<Job> PresentNode::createJob(const SyncOperations& in_operations)
+    std::unique_ptr<Job> PresentNode::createJob(const SyncObject& in_operation_group)
     {
-        auto callback = [=](Job::ExecutionContext& execution_context, QueueSubmitTracker*)
+        auto callback = [&](Job::ExecutionContext& execution_context, QueueSubmitTracker*)
             {
-                auto render_target_image_index = execution_context.getRenderTargetIndex();
+                const auto render_target_image_index = execution_context.getRenderTargetIndex();
+                const auto& in_operations = in_operation_group.getOperationsGroup(Link::syncGroup(render_target_image_index));
 
                 VkPresentInfoKHR present_info{};
                 present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -114,9 +113,9 @@ namespace RenderEngine::RenderGraph
         visitor.visit(this);
     }
 
-    std::unique_ptr<Job> CpuNode::createJob(const SyncOperations& in_operations)
+    std::unique_ptr<Job> CpuNode::createJob(const SyncObject& in_operations)
     {
-        auto callback = [=](Job::ExecutionContext& execution_context, QueueSubmitTracker*)
+        auto callback = [&](Job::ExecutionContext& execution_context, QueueSubmitTracker*)
             {
                 _cpu_task->run(in_operations, execution_context);
             };

@@ -1,67 +1,29 @@
 #pragma once
 
 #include <render_engine/CommandContext.h>
+#include <render_engine/containers/VariantOverloaded.h>
 #include <render_engine/rendergraph/Graph.h>
+#include <render_engine/rendergraph/RenderGraphBuilder.h>
 #include <render_engine/window/IWindow.h>
 
 #pragma warning(push, 0)
 #include <taskflow/taskflow.hpp>
 #pragma warning(pop)
+
+#include <tuple>
+#include <format>
 namespace RenderEngine
 {
     class ParallelRenderEngine
     {
     public:
-        class RenderGraphBuilder
-        {
-        public:
-            class SemaphoreValue
-            {
-            public:
-                explicit SemaphoreValue(uint64_t value);
-                explicit operator uint64_t();
-            private:
-                uint64_t _value{ 0 };
-            };
-            class GpuLinkBuilder
-            {
-            public:
-                explicit GpuLinkBuilder(RenderGraph::Link& link)
-                    : _link(link)
-                {}
-                GpuLinkBuilder&& attachGpuLink(VkPipelineStageFlagBits2 stage_mask)&&;
-                GpuLinkBuilder&& attachGpuLink(VkPipelineStageFlagBits2 stage_mask, uint64_t value)&&;
-                GpuLinkBuilder&& attachGpuLink(const std::string& signaled_semaphore_name, VkPipelineStageFlagBits2 wait_mask);
-                GpuLinkBuilder&& attachGpuLink(const std::string& signaled_semaphore_name, SemaphoreValue value);
-            private:
-                RenderGraph::Link& _link;
-            };
-            friend class ParallelRenderEngine;
-            ~RenderGraphBuilder() = default;
 
-            void addRenderNode(std::string name, std::unique_ptr<AbstractRenderer> renderer);
-            void addTransferNode(std::string name);
-            void addComputeNode(std::string name, std::unique_ptr<RenderGraph::ComputeNode::IComputeTask> task);
-            void addCpuNode(std::string name, std::unique_ptr<RenderGraph::CpuNode::ICpuTask> task);
-            void addPresentNode(std::string name, SwapChain& swap_chain);
-
-            GpuLinkBuilder addCpuSyncLink(const std::string& from, const std::string& to);
-            GpuLinkBuilder addCpuAsyncLink(const std::string& from, const std::string& to);
-
-            std::unique_ptr<RenderGraph::Graph> reset(std::string new_name)
-            {
-                auto result = std::move(_graph);
-                _graph = std::make_unique<RenderGraph::Graph>(std::move(new_name));
-                return result;
-            }
-        private:
-            explicit RenderGraphBuilder(std::string name, ParallelRenderEngine& render_engine);
-
-            std::unique_ptr<RenderGraph::Graph> _graph;
-            ParallelRenderEngine& _render_engine;
-        };
-
-        RenderGraphBuilder createRenderGraphBuilder(std::string graph_name);
+        ParallelRenderEngine(Device& device,
+                             std::shared_ptr<SingleShotCommandContext>&& transfer_context,
+                             std::shared_ptr<CommandContext>&& render_context,
+                             std::shared_ptr<CommandContext>&& present_context,
+                             uint32_t back_buffer_count);
+        RenderGraph::RenderGraphBuilder createRenderGraphBuilder(std::string graph_name);
         void setRenderGraph(std::unique_ptr<RenderGraph::Graph> render_graph);
 
         void render();

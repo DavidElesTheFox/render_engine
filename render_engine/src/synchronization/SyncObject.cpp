@@ -5,20 +5,6 @@
 
 namespace RenderEngine
 {
-    SyncOperationGroups RenderEngine::SyncOperationGroups::merge(const SyncOperationGroups& other) const
-    {
-        SyncOperationGroups result;
-        for (const auto& [key, value] : other._operation_groups)
-        {
-            auto it = _operation_groups.find(key);
-            if (it == _operation_groups.end())
-            {
-                continue;
-            }
-            result._operation_groups[key] = it->second.createUnionWith(value);
-        }
-    }
-
     void SyncObject::addSignalOperationToGroup(const std::string& group_name, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask)
     {
         _operation_groups[group_name].addSignalOperation(_primitives, semaphore_name, stage_mask);

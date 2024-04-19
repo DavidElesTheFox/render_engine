@@ -1,9 +1,10 @@
 #pragma once
 
+#include <render_engine/rendergraph/DependentName.h>
 #include <render_engine/synchronization/SyncObject.h>
 
-#include <format>
-
+#include <functional>
+#include <variant>
 namespace RenderEngine::RenderGraph
 {
     class Node;
@@ -20,6 +21,28 @@ namespace RenderEngine::RenderGraph
     {
     public:
         static std::string syncGroup(uint32_t render_target_index) { return std::vformat("group:{:d}", std::make_format_args(render_target_index)); }
+        struct PipelineConnection
+        {
+            PipelineConnection(std::string semaphore_name,
+                               VkPipelineStageFlags2 signal_stage,
+                               VkPipelineStageFlags2 wait_stage,
+                               std::optional<uint64_t> value);
+            std::string semaphore_name;
+            VkPipelineStageFlags2 signal_stage{ VK_PIPELINE_STAGE_2_NONE };
+            VkPipelineStageFlagBits2 wait_stage{ VK_PIPELINE_STAGE_2_NONE };
+            std::optional<uint64_t> value{ 0 };
+        };
+        struct ExternalConnection
+        {
+
+            ExternalConnection(std::string signaled_semaphore_name,
+                               VkPipelineStageFlags2 wait_stage,
+                               std::optional<uint64_t> value);
+            std::string signaled_semaphore_name;
+            VkPipelineStageFlagBits2 wait_stage{ VK_PIPELINE_STAGE_2_NONE };
+            std::optional<uint64_t> value{ 0 };
+        };
+
         Link(const Node* from, const Node* to, LinkType type)
             : _from_node(from)
             , _to_node(to)
@@ -38,40 +61,23 @@ namespace RenderEngine::RenderGraph
         const Node* getFromNode() const { return _from_node; }
         const Node* getToNode() const { return _to_node; }
 
-        void addConnection(VkPipelineStageFlags2 signal_stage, VkPipelineStageFlags2 wait_stage)
+        void addConnection(PipelineConnection connection)
         {
-            _connections.emplace_back(signal_stage, wait_stage);
+            _connections.emplace_back(std::move(connection));
         }
-        void addConnection(const std::string& signaled_semaphore_name, VkPipelineStageFlags2 wait_stage)
+        void addConnection(ExternalConnection connection)
         {
-            _connections.emplace_back(wait_stage);
+            _connections.emplace_back(std::move(connection));
         }
 
-        void addSyncOperationsForSource(SyncObject& sync_object, uint32_t back_buffer_size) const;
-        void addSyncOperationsForDestination(SyncObject& sync_object, uint32_t back_buffer_size) const;
+        void forEachConnections(const std::function<void(const PipelineConnection&)>& callback_pipeline,
+                                const std::function<void(const ExternalConnection&)>& callback_external) const;
 
     private:
-        struct Connection
-        {
-            Connection(VkPipelineStageFlags2 signal_stage,
-                       VkPipelineStageFlags2 wait_stage)
-                : signal_stage(signal_stage)
-                , signaled_semaphore_name(std::nullopt)
-                , wait_stage(wait_stage)
-            {}
-            Connection(const std::string& signaled_semaphore_name,
-                       VkPipelineStageFlags2 wait_stage)
-                : signal_stage(std::nullopt)
-                , signaled_semaphore_name(signaled_semaphore_name)
-                , wait_stage(wait_stage)
-            {}
-            std::optional<VkPipelineStageFlags2> signal_stage{ VK_PIPELINE_STAGE_2_NONE };
-            std::optional<std::string> signaled_semaphore_name;
-            VkPipelineStageFlagBits2 wait_stage{ VK_PIPELINE_STAGE_2_NONE };
-        };
+
         LinkType _type{ LinkType::Unknown };
         const Node* _from_node{ nullptr };
         const Node* _to_node{ nullptr };
-        std::vector<Connection> _connections;
+        std::vector<std::variant<PipelineConnection, ExternalConnection>> _connections;
     };
 }

@@ -1,6 +1,9 @@
 #pragma once
 
+#include <render_engine/synchronization/SyncObject.h>
+
 #include <functional>
+#include <memory>
 #include <optional>
 #include <shared_mutex>
 #include <string>
@@ -18,7 +21,7 @@ namespace RenderEngine
             class ExecutionContext
             {
             public:
-                ExecutionContext() = default;
+                explicit ExecutionContext(std::vector<std::unique_ptr<const SyncObject>>);
 
                 ExecutionContext(const ExecutionContext&) noexcept = delete;
                 ExecutionContext(ExecutionContext&&) noexcept = default;
@@ -33,10 +36,13 @@ namespace RenderEngine
                 void reset();
                 bool isDrawCallRecorded() const { return _draw_call_recorded.load(std::memory_order_relaxed); }
                 void setDrawCallRecorded(bool v) { _draw_call_recorded.store(v, std::memory_order_relaxed); }
+                const SyncObject& getSyncObject(uint32_t render_target_index) const;
+                std::vector<const SyncObject*> getAllSyncObject() const;
             private:
                 std::optional<uint32_t> _render_target_index{ std::nullopt };
                 std::atomic_bool _draw_call_recorded{ false };
                 mutable std::shared_mutex _render_target_index_mutex;
+                std::vector<std::unique_ptr<const SyncObject>> _sync_objects;
             };
 
 

@@ -11,6 +11,7 @@ namespace RenderEngine::RenderGraph
     class CpuNode;
     class Link;
 
+    // TODO: Make a concept for this
     class GraphVisitor
     {
     public:

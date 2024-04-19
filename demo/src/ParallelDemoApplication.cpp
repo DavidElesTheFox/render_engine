@@ -18,14 +18,6 @@ namespace
     class ImageAcquireTask : public rg::CpuNode::ICpuTask
     {
     public:
-        static std::string imageAvailableSemaphore(uint32_t index)
-        {
-            return std::vformat("image-available-{:d}", std::make_format_args(index));
-        }
-        static std::string renderFinishedSemaphore(uint32_t index)
-        {
-            return std::vformat("image-available-{:d}", std::make_format_args(index));
-        }
 
         ImageAcquireTask(RenderEngine::Window& window, RenderEngine::LogicalDevice& logical_device, uint32_t back_buffer_count)
             : _window(window)
@@ -54,12 +46,12 @@ namespace
                 std::vector<std::string> all_render_finished_semaphore;
                 for (uint32_t i = 0; i < _backbuffer_count; ++i)
                 {
-                    all_render_finished_semaphore.push_back(renderFinishedSemaphore(i));
+                    all_render_finished_semaphore.push_back(_render_finished_semaphore.getName().getName(i));
                 }
                 uint32_t available_index = in_operations.waitSemaphore(all_render_finished_semaphore, 1);
                 auto [call_result, image_index] = in_operations.getOperationsGroup(rg::Link::syncGroup(available_index)).getHostOperations().acquireNextSwapChainImage(logical_device,
                                                                                                                                                                        _window.getSwapChain().getDetails().swap_chain,
-                                                                                                                                                                       imageAvailableSemaphore(available_index));
+                                                                                                                                                                       _image_available_semaphore.getName().getName(available_index));
                 switch (call_result)
                 {
                     case VK_ERROR_OUT_OF_DATE_KHR:
@@ -71,7 +63,16 @@ namespace
                     default:
                         throw std::runtime_error("Failed to query swap chain image");
                 }
-                // If somehow the next image is not the one that is finished we need to wait it until it is not finished.
+                /*
+                * If somehow the next image is not the one that is finished we need to wait it until it is not finished.
+                * Like having 3 ongoing render
+                *  [0] : rendering
+                *  [1] : finished
+                *  [2] : rendering
+                * Theoretically, it can happen that the available index is '1' but the acquire next image returns with 2 (even due to a bug or whatever) then
+                * it would be a pity if we mess up the two back buffers. So let's wait for it.
+                * TODO: Add warning message
+                */
                 if (image_index != available_index)
                 {
                     in_operations.waitSemaphore(all_render_finished_semaphore[image_index], 1);
@@ -83,15 +84,22 @@ namespace
     private:
         RenderEngine::Window& _window;
         uint32_t _backbuffer_count{ 0 };
+        RenderEngine::RenderGraph::RenderGraphBuilder::BinarySemaphore _image_available_semaphore;
+        RenderEngine::RenderGraph::RenderGraphBuilder::TimelineSemaphore _render_finished_semaphore;
     };
 }
 
 void ParallelDemoApplication::createRenderEngine()
 {
     using RenderEngine::ParallelRenderEngine;
+    using DependentName = RenderEngine::RenderGraph::DependentName;
     _render_engine = std::make_unique<ParallelRenderEngine>();
 
-    ParallelRenderEngine::RenderGraphBuilder builder = _render_engine->createRenderGraphBuilder("StandardPipeline");
+    RenderEngine::RenderGraph::RenderGraphBuilder builder = _render_engine->createRenderGraphBuilder("StandardPipeline");
+    const RenderEngine::RenderGraph::RenderGraphBuilder::BinarySemaphore image_available_semaphore{ DependentName{"image-available-{:d}"} };
+    const RenderEngine::RenderGraph::RenderGraphBuilder::TimelineSemaphore render_finished_semaphore{ DependentName{"render-finished-{:d}"}, 1, 2 };
+    builder.registerSemaphore(image_available_semaphore);
+    builder.registerSemaphore(render_finished_semaphore);
 
     ImageAcquireTask* image_acquire_task{ nullptr };
     {
@@ -101,15 +109,20 @@ void ParallelDemoApplication::createRenderEngine()
         builder.addRenderNode("ForwardRenderer", std::make_unique<RenderEngine::ForwardRenderer>(*_render_engine, _window_setup->getRenderingWindow().createRenderTarget()));
         builder.addRenderNode("ImguiRenderer", std::make_unique<RenderEngine::UIRenderer>(_window_setup->getUiWindow(), _window_setup->getRenderingWindow().createRenderTarget(), 3));
         builder.addPresentNode("Present", _window_setup->getUiWindow().getSwapChain());
+        builder.addEmptyNode("End");
     }
     builder.addCpuSyncLink("AcquireImage", "ForwardRenderer")
-        .attachGpuLink("image-available", VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
+        .signalOnGpu()
+        .waitOnGpu(image_available_semaphore, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
     builder.addCpuSyncLink("ForwardRenderer", "ImguiRenderer")
-        .attachGpuLink(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
+        .signalOnGpu(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT)
+        .waitOnGpu(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
     builder.addCpuSyncLink("ImguiRenderer", "Present")
-        .attachGpuLink(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
-    builder.addCpuAsyncLink("ImguiRenderer", "AcquireImage")
-        .attachGpuLink("render-finished", ParallelRenderEngine::RenderGraphBuilder::SemaphoreValue(1));
+        .signalOnGpu(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT)
+        .waitOnGpu(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
+    builder.addCpuAsyncLink("ImguiRenderer", "End")
+        .signalOnGpu(render_finished_semaphore, 1, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT)
+        .waitOnGpu(VK_PIPELINE_STAGE_2_NONE);
 }
 
 void ParallelDemoApplication::initializeRenderers()

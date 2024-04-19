@@ -164,6 +164,7 @@ set(RENDER_ENGINE_RENDERGRAPH_SRC
     src/rendergraph/Graph.cpp
     src/rendergraph/GraphVisitor.cpp
     src/rendergraph/TaskflowBuilder.cpp
+    src/rendergraph/RenderGraphBuilder.cpp
 	)
 set(RENDER_ENGINE_RENDERGRAPH_HEADERS 
 	${RENDER_ENGINE_HEADER_LOCATION}/rendergraph/Node.h
@@ -172,6 +173,8 @@ set(RENDER_ENGINE_RENDERGRAPH_HEADERS
     ${RENDER_ENGINE_HEADER_LOCATION}/rendergraph/Graph.h
     ${RENDER_ENGINE_HEADER_LOCATION}/rendergraph/GraphVisitor.h
     ${RENDER_ENGINE_HEADER_LOCATION}/rendergraph/TaskflowBuilder.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/rendergraph/RenderGraphBuilder.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/rendergraph/DependentName.h
 	)
 
 source_group("src\\rendergraph" FILES ${RENDER_ENGINE_RENDERGRAPH_SRC})

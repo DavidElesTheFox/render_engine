@@ -12,10 +12,10 @@ namespace RenderEngine::RenderGraph
             VisitorForTaskCreation(Graph& graph,
                                    Job::ExecutionContext& execution_context,
                                    LogicalDevice& logical_device,
-                                   uint32_t backbuffer_count)
+                                   const std::vector<std::unique_ptr<SyncObject>>& sync_objects)
                 : GraphVisitor(graph)
                 , _logical_device(logical_device)
-                , _backbuffer_size(backbuffer_count)
+                , _sync_objects(sync_objects)
                 , _execution_context(execution_context)
 
             {}
@@ -44,7 +44,7 @@ namespace RenderEngine::RenderGraph
             };
 
             void visitImpl(Node* node);
-            void collectSyncOperationForNode(const Node* node, SyncObject& sync_object) const
+            void collectSyncOperationForNode(const Node* node, SyncObject& sync_object)
             {
 
                 if (node == nullptr)
@@ -63,17 +63,76 @@ namespace RenderEngine::RenderGraph
                     }
                     else
                     {
-                        link->addSyncOperationsForDestination(sync_object, _backbuffer_size);
+                        link->forEachConnections([&](const Link::PipelineConnection& connection) { addSynOperationsForDestination(connection, node->getName()); },
+                                                 [&](const Link::ExternalConnection& connection) { addSynOperationsForDestination(connection, node->getName()); });
                     }
                 }
                 for (auto* link : getGraph().findEdgesFrom(node))
                 {
-                    link->addSyncOperationsForSource(sync_object, _backbuffer_size);
+                    link->forEachConnections([&](const Link::PipelineConnection& connection) { addSynOperationsForSource(connection, node->getName()); },
+                                             [&](const Link::ExternalConnection& connection) { addSynOperationsForSource(connection, node->getName()); });
+                }
+            }
+
+            void addSynOperationsForSource(const Link::PipelineConnection& connection, const std::string& node_name)
+            {
+                for (auto& sync_object : _sync_objects)
+                {
+                    if (connection.value == std::nullopt)
+                    {
+                        sync_object->addSignalOperationToGroup(node_name,
+                                                               connection.semaphore_name,
+                                                               connection.signal_stage);
+                    }
+                    else
+                    {
+                        sync_object->addSignalOperationToGroup(node_name,
+                                                               connection.semaphore_name,
+                                                               connection.signal_stage,
+                                                               *connection.value);
+                    }
+                }
+            }
+            void addSynOperationsForSource(const Link::ExternalConnection& connection, const std::string& node_name)
+            {
+                for (auto& sync_object : _sync_objects)
+                {
+                    sync_object->addSemaphoreForHostOperations(node_name,
+                                                               connection.signaled_semaphore_name);
+                }
+            }
+
+            void addSynOperationsForDestination(const Link::PipelineConnection& connection, const std::string& node_name)
+            {
+                for (auto& sync_object : _sync_objects)
+                {
+                    if (connection.value == std::nullopt)
+                    {
+                        sync_object->addWaitOperationToGroup(node_name,
+                                                             connection.semaphore_name,
+                                                             connection.signal_stage);
+                    }
+                    else
+                    {
+                        sync_object->addWaitOperationToGroup(node_name,
+                                                             connection.semaphore_name,
+                                                             connection.signal_stage,
+                                                             *connection.value);
+                    }
+                }
+            }
+            void addSynOperationsForDestination(const Link::ExternalConnection& connection, const std::string& node_name)
+            {
+                for (auto& sync_object : _sync_objects)
+                {
+                    sync_object->addWaitOperationToGroup(node_name,
+                                                         connection.signaled_semaphore_name,
+                                                         connection.wait_stage);
                 }
             }
 
             LogicalDevice& _logical_device;
-            uint32_t _backbuffer_size{ 0 };
+            const std::vector<std::unique_ptr<SyncObject>>& _sync_objects;
             Job::ExecutionContext& _execution_context;
             tf::Taskflow _task_container;
             std::unordered_map<std::string, TaskDetails> _task_map;
@@ -121,7 +180,7 @@ namespace RenderEngine::RenderGraph
             {
                 return;
             }
-            SyncObject sync_object{ _logical_device };
+            SyncObject sync_object{ _logical_device }; // this sync object cannot die during the process.
             collectSyncOperationForNode(node, sync_object);
             auto job = node->createJob(sync_object.getOperationsGroups());
             auto tf_task = _task_container.emplace([job_to_execute = job.get(),
@@ -138,9 +197,9 @@ namespace RenderEngine::RenderGraph
     tf::Taskflow TaskflowBuilder::createTaskflow(Graph& graph,
                                                  Job::ExecutionContext& execution_context,
                                                  LogicalDevice& logical_device,
-                                                 uint32_t backbuffer_count)
+                                                 const std::vector<std::unique_ptr<SyncObject>>& sync_objects)
     {
-        VisitorForTaskCreation visitor(graph, execution_context, logical_device, backbuffer_count);
+        VisitorForTaskCreation visitor(graph, execution_context, logical_device, sync_objects);
         visitor.run();
         return visitor.clear();
     }

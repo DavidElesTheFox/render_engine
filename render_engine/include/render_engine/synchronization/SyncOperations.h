@@ -11,22 +11,7 @@ namespace RenderEngine
     class SyncOperations
     {
     public:
-        class HostOperations
-        {
-            friend class SyncOperations;
-        public:
-            HostOperations() = default;
-            void addSemaphore(SyncPrimitives& sync_object, const std::string& semaphore_name);
-            std::pair<VkResult, uint32_t> acquireNextSwapChainImage(LogicalDevice& logical_device,
-                                                                    VkSwapchainKHR swap_chain,
-                                                                    const std::string& semaphore_name) const;
-        private:
-            void unionWith(const HostOperations& o);
-            void clear() { _registered_semaphores.clear(); }
-            void addSemaphore(std::string semaphore_name, VkSemaphore semaphore);
 
-            std::unordered_map<std::string, VkSemaphore> _registered_semaphores;
-        };
         enum ExtractBits : int32_t
         {
             ExtractWaitOperations = 1,
@@ -47,9 +32,6 @@ namespace RenderEngine
         void addSignalOperation(SyncPrimitives& sync_object, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask);
 
         void addSignalOperation(SyncPrimitives& sync_object, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask, uint64_t value);
-
-        HostOperations& getHostOperations() { return _host_operations; }
-        const HostOperations& getHostOperations() const { return _host_operations; }
 
         const SyncOperations& fillInfo(VkSubmitInfo2& submit_info) const;
         const SyncOperations& fillInfo(VkPresentInfoKHR& submit_info) const;
@@ -87,8 +69,6 @@ namespace RenderEngine
         std::vector<VkSemaphoreSubmitInfo> _wait_semaphore_dependency;
         std::vector<VkSemaphore> _wait_semaphore_container;
         std::vector<VkSemaphoreSubmitInfo> _signal_semaphore_dependency;
-
-        HostOperations _host_operations;
     };
 
 }

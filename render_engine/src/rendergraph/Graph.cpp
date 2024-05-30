@@ -328,4 +328,22 @@ namespace RenderEngine::RenderGraph
         }
     }
 
+    void Graph::registerSemaphore(BinarySemaphore semaphore)
+    {
+        if (_semaphore_definitions.contains(semaphore.getName()))
+        {
+            throw std::runtime_error("Semaphore already defined");
+        }
+        _semaphore_definitions.insert({ semaphore.getName(), std::move(semaphore) });
+    }
+
+    void Graph::registerSemaphore(TimelineSemaphore semaphore)
+    {
+        if (_semaphore_definitions.contains(semaphore.getName()))
+        {
+            throw std::runtime_error("Semaphore already defined");
+        }
+        _semaphore_definitions.insert({ semaphore.getName(), std::move(semaphore) });
+    }
+
 }

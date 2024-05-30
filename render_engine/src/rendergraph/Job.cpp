@@ -5,6 +5,21 @@
 
 namespace RenderEngine::RenderGraph
 {
+    std::unordered_map<const SyncObject*, std::vector<std::string>> Job::ExecutionContext::SyncObjectUpdateData::clear()
+    {
+        std::lock_guard lock{ _timeline_semaphores_to_shift_mutex };
+
+        auto result = _timeline_semaphores_to_shift;
+        _timeline_semaphores_to_shift.clear();
+
+        return result;
+    }
+    void Job::ExecutionContext::SyncObjectUpdateData::requestTimelineSemaphoreShift(const SyncObject* sync_object, const std::string& name)
+    {
+        std::lock_guard lock{ _timeline_semaphores_to_shift_mutex };
+        _timeline_semaphores_to_shift[sync_object].push_back(name);
+    }
+
     void Job::execute(ExecutionContext& execution_context) noexcept
     {
         try
@@ -42,12 +57,11 @@ namespace RenderEngine::RenderGraph
         std::unique_lock lock(_render_target_index_mutex);
         _render_target_index = index;
     }
-    void Job::ExecutionContext::reset()
+    void Job::ExecutionContext::clearRenderTargetIndex()
     {
-        if (isDrawCallRecorded())
-        {
-            std::unique_lock lock(_render_target_index_mutex);
-            _render_target_index = std::nullopt;
-        }
+        std::unique_lock lock(_render_target_index_mutex);
+        _render_target_index = std::nullopt;
     }
+
+
 }

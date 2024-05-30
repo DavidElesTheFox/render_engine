@@ -8,16 +8,18 @@ public:
     virtual RenderEngine::IWindow& getRenderingWindow() = 0;
     virtual RenderEngine::Window& getUiWindow() = 0;
     virtual void update() = 0;
+    virtual uint32_t getBackbufferCount() const = 0;
 };
 
 class SingleWindowSetup : public IWindowSetup
 {
 public:
-    SingleWindowSetup(std::vector<uint32_t> renderer_ids);
+    SingleWindowSetup(std::vector<uint32_t> renderer_ids, bool use_parallel_engine = false);
     ~SingleWindowSetup() override = default;
     RenderEngine::IWindow& getRenderingWindow() override { return *_window; }
     RenderEngine::Window& getUiWindow() override { return *_window; };
     void update() override { _window->update(); }
+    uint32_t getBackbufferCount() const override { return 3; }
 private:
     std::unique_ptr<RenderEngine::Window> _window;
 };
@@ -33,6 +35,7 @@ public:
         return static_cast<RenderEngine::Window&>(_window_tunnel->getDestinationWindow());
     }
     void update() override { _window_tunnel->update(); }
+    uint32_t getBackbufferCount() const override { return 3; }
 private:
     std::unique_ptr<RenderEngine::WindowTunnel> _window_tunnel;
 };

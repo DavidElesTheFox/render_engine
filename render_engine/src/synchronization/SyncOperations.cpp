@@ -44,39 +44,6 @@ namespace RenderEngine
         _signal_semaphore_dependency.emplace_back(std::move(submit_info));
     }
 
-    void SyncOperations::HostOperations::addSemaphore(std::string name, VkSemaphore semaphore)
-    {
-        assert(_registered_semaphores.contains(name) == false);
-        _registered_semaphores.emplace(std::move(name), semaphore);
-    }
-
-    void SyncOperations::HostOperations::addSemaphore(SyncPrimitives& sync_object, const std::string& semaphore_name)
-    {
-        addSemaphore(semaphore_name, sync_object.getSemaphore(semaphore_name));
-    }
-
-    std::pair<VkResult, uint32_t> SyncOperations::HostOperations::acquireNextSwapChainImage(LogicalDevice& logical_device,
-                                                                                            VkSwapchainKHR swap_chain,
-                                                                                            const std::string& semaphore_name) const
-    {
-        uint32_t image_index = 0;
-        auto call_result = logical_device->vkAcquireNextImageKHR(*logical_device,
-                                                                 swap_chain,
-                                                                 UINT64_MAX,
-                                                                 _registered_semaphores.at(semaphore_name),
-                                                                 VK_NULL_HANDLE,
-                                                                 &image_index);
-        return { call_result, image_index };
-    }
-
-    void SyncOperations::HostOperations::unionWith(const HostOperations& o)
-    {
-        for (auto [name, semaphore] : o._registered_semaphores)
-        {
-            addSemaphore(name, semaphore);
-        }
-    }
-
     const SyncOperations& SyncOperations::fillInfo(VkSubmitInfo2& submit_info) const
     {
         submit_info.waitSemaphoreInfoCount = static_cast<uint32_t>(_wait_semaphore_dependency.size());
@@ -98,7 +65,6 @@ namespace RenderEngine
         std::ranges::copy(o._wait_semaphore_dependency, std::back_inserter(_wait_semaphore_dependency));
         std::ranges::copy(o._wait_semaphore_container, std::back_inserter(_wait_semaphore_container));
         std::ranges::copy(o._signal_semaphore_dependency, std::back_inserter(_signal_semaphore_dependency));
-        _host_operations.unionWith(o._host_operations);
     }
     void SyncOperations::shiftTimelineSemaphoreValues(uint64_t offset, VkSemaphore semaphore)
     {
@@ -124,7 +90,6 @@ namespace RenderEngine
         _wait_semaphore_dependency.clear();
         _wait_semaphore_container.clear();
         _signal_semaphore_dependency.clear();
-        _host_operations.clear();
     }
     SyncOperations SyncOperations::restrict(const AbstractCommandContext& context) const
     {

@@ -31,7 +31,6 @@ namespace RenderEngine
             return _semaphore_map.at(name);
         }
 
-
         LogicalDevice& getLogicalDevice() const { return *_logical_device; }
 
         uint64_t getTimelineOffset(const std::string& name) const
@@ -55,7 +54,6 @@ namespace RenderEngine
             uint64_t timeline_offset{ 0 };
             uint64_t initial_value{ 0 };
         };
-
 
         std::unordered_map<std::string, VkSemaphore> _semaphore_map;
         std::unordered_map<std::string, TimelineSemaphoreData> _timeline_data;

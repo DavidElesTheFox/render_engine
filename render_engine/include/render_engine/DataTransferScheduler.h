@@ -70,7 +70,7 @@ namespace RenderEngine
             std::unordered_map<T*, std::shared_ptr<DownloadTask>> downloads;
         };
 
-        std::mutex _task_mutex;
+        mutable std::mutex _task_mutex;
         StagingAera<Buffer> _buffers_staging_area;
         StagingAera<Texture> _textures_staging_area;
     };

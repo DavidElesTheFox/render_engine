@@ -18,6 +18,6 @@ namespace RenderEngine::RenderGraph
         tf::Taskflow createTaskflow(Graph& graph,
                                     Job::ExecutionContext& execution_context,
                                     LogicalDevice& logical_device,
-                                    const std::vector<std::unique_ptr<SyncObject>>& sync_objects);
+                                    const std::vector<SyncObject*>& sync_objects);
     };
 }

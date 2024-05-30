@@ -58,12 +58,6 @@ namespace RenderEngine
                 return std::move(*this);
             }
 
-            Query&& join(const Query& o)&&
-            {
-                _operations = _operations.createUnionWith(o._operations);
-                return std::move(*this);
-            }
-
             const SyncOperations& get()&&
             {
                 return _operations;
@@ -75,6 +69,23 @@ namespace RenderEngine
 
             const SyncObject& sync_object;
             SyncOperations _operations;
+        };
+
+        class SharedOperations
+        {
+        public:
+
+            static SharedOperations from(std::vector<const SyncObject*> sync_objects)
+            {
+                return SharedOperations(std::move(sync_objects));
+            }
+            uint32_t waitAnyOfSemaphores(std::string semaphore_names, uint64_t value)&&;
+
+        private:
+            SharedOperations(std::vector<const SyncObject*> sync_objects)
+                : _sync_objects(std::move(sync_objects))
+            {}
+            std::vector<const SyncObject*> _sync_objects;
         };
 
         SyncObject(const SyncObject&) = delete;
@@ -104,14 +115,14 @@ namespace RenderEngine
                                      VkPipelineStageFlags2 stage_mask,
                                      uint64_t value);
 
-        void addSemaphoreForHostOperations(const std::string& group_name,
-                                           const std::string& semaphore_name);
-
         void signalSemaphore(const std::string& name, uint64_t value);
 
         void waitSemaphore(const std::string& name, uint64_t value) const;
-        uint32_t waitSemaphore(const std::vector<std::string>& semaphore_names, uint64_t value) const;
         uint64_t getSemaphoreValue(const std::string& name) const;
+
+        std::pair<VkResult, uint32_t> acquireNextSwapChainImage(LogicalDevice& logical_device,
+                                                                VkSwapchainKHR swap_chain,
+                                                                const std::string& semaphore_name) const;
 
         const SyncPrimitives& getPrimitives() const { return _primitives; }
 
@@ -128,4 +139,6 @@ namespace RenderEngine
         std::unordered_map<std::string, SyncOperations> _operation_groups;
 
     };
+
+
 }

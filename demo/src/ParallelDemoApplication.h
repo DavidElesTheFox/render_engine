@@ -45,5 +45,4 @@ private:
     std::unique_ptr<Scene::SceneRenderManager> _render_manager;
     std::unique_ptr<Ui::AssetBrowserUi> _asset_browser;
     DemoSceneBuilder::CreationResult _scene_resources;
-    std::unique_ptr<RenderEngine::ParallelRenderEngine> _render_engine;
 };

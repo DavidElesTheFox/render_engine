@@ -12,6 +12,36 @@
 namespace RenderEngine::RenderGraph
 {
     class GraphVisitor;
+
+    class BinarySemaphore
+    {
+    public:
+        explicit BinarySemaphore(std::string name)
+            : _name(std::move(name))
+        {}
+        const std::string& getName() const { return _name; }
+    private:
+        std::string _name;
+    };
+
+    class TimelineSemaphore
+    {
+    public:
+        TimelineSemaphore(std::string name, uint64_t initial_value, uint64_t value_range)
+            : _name(std::move(name))
+            , _initial_value(initial_value)
+            , _value_range(value_range)
+        {}
+        const std::string& getName() const { return _name; }
+        uint64_t getInitialValue() const { return _initial_value; }
+        uint64_t getValueRange() const { return _value_range; }
+
+    private:
+        std::string _name;
+        uint64_t _initial_value{ 0 };
+        uint64_t _value_range{ 0 };
+    };
+
     class Graph
     {
     public:
@@ -46,6 +76,11 @@ namespace RenderEngine::RenderGraph
         std::vector<const Link*> findEdgesFrom(const Node* node) const;
 
         void applyChanges();
+
+        void registerSemaphore(BinarySemaphore semaphore);
+        void registerSemaphore(TimelineSemaphore semaphore);
+
+        std::ranges::input_range auto getSemaphoreDefinitions() const { return _semaphore_definitions | std::views::values; }
 
     private:
         struct GraphRepresentation
@@ -98,6 +133,9 @@ namespace RenderEngine::RenderGraph
         std::string _name;
         GraphRepresentation _graph;
 
+        std::unordered_map<std::string, std::variant<TimelineSemaphore, BinarySemaphore>> _semaphore_definitions;
+
+        // TODO: Remove command pattern (not need to be threadsafe)
         std::vector<CommandWrapper<Node>> _add_node_commands;
         std::vector<CommandWrapper<Link>> _add_edge_commands;
         std::vector<CommandWrapper<Link>> _remove_edge_commands;

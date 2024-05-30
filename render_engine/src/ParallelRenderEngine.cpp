@@ -1,5 +1,6 @@
 #include <render_engine/ParallelRenderEngine.h>
 
+#include <render_engine/containers/Views.h>
 #include <render_engine/rendergraph/TaskflowBuilder.h>
 
 namespace RenderEngine
@@ -19,7 +20,8 @@ namespace RenderEngine
         , _render_context(std::move(render_context))
         , _present_context(std::move(present_context))
         , _transfer_context(std::move(transfer_context))
-        , _gpu_resource_manager(device.getPhysicalDevice(), device.getLogicalDevice(), back_buffer_count, kMaxNumOfResources)
+        , _gpu_resource_manager(std::make_unique<GpuResourceManager>(device.getPhysicalDevice(), device.getLogicalDevice(), back_buffer_count, kMaxNumOfResources))
+        , _transfer_engine(std::make_unique<TransferEngine>(_transfer_context))
     {}
 
     RenderGraphBuilder ParallelRenderEngine::createRenderGraphBuilder(std::string graph_name)
@@ -37,14 +39,32 @@ namespace RenderEngine
         _rendering_processes.reserve(_gpu_resource_manager->getBackBufferSize());
         _skeleton = std::move(render_graph);
 
+        _sync_objects.clear();
+        std::vector<SyncObject*> non_const_sync_objects;
         for (uint32_t i = 0; i < _gpu_resource_manager->getBackBufferSize(); ++i)
         {
-            auto rendering_process = std::make_unique<RenderingProcess>();
+            std::unique_ptr<SyncObject> sync_object = std::make_unique<SyncObject>(_device.getLogicalDevice());
+            for (const std::variant<RenderGraph::TimelineSemaphore, RenderGraph::BinarySemaphore>& semaphore_definition : _skeleton->getSemaphoreDefinitions())
+            {
+                std::visit(overloaded(
+                    [&](const RenderGraph::TimelineSemaphore& semaphore) { sync_object->createTimelineSemaphore(semaphore.getName(), semaphore.getInitialValue(), semaphore.getValueRange()); },
+                    [&](const RenderGraph::BinarySemaphore& semaphore) { sync_object->createSemaphore(semaphore.getName()); }),
+                    semaphore_definition);
+            }
+            non_const_sync_objects.push_back(sync_object.get());
+            _sync_objects.push_back(std::move(sync_object));
+        }
+
+        for (uint32_t i = 0; i < _gpu_resource_manager->getBackBufferSize(); ++i)
+        {
+            std::vector<const SyncObject*> sync_objects_container = views::to_raw_pointer(_sync_objects) | views::to<std::vector<const SyncObject*>>();
+            auto rendering_process = std::make_unique<RenderingProcess>(sync_objects_container);
+
             rendering_process->task_flow = task_flow_builder.createTaskflow(*_skeleton,
-                                                                            rendering_process->execution_contexts,
+                                                                            rendering_process->execution_context,
                                                                             _device.getLogicalDevice(),
-                                                                            _gpu_resource_manager->getBackBufferSize());
-            _rendering_processes.push_back(rendering_process);
+                                                                            non_const_sync_objects);
+            _rendering_processes.push_back(std::move(rendering_process));
         }
     }
 
@@ -60,8 +80,27 @@ namespace RenderEngine
         {
             current_process->calling_token.wait();
         }
-        current_process->execution_contexts.reset();
+        if (current_process->execution_context.isDrawCallRecorded())
+        {
+            current_process->execution_context.clearRenderTargetIndex();
+
+            std::unordered_map<const SyncObject*, std::vector<std::string>> timeline_semaphore_mapping = current_process->execution_context.getSyncObjectUpdateData().clear();
+            for (auto& sync_object : _sync_objects)
+            {
+                if (timeline_semaphore_mapping.contains(sync_object.get()) == false)
+                {
+                    continue;
+                }
+                for (const auto& semaphore_name : timeline_semaphore_mapping.at(sync_object.get()))
+                {
+                    sync_object->stepTimeline(semaphore_name);
+                }
+            }
+        }
+
         current_process->calling_token = current_process->executor.run(current_process->task_flow);
+
         _render_call_count++;
+
     }
 }

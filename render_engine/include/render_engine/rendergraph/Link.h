@@ -3,8 +3,10 @@
 #include <render_engine/rendergraph/DependentName.h>
 #include <render_engine/synchronization/SyncObject.h>
 
+#include <format>
 #include <functional>
 #include <variant>
+
 namespace RenderEngine::RenderGraph
 {
     class Node;
@@ -20,7 +22,7 @@ namespace RenderEngine::RenderGraph
     class Link final
     {
     public:
-        static std::string syncGroup(uint32_t render_target_index) { return std::vformat("group:{:d}", std::make_format_args(render_target_index)); }
+        static std::string syncGroup(uint32_t render_target_index) { return std::format("group:{:d}", render_target_index); }
         struct PipelineConnection
         {
             PipelineConnection(std::string semaphore_name,

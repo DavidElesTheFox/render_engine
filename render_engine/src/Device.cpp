@@ -3,6 +3,7 @@
 #include <volk.h>
 
 #include <render_engine/GpuResourceManager.h>
+#include <render_engine/ParallelRenderEngine.h>
 #include <render_engine/RenderContext.h>
 #include <render_engine/RenderEngine.h>
 #include <render_engine/resources/Texture.h>
@@ -229,6 +230,54 @@ namespace RenderEngine
         _cuda_device.reset();
         _staging_area.destroy();
     }
+
+    std::unique_ptr<Window> Device::createParallelWindow(std::string_view name, uint32_t back_buffer_size)
+    {
+        constexpr auto width = 1024;
+        constexpr auto height = 764;
+        glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+        GLFWwindow* window = glfwCreateWindow(width, height, name.data(), nullptr, nullptr);
+
+        VkWin32SurfaceCreateInfoKHR create_info{};
+        create_info.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+        create_info.hwnd = glfwGetWin32Window(window);
+        create_info.hinstance = GetModuleHandle(nullptr);
+        VkSurfaceKHR surface;
+
+        if (vkCreateWin32SurfaceKHR(_instance, &create_info, nullptr, &surface) != VK_SUCCESS)
+        {
+            glfwDestroyWindow(window);
+            throw std::runtime_error("Failed to create window surface!");
+        }
+        try
+        {
+            std::unique_ptr<SwapChain> swap_chain = std::make_unique<SwapChain>(SwapChain::CreateInfo{ window,
+                                                                                _instance,
+                                                                                _physical_device,
+                                                                                &_logical_device,
+                                                                                std::move(surface),
+                                                                                this,
+                                                                                _queue_family_graphics,
+                                                                                _queue_family_present,
+                                                                                back_buffer_size });
+            std::unique_ptr<IRenderEngine> render_engine = createParallelRenderEngine(back_buffer_size);
+            auto command_context = CommandContext::create(_logical_device,
+                                                          _queue_family_present,
+                                                          _device_info.queue_families[_queue_family_present],
+                                                          back_buffer_size);
+            return std::make_unique<Window>(*this, std::move(render_engine),
+                                            window,
+                                            std::move(swap_chain)
+                                            , std::move(command_context));
+        }
+        catch (const std::runtime_error&)
+        {
+            glfwDestroyWindow(window);
+            throw;
+        }
+    }
+
+
     std::unique_ptr<Window> Device::createWindow(std::string_view name, uint32_t back_buffer_size)
     {
         constexpr auto width = 1024;
@@ -308,6 +357,22 @@ namespace RenderEngine
                                                                      _device_info.queue_families[_queue_family_graphics],
                                                                      back_buffer_size),
                                               back_buffer_size);
+    }
+    std::unique_ptr<ParallelRenderEngine> Device::createParallelRenderEngine(uint32_t back_buffer_size)
+    {
+        return std::make_unique<ParallelRenderEngine>(*this,
+                                                      SingleShotCommandContext::create(_logical_device,
+                                                                                       _queue_family_graphics,
+                                                                                       _device_info.queue_families[_queue_family_graphics]),
+                                                      CommandContext::create(_logical_device,
+                                                                             _queue_family_graphics,
+                                                                             _device_info.queue_families[_queue_family_graphics],
+                                                                             back_buffer_size),
+                                                      CommandContext::create(_logical_device,
+                                                                             _queue_family_present,
+                                                                             _device_info.queue_families[_queue_family_present],
+                                                                             back_buffer_size),
+                                                      back_buffer_size);
     }
 
     std::unique_ptr<TransferEngine> Device::createTransferEngine()

@@ -52,12 +52,12 @@ namespace RenderEngine::RenderGraph
     RenderGraphBuilder::GeneralGpuLinkBuilder RenderGraphBuilder::addCpuSyncLink(const std::string& from, const std::string& to)
     {
         auto& link = _graph->addEdge(std::make_unique<Link>(_graph->findNode(from), _graph->findNode(to), LinkType::CpuSync));
-        return GpuLinkBuilder(link);
+        return GeneralGpuLinkBuilder(link);
     }
     RenderGraphBuilder::GeneralGpuLinkBuilder RenderGraphBuilder::addCpuAsyncLink(const std::string& from, const std::string& to)
     {
         auto& link = _graph->addEdge(std::make_unique<Link>(_graph->findNode(from), _graph->findNode(to), LinkType::CpuAsync));
-        return GpuLinkBuilder(link);
+        return GeneralGpuLinkBuilder(link);
     }
 
 

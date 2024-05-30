@@ -4,6 +4,7 @@
 
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <shared_mutex>
 #include <string>
@@ -21,7 +22,18 @@ namespace RenderEngine
             class ExecutionContext
             {
             public:
-                explicit ExecutionContext(std::vector<std::unique_ptr<const SyncObject>>);
+                class SyncObjectUpdateData
+                {
+                public:
+                    void requestTimelineSemaphoreShift(const SyncObject* sync_object, const std::string& name);
+                    std::unordered_map<const SyncObject*, std::vector<std::string>> clear();
+                private:
+                    std::unordered_map<const SyncObject*, std::vector<std::string>> _timeline_semaphores_to_shift;
+                    std::mutex _timeline_semaphores_to_shift_mutex;
+                };
+                explicit ExecutionContext(std::vector<const SyncObject*> sync_objects)
+                    : _sync_objects(std::move(sync_objects))
+                {}
 
                 ExecutionContext(const ExecutionContext&) noexcept = delete;
                 ExecutionContext(ExecutionContext&&) noexcept = default;
@@ -32,17 +44,27 @@ namespace RenderEngine
                 uint32_t getRenderTargetIndex() const;
                 bool hasRenderTargetIndex() const;
                 void setRenderTargetIndex(uint32_t index);
+                void clearRenderTargetIndex();
 
-                void reset();
                 bool isDrawCallRecorded() const { return _draw_call_recorded.load(std::memory_order_relaxed); }
                 void setDrawCallRecorded(bool v) { _draw_call_recorded.store(v, std::memory_order_relaxed); }
-                const SyncObject& getSyncObject(uint32_t render_target_index) const;
-                std::vector<const SyncObject*> getAllSyncObject() const;
+                const SyncObject& getSyncObject(uint32_t render_target_index) const
+                {
+                    return *_sync_objects[render_target_index];
+                }
+                const std::vector<const SyncObject*>& getAllSyncObject() const
+                {
+                    return _sync_objects;
+                }
+
+                SyncObjectUpdateData& getSyncObjectUpdateData() { return _sync_object_update_data; }
             private:
                 std::optional<uint32_t> _render_target_index{ std::nullopt };
                 std::atomic_bool _draw_call_recorded{ false };
                 mutable std::shared_mutex _render_target_index_mutex;
-                std::vector<std::unique_ptr<const SyncObject>> _sync_objects;
+                std::vector<const SyncObject*> _sync_objects;
+
+                SyncObjectUpdateData _sync_object_update_data;
             };
 
 

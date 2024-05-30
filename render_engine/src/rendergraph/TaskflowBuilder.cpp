@@ -12,7 +12,7 @@ namespace RenderEngine::RenderGraph
             VisitorForTaskCreation(Graph& graph,
                                    Job::ExecutionContext& execution_context,
                                    LogicalDevice& logical_device,
-                                   const std::vector<std::unique_ptr<SyncObject>>& sync_objects)
+                                   const std::vector<SyncObject*>& sync_objects)
                 : GraphVisitor(graph)
                 , _logical_device(logical_device)
                 , _sync_objects(sync_objects)
@@ -93,14 +93,8 @@ namespace RenderEngine::RenderGraph
                     }
                 }
             }
-            void addSynOperationsForSource(const Link::ExternalConnection& connection, const std::string& node_name)
-            {
-                for (auto& sync_object : _sync_objects)
-                {
-                    sync_object->addSemaphoreForHostOperations(node_name,
-                                                               connection.signaled_semaphore_name);
-                }
-            }
+            void addSynOperationsForSource(const Link::ExternalConnection&, const std::string&)
+            {}
 
             void addSynOperationsForDestination(const Link::PipelineConnection& connection, const std::string& node_name)
             {
@@ -132,7 +126,7 @@ namespace RenderEngine::RenderGraph
             }
 
             LogicalDevice& _logical_device;
-            const std::vector<std::unique_ptr<SyncObject>>& _sync_objects;
+            const std::vector<SyncObject*>& _sync_objects;
             Job::ExecutionContext& _execution_context;
             tf::Taskflow _task_container;
             std::unordered_map<std::string, TaskDetails> _task_map;
@@ -182,9 +176,9 @@ namespace RenderEngine::RenderGraph
             }
             SyncObject sync_object{ _logical_device }; // this sync object cannot die during the process.
             collectSyncOperationForNode(node, sync_object);
-            auto job = node->createJob(sync_object.getOperationsGroups());
+            auto job = node->createJob();
             auto tf_task = _task_container.emplace([job_to_execute = job.get(),
-                                                   stored_sync_object = std::move(sync_object),
+                                                   //stored_sync_object = std::move(sync_object),
                                                    &execution_context_for_job = _execution_context]
                                                    {
                                                        job_to_execute->execute(execution_context_for_job);
@@ -197,7 +191,7 @@ namespace RenderEngine::RenderGraph
     tf::Taskflow TaskflowBuilder::createTaskflow(Graph& graph,
                                                  Job::ExecutionContext& execution_context,
                                                  LogicalDevice& logical_device,
-                                                 const std::vector<std::unique_ptr<SyncObject>>& sync_objects)
+                                                 const std::vector<SyncObject*>& sync_objects)
     {
         VisitorForTaskCreation visitor(graph, execution_context, logical_device, sync_objects);
         visitor.run();

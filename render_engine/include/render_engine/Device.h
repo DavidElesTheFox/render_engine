@@ -20,6 +20,7 @@ namespace RenderEngine
     }
     class Window;
     class RenderEngine;
+    class ParallelRenderEngine;
     class OffScreenWindow;
     class TransferEngine;
     class TextureFactory;
@@ -107,8 +108,10 @@ namespace RenderEngine
 
         ~Device();
         std::unique_ptr<Window> createWindow(std::string_view name, uint32_t back_buffer_size);
+        std::unique_ptr<Window> createParallelWindow(std::string_view name, uint32_t back_buffer_size);
         std::unique_ptr<OffScreenWindow> createOffScreenWindow(uint32_t back_buffer_size);
         std::unique_ptr<RenderEngine> createRenderEngine(uint32_t back_buffer_size);
+        std::unique_ptr<ParallelRenderEngine> createParallelRenderEngine(uint32_t back_buffer_size);
         std::unique_ptr<TransferEngine> createTransferEngine();
 
         LogicalDevice& getLogicalDevice() { return _logical_device; }

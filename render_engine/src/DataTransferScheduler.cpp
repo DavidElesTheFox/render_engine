@@ -477,6 +477,7 @@ namespace RenderEngine
                                                             TextureState final_state,
                                                             SyncOperations additional_sync_operations)
     {
+        std::lock_guard lock{ _task_mutex };
         auto task = [image_to_upload = std::move(image), &dst_context, texture, final_texture_state = std::move(final_state), additional_sync_operations]
         (SyncOperations sync_operations, TransferEngine& transfer_engine, UploadTask::Storage&, QueueSubmitTracker& submit_tracker) -> std::vector<SyncObject>
             {
@@ -533,6 +534,7 @@ namespace RenderEngine
                                                             SingleShotCommandContext& dst_context,
                                                             BufferState final_state)
     {
+        std::lock_guard lock{ _task_mutex };
         auto task = [data_to_upload = std::move(data), &dst_context, buffer, final_buffer_state = std::move(final_state)]
         (SyncOperations sync_operations, TransferEngine& transfer_engine, UploadTask::Storage& task_storage, QueueSubmitTracker& submit_tracker) -> std::vector<SyncObject>
             {
@@ -598,6 +600,7 @@ namespace RenderEngine
     std::weak_ptr<DownloadTask> DataTransferScheduler::download(Texture* texture,
                                                                 SyncOperations sync_operations)
     {
+        std::lock_guard lock{ _task_mutex };
         assert(texture->getResourceState().command_context.expired() == false && "For download it should never be an initial transfer");
 
         auto task = [texture, additional_sync_operations = sync_operations]
@@ -636,30 +639,48 @@ namespace RenderEngine
 
     void DataTransferScheduler::executeTasks(SyncOperations sync_operations, TransferEngine& transfer_engine)
     {
-        for (auto [texture, task] : _textures_staging_area.uploads)
-        {
-            texture->assignUploadTask(task);
-            task->start({}, sync_operations, transfer_engine);
-        }
-        for (auto [texture, task] : _textures_staging_area.downloads)
-        {
-            texture->assignDownloadTask(task);
-            task->start({}, sync_operations, transfer_engine);
-        }
-        for (auto [buffer, task] : _buffers_staging_area.uploads)
-        {
-            buffer->assignUploadTask(task);
-            task->start({}, sync_operations, transfer_engine);
-        }
-        for (auto [buffer, task] : _buffers_staging_area.downloads)
-        {
-            buffer->assignDownloadTask(task);
-            task->start({}, sync_operations, transfer_engine);
-        }
+        std::unique_lock lock{ _task_mutex };
+
+        auto textures_staging_area_copy = _textures_staging_area;
+        auto buffers_staging_area_copy = _buffers_staging_area;
         _textures_staging_area.downloads.clear();
         _textures_staging_area.uploads.clear();
         _buffers_staging_area.downloads.clear();
         _buffers_staging_area.uploads.clear();
+
+        lock.unlock();
+
+        for (auto [texture, task] : textures_staging_area_copy.uploads)
+        {
+            texture->assignUploadTask(task);
+            task->start({}, sync_operations, transfer_engine);
+        }
+        for (auto [texture, task] : textures_staging_area_copy.downloads)
+        {
+            texture->assignDownloadTask(task);
+            task->start({}, sync_operations, transfer_engine);
+        }
+        for (auto [buffer, task] : buffers_staging_area_copy.uploads)
+        {
+            buffer->assignUploadTask(task);
+            task->start({}, sync_operations, transfer_engine);
+        }
+        for (auto [buffer, task] : buffers_staging_area_copy.downloads)
+        {
+            buffer->assignDownloadTask(task);
+            task->start({}, sync_operations, transfer_engine);
+        }
+
+    }
+
+    bool DataTransferScheduler::hasAnyTask() const
+    {
+        std::lock_guard lock{ _task_mutex };
+
+        return _buffers_staging_area.uploads.size()
+            + _buffers_staging_area.downloads.size()
+            + _textures_staging_area.uploads.size()
+            + _textures_staging_area.downloads.size() > 0;
     }
     std::weak_ptr<UploadTask> DataTransferScheduler::upload(Buffer* buffer, std::span<const uint8_t> data, SingleShotCommandContext& dst_context, BufferState final_state)
     {

@@ -2,6 +2,7 @@
 
 #include <render_engine/CommandContext.h>
 #include <render_engine/DataTransferScheduler.h>
+#include <render_engine/memory/RefObj.h>
 #include <render_engine/renderers/AbstractRenderer.h>
 #include <render_engine/rendergraph/Job.h>
 #include <render_engine/synchronization/SyncObject.h>
@@ -103,6 +104,24 @@ namespace RenderEngine::RenderGraph
     private:
         TransferEngine _transfer_engine;
         DataTransferScheduler _scheduler;
+    };
+
+    class DeviceSynchronizeNode final : public Node
+    {
+    public:
+        DeviceSynchronizeNode(std::string name, Device& device)
+            : Node(std::move(name))
+            , _device(device)
+        {}
+        ~DeviceSynchronizeNode() override = default;
+
+        void execute(ExecutionContext& execution_context, QueueSubmitTracker* queue_tracker) override;
+        void register_execution_context(ExecutionContext&) override {};
+
+        void accept(GraphVisitor& visitor) override;
+        bool isActive() const override;
+    private:
+        RefObj<Device> _device;
     };
 
     class ComputeNode final : public Node

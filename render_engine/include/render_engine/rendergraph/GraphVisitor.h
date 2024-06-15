@@ -29,6 +29,7 @@ namespace RenderEngine::RenderGraph
         virtual void visit(TransferNode* node) = 0;
         virtual void visit(ComputeNode* node) = 0;
         virtual void visit(PresentNode* node) = 0;
+        virtual void visit(DeviceSynchronizeNode* node) = 0;
         virtual void visit(CpuNode* node) = 0;
         virtual void visit(Link* edge) = 0;
 

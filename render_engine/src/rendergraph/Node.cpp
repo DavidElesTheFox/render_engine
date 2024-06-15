@@ -75,6 +75,23 @@ namespace RenderEngine::RenderGraph
         return _scheduler.hasAnyTask();
     }
 
+    void DeviceSynchronizeNode::execute(ExecutionContext& execution_context, QueueSubmitTracker*)
+    {
+        const auto pool_index = execution_context.getPoolIndex();
+        auto sync_object_holder = execution_context.getSyncObject(pool_index.sync_object_index);
+        const auto& in_operations = sync_object_holder.sync_object.getOperationsGroup(getName());
+        _device->synchronizeStagingArea(in_operations);
+    }
+    void DeviceSynchronizeNode::accept(GraphVisitor& visitor)
+    {
+        visitor.visit(this);
+    }
+    bool DeviceSynchronizeNode::isActive() const
+    {
+        return _device->getDataTransferContext().getScheduler().hasAnyTask();
+    }
+
+
     void ComputeNode::execute(ExecutionContext& execution_context, QueueSubmitTracker*)
     {
         _compute_task->run(execution_context);

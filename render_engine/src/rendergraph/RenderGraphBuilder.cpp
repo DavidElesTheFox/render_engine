@@ -29,6 +29,11 @@ namespace RenderEngine::RenderGraph
         auto node = std::make_unique<TransferNode>(std::move(name), std::move(transfer_engine));
         _graph->addNode(std::move(node));
     }
+    void RenderGraphBuilder::addDeviceSynchronizeNode(std::string name, Device& device)
+    {
+        auto node = std::make_unique<DeviceSynchronizeNode>(std::move(name), device);
+        _graph->addNode(std::move(node));
+    }
     void RenderGraphBuilder::addComputeNode(std::string name, std::unique_ptr<RenderGraph::ComputeNode::IComputeTask> task)
     {
         auto node = std::make_unique<ComputeNode>(std::move(name), std::move(task));

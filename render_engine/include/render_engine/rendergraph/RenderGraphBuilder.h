@@ -44,6 +44,7 @@ namespace RenderEngine
 
             void addRenderNode(std::string name, std::unique_ptr<AbstractRenderer> renderer);
             void addTransferNode(std::string name);
+            void addDeviceSynchronizeNode(std::string name, Device& device);
             void addComputeNode(std::string name, std::unique_ptr<RenderGraph::ComputeNode::IComputeTask> task);
             void addCpuNode(std::string name, std::unique_ptr<RenderGraph::CpuNode::ICpuTask> task);
             void addPresentNode(std::string name, SwapChain& swap_chain);

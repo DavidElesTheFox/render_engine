@@ -24,6 +24,7 @@ namespace RenderEngine::RenderGraph
             void visit(TransferNode* node) override { visitImpl(node); };
             void visit(ComputeNode* node) override { visitImpl(node); };
             void visit(PresentNode* node) override { visitImpl(node); };
+            void visit(DeviceSynchronizeNode* node) override { visitImpl(node); };
             void visit(CpuNode* node) override { visitImpl(node); };
             void visit(Link* edge) override;
 
@@ -162,10 +163,6 @@ namespace RenderEngine::RenderGraph
 
         void VisitorForTaskCreation::visitImpl(Node* node)
         {
-            if (node->isActive() == false)
-            {
-                return;
-            }
             SyncObject sync_object{ _logical_device, std::format("Node-{:s}", node->getName()) }; // this sync object cannot die during the process.
             collectSyncOperationForNode(node, sync_object);
 
@@ -173,6 +170,10 @@ namespace RenderEngine::RenderGraph
 
             auto tf_task = _task_container.emplace([node, &execution_context_for_job = _execution_context]
                                                    {
+                                                       if (node->isActive() == false)
+                                                       {
+                                                           return;
+                                                       }
                                                        // TODO implement tracking: Probably the parameter can go to a member of the node
                                                        node->execute(execution_context_for_job, nullptr);
                                                    });

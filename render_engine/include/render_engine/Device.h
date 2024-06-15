@@ -84,6 +84,7 @@ namespace RenderEngine
 
             ~DataTransferContext();
             DataTransferScheduler& getScheduler() { return *_scheduler; }
+            const DataTransferScheduler& getScheduler() const { return *_scheduler; }
             TextureFactory& getTextureFactory() { return *_texture_factory; }
             void synchronizeScheduler(SyncOperations sync_operations);
             void destroy();
@@ -125,8 +126,9 @@ namespace RenderEngine
 
         void waitIdle();
 
-        void synchronizeStagingArea(SyncOperations syncOperations);
+        void synchronizeStagingArea(SyncOperations sync_operations);
         DataTransferContext& getDataTransferContext() { return _staging_area; }
+        const DataTransferContext& getDataTransferContext() const { return _staging_area; }
     private:
         void destroy() noexcept;
 

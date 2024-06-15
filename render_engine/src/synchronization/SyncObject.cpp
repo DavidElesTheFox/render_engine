@@ -31,7 +31,6 @@ namespace RenderEngine
                 const uint64_t timeline_offset = sync_object->getPrimitives().getTimelineOffset(semaphore_names);
                 wait_values.push_back(timeline_offset + value);
                 current_values.push_back(sync_object->getSemaphoreValue(semaphore_names));
-
             }
         }
 
@@ -47,16 +46,17 @@ namespace RenderEngine
             throw std::runtime_error("Couldn't wait semaphore: " + semaphore_names);
         }
 
-        for (uint32_t i = 0; i < _sync_objects.size(); ++i)
+        for (uint32_t i = 0; i < semaphores.size(); ++i)
         {
-            const auto& sync_object = _sync_objects[i];
-            if (sync_object->getPrimitives().hasSemaphore(semaphore_names) == false)
+            auto it = std::ranges::find_if(_sync_objects, [&](const SyncObject* obj)
+                                           {
+                                               return obj->getPrimitives().hasSemaphore(semaphore_names)
+                                                   && obj->getPrimitives().getSemaphore(semaphore_names) == semaphores[i];
+                                           });
+            assert(it != _sync_objects.end());
+            if ((*it)->getSemaphoreRealValue(semaphore_names) == wait_values[i])
             {
-                continue;
-            }
-            if (sync_object->getSemaphoreRealValue(semaphore_names) == wait_values[i])
-            {
-                return sync_object;
+                return *it;
             }
         }
         assert(false && "Wait was successful but no semaphore was found with the wait value. Should never happen");

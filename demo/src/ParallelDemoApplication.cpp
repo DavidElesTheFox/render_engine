@@ -220,15 +220,25 @@ void ParallelDemoApplication::createRenderEngine()
 
         auto image_acquire_task_ptr = std::make_unique<ImageAcquireTask>(_window_setup->getUiWindow(), _window_setup->getUiWindow().getDevice().getLogicalDevice(), _window_setup->getBackbufferCount());
         image_acquire_task = image_acquire_task_ptr.get();
+        builder.addDeviceSynchronizeNode("SynchronizeRenderGpu", _window_setup->getRenderingWindow().getDevice());
         builder.addCpuNode("AcquireImage", std::move(image_acquire_task_ptr));
         builder.addRenderNode("ForwardRenderer", std::move(forward_renderer));
         builder.addRenderNode("ImguiRenderer", std::move(ui_renderer));
         builder.addPresentNode("Present", _window_setup->getUiWindow().getSwapChain());
         builder.addEmptyNode("End");
     }
+
+
     builder.addCpuSyncLink("AcquireImage", "ForwardRenderer")
         .signalOnGpu()
         .waitOnGpu(image_available_semaphore, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
+    builder.addCpuSyncLink("AcquireImage", "SynchronizeRenderGpu");
+    builder.addCpuSyncLink("SynchronizeRenderGpu", "ForwardRenderer");
+    /* TODO Needs to implement a merge tasks into the data transfer scheduler.
+    * The data is transferred per resources (each transfer does a submit). Thus, it will signal the semaphore n times when n buffer is synchronized.
+    .signalOnGpu(VK_PIPELINE_STAGE_2_TRANSFER_BIT)
+    .waitOnGpu(VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
+    */
     builder.addCpuSyncLink("ForwardRenderer", "ImguiRenderer")
         .signalOnGpu(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT)
         .waitOnGpu(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);

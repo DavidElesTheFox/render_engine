@@ -387,4 +387,9 @@ namespace RenderEngine
         _logical_device->vkDeviceWaitIdle(*_logical_device);
     }
 
+    void Device::synchronizeStagingArea(SyncOperations sync_operations)
+    {
+        _staging_area.synchronizeScheduler(sync_operations);
+    }
+
 }

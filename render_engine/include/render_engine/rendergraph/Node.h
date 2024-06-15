@@ -34,7 +34,8 @@ namespace RenderEngine::RenderGraph
             return _name;
         }
 
-        virtual std::unique_ptr<Job> createJob() = 0;
+        virtual void execute(ExecutionContext&, QueueSubmitTracker*) = 0;
+        virtual void register_execution_context(ExecutionContext&) = 0;
 
         virtual void accept(GraphVisitor&) = 0;
 
@@ -51,7 +52,9 @@ namespace RenderEngine::RenderGraph
         ~NullNode() final {}
         void accept(GraphVisitor&) override {}
 
-        std::unique_ptr<Job> createJob() override { return nullptr; };
+        void execute(ExecutionContext&, QueueSubmitTracker*) override {}
+        void register_execution_context(ExecutionContext&) override {};
+
         bool isActive() const override { return true; }
     };
 
@@ -70,8 +73,9 @@ namespace RenderEngine::RenderGraph
         ~RenderNode() override = default;
 
         void accept(GraphVisitor& visitor) override;
+        void execute(ExecutionContext& execution_context, QueueSubmitTracker* queue_tracker) override;
+        void register_execution_context(ExecutionContext&) override {};
 
-        std::unique_ptr<Job> createJob() override;
         bool isActive() const override { return true; }
     private:
         std::shared_ptr<CommandContext> _command_context;
@@ -90,7 +94,9 @@ namespace RenderEngine::RenderGraph
         ~TransferNode() override = default;
 
         DataTransferScheduler& getScheduler() { return _scheduler; }
-        std::unique_ptr<Job> createJob() override;
+
+        void execute(ExecutionContext& execution_context, QueueSubmitTracker* queue_tracker) override;
+        void register_execution_context(ExecutionContext&) override {};
 
         void accept(GraphVisitor& visitor) override;
         bool isActive() const override;
@@ -107,7 +113,9 @@ namespace RenderEngine::RenderGraph
         public:
             virtual ~IComputeTask() = default;
             virtual bool isActive() const = 0;
-            virtual void run(Job::ExecutionContext& execution_context) = 0;
+            virtual void run(ExecutionContext& execution_context) = 0;
+            virtual void register_execution_context(ExecutionContext&) = 0;
+
         };
         ComputeNode(std::string name,
                     std::unique_ptr<IComputeTask> compute_task)
@@ -116,7 +124,8 @@ namespace RenderEngine::RenderGraph
         {}
 
         ~ComputeNode() override = default;
-        std::unique_ptr<Job> createJob() override;
+        void execute(ExecutionContext& execution_context, QueueSubmitTracker* queue_tracker) override;
+        void register_execution_context(ExecutionContext& execution_context) override { _compute_task->register_execution_context(execution_context); };
         bool isActive() const override { return _compute_task->isActive(); }
 
         void accept(GraphVisitor& visitor) override;
@@ -134,7 +143,8 @@ namespace RenderEngine::RenderGraph
             , _swap_chain(swap_chain)
             , _command_context(command_context)
         {}
-        std::unique_ptr<Job> createJob() override;
+        void execute(ExecutionContext& execution_context, QueueSubmitTracker* queue_tracker) override;
+        void register_execution_context(ExecutionContext&) override {};
 
         void accept(GraphVisitor& visitor) final;
         bool isActive() const final { return true; }
@@ -151,14 +161,16 @@ namespace RenderEngine::RenderGraph
         {
         public:
             virtual ~ICpuTask() = default;
-            virtual void run(Job::ExecutionContext& execution_context) = 0;
+            virtual void run(ExecutionContext& execution_context) = 0;
             virtual bool isActive() const = 0;
+            virtual void register_execution_context(ExecutionContext&) = 0;
         };
         CpuNode(std::string name, std::unique_ptr<ICpuTask> cpu_task)
             : Node(std::move(name))
             , _cpu_task(std::move(cpu_task))
         {}
-        std::unique_ptr<Job> createJob() override;
+        void execute(ExecutionContext& execution_context, QueueSubmitTracker* queue_tracker) override;
+        void register_execution_context(ExecutionContext& execution_context) override { _cpu_task->register_execution_context(execution_context); };
 
         void accept(GraphVisitor& visitor) final;
         bool isActive() const final { return _cpu_task->isActive(); }

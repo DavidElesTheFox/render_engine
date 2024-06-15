@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.18)
 
-find_package(Vulkan REQUIRED)
-
+find_package(Vulkan 1.3.275 REQUIRED)
 
 set(EMPTY_SCREEN_IMAGE_PATH "${DATA_DIRECTORY}/empty_screen.bmp")
 
@@ -127,6 +126,7 @@ source_group("include\\assets" FILES ${RENDER_ENGINE_ASSETS_HEADERS})
 set(RENDER_ENGINE_CONTAINERS_HEADERS 
 	${RENDER_ENGINE_HEADER_LOCATION}/containers/BackBuffer.h
     ${RENDER_ENGINE_HEADER_LOCATION}/containers/ImageStream.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/containers/IndexSet.h
     ${RENDER_ENGINE_HEADER_LOCATION}/containers/VariantOverloaded.h
     ${RENDER_ENGINE_HEADER_LOCATION}/containers/Views.h
 	)

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <render_engine/containers/IndexSet.h>
 #include <render_engine/LogicalDevice.h>
 #include <render_engine/synchronization/SyncOperations.h>
 #include <render_engine/synchronization/SyncPrimitives.h>
@@ -79,7 +80,7 @@ namespace RenderEngine
             {
                 return SharedOperations(std::move(sync_objects));
             }
-            uint32_t waitAnyOfSemaphores(std::string semaphore_names, uint64_t value)&&;
+            const SyncObject* waitAnyOfSemaphores(std::string semaphore_names, uint64_t value, const IndexSet<uint32_t>& blacklist = IndexSet<uint32_t>())&&;
 
         private:
             SharedOperations(std::vector<const SyncObject*> sync_objects)
@@ -96,7 +97,12 @@ namespace RenderEngine
 
         explicit SyncObject(LogicalDevice& logical_device);
 
-        const SyncOperations& getOperationsGroup(const std::string& name) const { return _operation_groups.at(name); }
+        const SyncOperations& getOperationsGroup(const std::string& name) const
+        {
+            static const SyncOperations empty;
+            auto it = _operation_groups.find(name);
+            return it == _operation_groups.end() ? empty : it->second;
+        }
 
         void addSignalOperationToGroup(const std::string& group_name,
                                        const std::string& semaphore_name,
@@ -119,10 +125,12 @@ namespace RenderEngine
 
         void waitSemaphore(const std::string& name, uint64_t value) const;
         uint64_t getSemaphoreValue(const std::string& name) const;
+        uint64_t getSemaphoreRealValue(const std::string& name) const;
 
         std::pair<VkResult, uint32_t> acquireNextSwapChainImage(LogicalDevice& logical_device,
                                                                 VkSwapchainKHR swap_chain,
-                                                                const std::string& semaphore_name) const;
+                                                                const std::string& semaphore_name,
+                                                                std::optional<std::chrono::nanoseconds> timeout = std::nullopt) const;
 
         const SyncPrimitives& getPrimitives() const { return _primitives; }
 

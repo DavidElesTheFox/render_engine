@@ -38,8 +38,9 @@ void VolumeRendererDemo::init(bool use_ao)
 
     ApplicationContext::instance().init(_scene.get(), getUiWindow().getWindowHandle());
 
-    _render_manager = std::make_unique<Scene::SceneRenderManager>(_scene->getNodeLookup(), getRenderingWindow());
-
+    _render_manager = std::make_unique<Scene::SceneRenderManager>(_scene->getNodeLookup(),
+                                                                  static_cast<ForwardRenderer*>(getRenderingWindow().findRenderer(ForwardRenderer::kRendererId)),
+                                                                  static_cast<VolumeRenderer*>(getRenderingWindow().findRenderer(VolumeRenderer::kRendererId)));
     _render_manager->registerMeshesForRender();
 
     _asset_browser = std::make_unique<Ui::AssetBrowserUi>(_assets, *_scene);

@@ -1,5 +1,6 @@
 #include "ParallelDemoApplication.h"
 
+#include <render_engine/containers/IndexSet.h>
 #include <render_engine/renderers/ForwardRenderer.h>
 #include <render_engine/renderers/UIRenderer.h>
 #include <render_engine/synchronization/SyncObject.h>
@@ -16,6 +17,59 @@ namespace
 {
     namespace rg = RenderEngine::RenderGraph;
 
+    class SwapChainImageSelector
+    {
+    public:
+        SwapChainImageSelector(uint32_t image_count,
+                               RenderEngine::LogicalDevice& logical_device,
+                               RenderEngine::SwapChain& swap_chain)
+            : _image_count(image_count)
+            , _logical_device(logical_device)
+            , _swap_chain(swap_chain)
+        {}
+        /**
+          * @brief Determines the next available image index.
+          *
+          * This is tricky:
+          * There are renders ongoing on the back buffers. Each back buffer has its own semaphore to trigger when the drawing are finished
+          * Its gonna be the available_index. Its semaphore will be used to query the next back buffer.
+          *
+         */
+        std::optional<uint32_t> getNextImage(rg::ExecutionContext& execution_context);
+
+        void releaseRenderTargetIndex(uint32_t index)
+        {
+            auto lock = std::lock_guard(_access_mutex);
+            _occupied_render_target_indexes.erase(index);
+        }
+    private:
+        std::optional<uint32_t> findUnusedIndex() const
+        {
+            for (uint32_t i = 0; i < _image_count; ++i)
+            {
+                if (_used_render_target_indexes.contains(i) == false)
+                {
+                    return i;
+                }
+            }
+            return std::nullopt;
+        }
+
+        uint32_t findFinishedImageIndex(const std::vector<const RenderEngine::SyncObject*>& sync_objects) const;
+
+        std::optional<uint32_t> tryAcquireImage(rg::ExecutionContext& execution_context,
+                                                uint32_t available_index) const;
+
+        std::mutex _access_mutex;
+        RenderEngine::IndexSet<uint32_t> _occupied_render_target_indexes; /**< On the CPU the draw calls are recording right now*/
+        RenderEngine::IndexSet<uint32_t> _used_render_target_indexes; /**< There were any draw call recorded ever */
+
+        uint32_t _image_count{ 0 };
+        RenderEngine::LogicalDevice& _logical_device;
+        RenderEngine::SwapChain& _swap_chain;
+
+    };
+
     class ImageAcquireTask : public rg::CpuNode::ICpuTask
     {
     public:
@@ -23,67 +77,235 @@ namespace
         constexpr static auto image_available_semaphore_name = "image-available";
         ImageAcquireTask(RenderEngine::Window& window, RenderEngine::LogicalDevice& logical_device, uint32_t back_buffer_count)
             : _window(window)
-            , _backbuffer_count(back_buffer_count)
-            , _logical_device(logical_device)
+            , _swap_chain_image_selector(back_buffer_count, logical_device, window.getSwapChain())
         {}
-        void run(rg::Job::ExecutionContext& execution_context) final
+        void run(rg::ExecutionContext& execution_context) final
         {
+            std::optional<uint32_t> image_index = _swap_chain_image_selector.getNextImage(execution_context);
+
+            if (image_index == std::nullopt)
+            {
+                _window.reinitSwapChain();
+            }
+            else
+            {
+                execution_context.setRenderTargetIndex(*image_index);
+            }
+            /*
+            std::cout << "[WAT] Start Image Acquire: " << std::endl;
+
             if (glfwGetWindowAttrib(_window.getWindowHandle(), GLFW_ICONIFIED) == GLFW_TRUE)
             {
+                std::cout << "[WAT] Finish Acquire - no window: " << std::endl;
                 return;
             }
+            // TODO add wait
             if (execution_context.hasRenderTargetIndex())
             {
+                std::cout << "[WAT] Finish Acquire - has active render target: " << std::endl;
                 return;
             }
             {
-                /*
-                * This is tricky:
-                * There are renders ongoing on the back buffers. Each back buffer has its own semaphore to trigger when the drawing are finished
-                * Its gonna be the available_index. Its semaphore will be used to query the next back buffer.
-                */
 
-                uint32_t available_index = RenderEngine::SyncObject::SharedOperations::from(execution_context.getAllSyncObject()).waitAnyOfSemaphores(render_finished_semaphore_name, 1);
-                auto [call_result, image_index] = execution_context.getSyncObject(available_index).acquireNextSwapChainImage(_logical_device,
-                                                                                                                             _window.getSwapChain().getDetails().swap_chain,
-                                                                                                                             image_available_semaphore_name);
-                switch (call_result)
-                {
-                    case VK_ERROR_OUT_OF_DATE_KHR:
-                    case VK_SUBOPTIMAL_KHR:
-                        _window.reinitSwapChain();
-                        return;
-                    case VK_SUCCESS:
-                        break;
-                    default:
-                        throw std::runtime_error("Failed to query swap chain image");
-                }
-                /*
-                * If somehow the next image is not the one that is finished we need to wait it until it is not finished.
-                * Like having 3 ongoing render
-                *  [0] : rendering
-                *  [1] : finished
-                *  [2] : rendering
-                * Theoretically, it can happen that the available index is '1' but the acquire next image returns with 2 (even due to a bug or whatever) then
-                * it would be a pity if we mess up the two back buffers. So let's wait for it.
-                * TODO: Add warning message
-                */
-                if (image_index != available_index)
-                {
-                    execution_context.getSyncObject(image_index).waitSemaphore(render_finished_semaphore_name, 1);
-                }
-                execution_context.setRenderTargetIndex(image_index);
 
-                execution_context.getSyncObjectUpdateData().requestTimelineSemaphoreShift(&execution_context.getSyncObject(image_index), render_finished_semaphore_name);
+                auto [image_index, available_index] =
+                    [this, &execution_context]() -> std::pair<std::optional<uint32_t>, uint32_t>
+                    {
+                        using namespace std::chrono_literals;
+
+                        std::lock_guard lock(_swapchain_access_mutex);
+                        auto sync_objects = execution_context.getAllSyncObject();
+                        uint32_t available_index =
+                            [&]
+                            {
+                                for (uint32_t i = 0; i < sync_objects.size(); ++i)
+                                {
+                                    if (_used_render_target_indexes.contains(i) == false)
+                                    {
+                                        return i;
+                                    }
+                                }
+                                const RenderEngine::SyncObject* available_object = RenderEngine::SyncObject::SharedOperations::from(sync_objects).waitAnyOfSemaphores(render_finished_semaphore_name, 1, _used_render_target_indexes.negate());
+                                const auto available_index = static_cast<uint32_t>(std::ranges::find(sync_objects, available_object) - sync_objects.begin());
+                                return available_index;
+                            }();
+                        _used_render_target_indexes.insert(available_index);
+                        std::cout << "[WAT][image-acquire]: call swap chain (guess: " << available_index << ")" << std::endl;
+
+
+                        const auto timeout = 30ms;
+
+                        VkResult call_result{ VK_TIMEOUT };
+                        uint32_t image_index = 0;
+
+                        while (call_result == VK_TIMEOUT)
+                        {
+                            std::tie(call_result, image_index) =
+                                execution_context.getSyncObject(available_index).acquireNextSwapChainImage(_logical_device,
+                                                                                                           _window.getSwapChain().getDetails().swap_chain,
+                                                                                                           image_available_semaphore_name, timeout);
+                        }
+                        switch (call_result)
+                        {
+                            case VK_ERROR_OUT_OF_DATE_KHR:
+                            case VK_SUBOPTIMAL_KHR:
+                                _window.reinitSwapChain();
+                                return { std::nullopt, -1 };
+                            case VK_SUCCESS:
+                                break;
+                            default:
+                                throw std::runtime_error("Failed to query swap chain image");
+                        }
+
+
+                        if (image_index != available_index)
+                        {
+                            execution_context.getSyncObject(image_index).waitSemaphore(render_finished_semaphore_name, 1);
+                        }
+
+                        _occupied_render_target_indexes.insert(image_index);
+
+                        std::cout << "[WAT][image-acquire]: call swap chain end" << std::endl;
+
+                        return std::pair{ std::optional{ image_index }, available_index };
+                    }();
+                if (image_index == std::nullopt)
+                {
+                    return;
+                }
+
+                execution_context.setRenderTargetIndex(*image_index);
+                should step it only when it was waited.Should step it once(another bug)
+                    execution_context.getSyncObjectUpdateData().requestTimelineSemaphoreShift(&execution_context.getSyncObject(*image_index), render_finished_semaphore_name);
                 execution_context.getSyncObjectUpdateData().requestTimelineSemaphoreShift(&execution_context.getSyncObject(available_index), render_finished_semaphore_name);
             }
+            std::cout << "[WAT] Finish Acquire" << std::endl;
+            */
         }
+
+        void register_execution_context(rg::ExecutionContext& execution_context) override
+        {
+            rg::ExecutionContext::Events events
+            {
+                .on_render_target_index_set = nullptr,
+                .on_render_target_index_clear = [this](uint32_t index) { _swap_chain_image_selector.releaseRenderTargetIndex(index); }
+            };
+            execution_context.add_events(std::move(events));
+        };
+
         bool isActive() const final { return true; }
     private:
+
+        RenderEngine::Window& _window;
+        SwapChainImageSelector _swap_chain_image_selector;
+        /*
         RenderEngine::Window& _window;
         RenderEngine::LogicalDevice& _logical_device;
         uint32_t _backbuffer_count{ 0 };
+        std::mutex _swapchain_access_mutex;
+        RenderEngine::IndexSet<uint32_t> _occupied_render_target_indexes;
+        RenderEngine::IndexSet<uint32_t> _used_render_target_indexes;*/
     };
+
+    /**
+    * @brief Determines the next available image index.
+    *
+    * This is tricky:
+    * There are renders ongoing on the back buffers. Each back buffer has its own semaphore to trigger when the drawing are finished
+    * Its gonna be the available_index. Its semaphore will be used to query the next back buffer.
+    *
+    */
+
+    inline std::optional<uint32_t> SwapChainImageSelector::getNextImage(rg::ExecutionContext& execution_context)
+    {
+        auto lock = std::lock_guard(_access_mutex);
+        auto sync_object_holder = execution_context.getAllSyncObject();
+
+        std::optional<uint32_t> available_index = findUnusedIndex();
+        if (available_index == std::nullopt)
+        {
+            available_index = findFinishedImageIndex(sync_object_holder.sync_objects);
+        }
+
+        std::optional<uint32_t> image_index = tryAcquireImage(execution_context,
+                                                              *available_index);
+
+        if (image_index == std::nullopt)
+        {
+            return std::nullopt;
+        }
+        /*
+        * If somehow the next image is not the one that is finished we need to wait it until it is not finished.
+        * Like having 3 ongoing render
+        *  [0] : rendering
+        *  [1] : finished
+        *  [2] : rendering
+        * Theoretically, it can happen that the available index is '1' but the acquire next image returns with 2 (even due to a bug or whatever) then
+        * it would be a pity if we mess up the two back buffers. So let's wait for it.
+        */
+        if (image_index != available_index)
+        {
+            // TODO add log warning
+        }
+        // Semaphore was used only when the index was used before, thus when it is a new insertion.
+        const bool semaphore_was_used = _used_render_target_indexes.insert(*image_index) == false;
+
+        _occupied_render_target_indexes.insert(*image_index);
+
+        // !! Unlocking manually. Not fun of this but makes readable the code (i.e.: Dealing with image index, and semaphore_was_used)
+        sync_object_holder.lock.unlock();
+
+        if (semaphore_was_used)
+        {
+            execution_context.stepTimelineSemaphore(*image_index, ImageAcquireTask::render_finished_semaphore_name);
+        }
+        return *image_index;
+    }
+    inline uint32_t SwapChainImageSelector::findFinishedImageIndex(const std::vector<const RenderEngine::SyncObject*>& sync_objects) const
+    {
+        auto black_list = _used_render_target_indexes.negate(); // Do not count those where no draw cal were recorded.
+        black_list.insert(_occupied_render_target_indexes); // Do not count those where draw calls are recording right now.
+        const RenderEngine::SyncObject* available_object = RenderEngine::SyncObject::SharedOperations::from(sync_objects)
+            .waitAnyOfSemaphores(ImageAcquireTask::render_finished_semaphore_name, 1, black_list);
+        const auto available_index = static_cast<uint32_t>(std::ranges::find(sync_objects, available_object) - sync_objects.begin());
+        return available_index;
+    }
+    inline std::optional<uint32_t> SwapChainImageSelector::tryAcquireImage(rg::ExecutionContext& execution_context, uint32_t available_index) const
+    {
+        using namespace std::chrono_literals;
+        const auto timeout = 30ms;
+
+        VkResult call_result{ VK_TIMEOUT };
+        uint32_t image_index = 0;
+
+        /*
+        * Because forward progress is not guaranteed with this setup we need to specify a timeout.
+        * I.e.: We are requesting 'too' much image from the swap chain.
+        * See more details:
+        * https://vulkan.lunarg.com/doc/view/1.3.275.0/windows/1.3-extensions/vkspec.html#VUID-vkAcquireNextImageKHR-surface-07783
+        * https://vulkan.lunarg.com/doc/view/1.3.275.0/windows/1.3-extensions/vkspec.html#swapchain-acquire-forward-progress
+        */
+        while (call_result == VK_TIMEOUT)
+        {
+            std::tie(call_result, image_index) =
+                execution_context.getSyncObject(available_index).sync_object.acquireNextSwapChainImage(_logical_device,
+                                                                                                       _swap_chain.getDetails().swap_chain,
+                                                                                                       ImageAcquireTask::image_available_semaphore_name,
+                                                                                                       timeout);
+        }
+        switch (call_result)
+        {
+            case VK_ERROR_OUT_OF_DATE_KHR:
+            case VK_SUBOPTIMAL_KHR:
+                // TODO replace it with an exception, while it is an exceptional case. Makes much simpler the interface
+                return std::nullopt;
+            case VK_SUCCESS:
+                break;
+            default:
+                throw std::runtime_error("Failed to query swap chain image");
+        }
+        return image_index;
+    }
 }
 
 void ParallelDemoApplication::createRenderEngine()
@@ -92,17 +314,22 @@ void ParallelDemoApplication::createRenderEngine()
 
     RenderEngine::RenderGraph::RenderGraphBuilder builder = render_engine.createRenderGraphBuilder("StandardPipeline");
     const RenderEngine::RenderGraph::BinarySemaphore image_available_semaphore{ ImageAcquireTask::image_available_semaphore_name };
-    const RenderEngine::RenderGraph::TimelineSemaphore render_finished_semaphore{ ImageAcquireTask::render_finished_semaphore_name , 1, 2 };
+    const RenderEngine::RenderGraph::TimelineSemaphore render_finished_semaphore{ ImageAcquireTask::render_finished_semaphore_name , 0, 2 };
     builder.registerSemaphore(image_available_semaphore);
     builder.registerSemaphore(render_finished_semaphore);
 
     ImageAcquireTask* image_acquire_task{ nullptr };
     {
+        auto ui_renderer = std::make_unique<RenderEngine::UIRenderer>(_window_setup->getUiWindow(), _window_setup->getRenderingWindow().createRenderTarget(), 3);
+        _ui_renderer = ui_renderer.get();
+        auto forward_renderer = std::make_unique<RenderEngine::ForwardRenderer>(render_engine, _window_setup->getRenderingWindow().createRenderTarget());
+        _forward_renderer = forward_renderer.get();
+
         auto image_acquire_task_ptr = std::make_unique<ImageAcquireTask>(_window_setup->getUiWindow(), _window_setup->getUiWindow().getDevice().getLogicalDevice(), _window_setup->getBackbufferCount());
         image_acquire_task = image_acquire_task_ptr.get();
         builder.addCpuNode("AcquireImage", std::move(image_acquire_task_ptr));
-        builder.addRenderNode("ForwardRenderer", std::make_unique<RenderEngine::ForwardRenderer>(render_engine, _window_setup->getRenderingWindow().createRenderTarget()));
-        builder.addRenderNode("ImguiRenderer", std::make_unique<RenderEngine::UIRenderer>(_window_setup->getUiWindow(), _window_setup->getRenderingWindow().createRenderTarget(), 3));
+        builder.addRenderNode("ForwardRenderer", std::move(forward_renderer));
+        builder.addRenderNode("ImguiRenderer", std::move(ui_renderer));
         builder.addPresentNode("Present", _window_setup->getUiWindow().getSwapChain());
         builder.addEmptyNode("End");
     }
@@ -120,6 +347,12 @@ void ParallelDemoApplication::createRenderEngine()
         .waitOnGpu(VK_PIPELINE_STAGE_2_NONE);
 
     render_engine.setRenderGraph(builder.reset("none"));
+
+    _ui_renderer->setOnGui(
+        [&]
+        {
+            onGui();
+        });
 }
 
 void ParallelDemoApplication::init()
@@ -141,7 +374,7 @@ void ParallelDemoApplication::init()
 
     ApplicationContext::instance().init(_scene.get(), getUiWindow().getWindowHandle());
 
-    _render_manager = std::make_unique<Scene::SceneRenderManager>(_scene->getNodeLookup(), getRenderingWindow());
+    _render_manager = std::make_unique<Scene::SceneRenderManager>(_scene->getNodeLookup(), _forward_renderer, nullptr);
 
     _render_manager->registerMeshesForRender();
 
@@ -160,10 +393,13 @@ void ParallelDemoApplication::createScene()
 
 void ParallelDemoApplication::run()
 {
+    auto& render_engine = static_cast<RenderEngine::ParallelRenderEngine&>(_window_setup->getRenderingWindow().getRenderEngine());
+
     while (getUiWindow().isClosed() == false)
     {
         ApplicationContext::instance().onFrameBegin();
-        _window_setup->update();
+        //_window_setup->update();
+        render_engine.render();
         ApplicationContext::instance().updateInputEvents();
         ApplicationContext::instance().onFrameEnd();
     }
@@ -193,7 +429,7 @@ void ParallelDemoApplication::initializeRenderers()
     init_info.app_info.pApplicationName = "DemoApplication";
     init_info.app_info.pEngineName = "FoxEngine";
     init_info.enable_validation_layers = true;
-    init_info.enabled_layers = { "VK_LAYER_KHRONOS_validation" };
+    init_info.enabled_layers = { "VK_LAYER_KHRONOS_validation", "VK_LAYER_NV_optimus" };
     init_info.renderer_factory = std::move(renderers);
     init_info.device_selector = [&](const DeviceLookup& lookup) ->VkPhysicalDevice { return device_selector.askForDevice(lookup); };
     init_info.queue_family_selector = [&](const DeviceLookup::DeviceInfo& info) { return device_selector.askForQueueFamilies(info); };
@@ -224,9 +460,5 @@ void ParallelDemoApplication::createWindowSetup()
     {
         _window_setup = std::make_unique<SingleWindowSetup>(std::vector<uint32_t>{}, true);
     }
-    _window_setup->getUiWindow().getRendererAs<UIRenderer>(UIRenderer::kRendererId).setOnGui(
-        [&]
-        {
-            onGui();
-        });
+
 }

@@ -39,7 +39,7 @@ namespace RenderEngine
     private:
         struct RenderingProcess
         {
-            RenderingProcess(std::vector<const SyncObject*> sync_objects)
+            RenderingProcess(std::vector<SyncObject*> sync_objects)
                 : execution_context(std::move(sync_objects))
             {}
 
@@ -49,7 +49,7 @@ namespace RenderEngine
             RenderingProcess& operator=(RenderingProcess&&) noexcept = delete;
             RenderingProcess& operator=(const RenderingProcess&) noexcept = delete;
 
-            RenderGraph::Job::ExecutionContext execution_context;
+            RenderGraph::ExecutionContext execution_context;
             tf::Taskflow task_flow;
             tf::Executor executor;
             tf::Future<void> calling_token;

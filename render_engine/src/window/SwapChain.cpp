@@ -168,13 +168,13 @@ namespace RenderEngine
             if (info.graphics_family_index != info.present_family_index)
             {
                 createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-                createInfo.queueFamilyIndexCount = 2;
-                createInfo.pQueueFamilyIndices = queueFamilyIndices.data();
             }
             else
             {
                 createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
             }
+            createInfo.queueFamilyIndexCount = 2;
+            createInfo.pQueueFamilyIndices = queueFamilyIndices.data();
 
             createInfo.preTransform = swap_chain_support.capabilities.currentTransform;
             createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
@@ -185,6 +185,7 @@ namespace RenderEngine
 
             SwapChain::Details result;
             auto& logical_device = *info.logical_device;
+            assert(logical_device->vkCreateSwapchainKHR != nullptr);
             if (auto ret_code = logical_device->vkCreateSwapchainKHR(*logical_device, &createInfo, nullptr, &result.swap_chain);
                 ret_code != VK_SUCCESS)
             {

@@ -88,13 +88,15 @@ namespace RenderEngine
             template<uint32_t OtherFlag>
             friend class GpuLinkBuilder;
 
-            explicit GpuLinkBuilder(RenderGraph::Link& link)
+            explicit GpuLinkBuilder(RenderGraph::Link& link, Graph& graph)
                 : _link(link)
+                , _graph(graph)
             {}
 
             template<uint32_t OtherFlag>
             GpuLinkBuilder(GpuLinkBuilder<OtherFlag>&& o)
                 : _link(o._link)
+                , _graph(o._graph)
                 , _signal_data(std::move(o._signal_data))
             {
 
@@ -103,6 +105,7 @@ namespace RenderEngine
         private:
 
             Link& _link;
+            Graph& _graph;
 
             std::variant<EmptySignalData, BinarySemaphoreSignalData, TimelineSemaphoreSignalData> _signal_data;
         };
@@ -116,16 +119,19 @@ namespace RenderEngine
             using EmptySignalData = GpuLinkBuilder<RenderGraphBuilder::OP_FLAG_NOP>::EmptySignalData;
             using BinarySemaphoreSignalData = GpuLinkBuilder<RenderGraphBuilder::OP_FLAG_NOP>::BinarySemaphoreSignalData;
             using TimelineSemaphoreSignalData = GpuLinkBuilder<RenderGraphBuilder::OP_FLAG_NOP>::TimelineSemaphoreSignalData;
+            using SignalValue = GpuLinkBuilder<RenderGraphBuilder::OP_FLAG_NOP>::SignalValue;
         public:
             template<uint32_t OtherFlag>
             friend class GpuLinkBuilder;
-            explicit GpuLinkBuilder(RenderGraph::Link& link)
+            explicit GpuLinkBuilder(RenderGraph::Link& link, Graph& graph)
                 : _link(link)
+                , _graph(graph)
             {}
 
             template<uint32_t OtherFlag>
             GpuLinkBuilder(GpuLinkBuilder<OtherFlag>&& o)
                 : _link(o._link)
+                , _graph(o._graph)
                 , _signal_data(std::move(o._signal_data))
             {
 
@@ -156,6 +162,7 @@ namespace RenderEngine
         private:
 
             Link& _link;
+            Graph& _graph;
 
             std::variant<EmptySignalData, BinarySemaphoreSignalData, TimelineSemaphoreSignalData> _signal_data;
         };
@@ -166,17 +173,20 @@ namespace RenderEngine
         private:
             using EmptySignalData = GpuLinkBuilder<RenderGraphBuilder::OP_FLAG_NOP>::EmptySignalData;
             using BinarySemaphoreSignalData = GpuLinkBuilder<RenderGraphBuilder::OP_FLAG_NOP>::BinarySemaphoreSignalData;
+            using SignalValue = GpuLinkBuilder<RenderGraphBuilder::OP_FLAG_NOP>::SignalValue;
             using TimelineSemaphoreSignalData = GpuLinkBuilder<RenderGraphBuilder::OP_FLAG_NOP>::TimelineSemaphoreSignalData;
         public:
             template<uint32_t OtherFlag>
             friend class GpuLinkBuilder;
-            explicit GpuLinkBuilder(RenderGraph::Link& link)
+            explicit GpuLinkBuilder(RenderGraph::Link& link, Graph& graph)
                 : _link(link)
+                , _graph(graph)
             {}
 
             template<uint32_t OtherFlag>
             GpuLinkBuilder(GpuLinkBuilder<OtherFlag>&& o)
                 : _link(o._link)
+                , _graph(o._graph)
                 , _signal_data(std::move(o._signal_data))
             {
 
@@ -189,7 +199,7 @@ namespace RenderEngine
                 std::visit(overloaded(
                     [&](const EmptySignalData&) { assert(false && "Operation is not allowed"); },
                     [&](const BinarySemaphoreSignalData& data) { _link.addConnection(PipelineConnection(std::get<BinarySemaphore>(data).getName(), std::get<VkPipelineStageFlagBits2>(data), wait_mask, std::nullopt)); },
-                    [&](const TimelineSemaphoreSignalData& data) { _link.addConnection(PipelineConnection(std::get<TimelineSemaphore>(data).getName(), std::get<VkPipelineStageFlagBits2>(data), wait_mask, std::get<uint64_t>(data))); }
+                    [&](const TimelineSemaphoreSignalData& data) { _link.addConnection(PipelineConnection(std::get<TimelineSemaphore>(data).getName(), std::get<VkPipelineStageFlagBits2>(data), wait_mask, std::get<SignalValue>(data).value)); }
                 ), _signal_data);
                 return { std::move(*this) };
             }
@@ -197,6 +207,7 @@ namespace RenderEngine
         private:
 
             Link& _link;
+            Graph& _graph;
 
             std::variant<EmptySignalData, BinarySemaphoreSignalData, TimelineSemaphoreSignalData> _signal_data;
         };
@@ -207,17 +218,20 @@ namespace RenderEngine
         private:
             using EmptySignalData = GpuLinkBuilder<RenderGraphBuilder::OP_FLAG_NOP>::EmptySignalData;
             using BinarySemaphoreSignalData = GpuLinkBuilder<RenderGraphBuilder::OP_FLAG_NOP>::BinarySemaphoreSignalData;
+            using SignalValue = GpuLinkBuilder<RenderGraphBuilder::OP_FLAG_NOP>::SignalValue;
             using TimelineSemaphoreSignalData = GpuLinkBuilder<RenderGraphBuilder::OP_FLAG_NOP>::TimelineSemaphoreSignalData;
         public:
             template<uint32_t OtherFlag>
             friend class GpuLinkBuilder;
-            explicit GpuLinkBuilder(RenderGraph::Link& link)
+            explicit GpuLinkBuilder(RenderGraph::Link& link, Graph& graph)
                 : _link(link)
+                , _graph(graph)
             {}
 
             template<uint32_t OtherFlag>
             GpuLinkBuilder(GpuLinkBuilder<OtherFlag>&& o)
                 : _link(o._link)
+                , _graph(o._graph)
                 , _signal_data(std::move(o._signal_data))
             {
 
@@ -228,7 +242,9 @@ namespace RenderEngine
             }
             GpuLinkBuilder<OP_FLAG_WAIT> signalOnGpu(VkPipelineStageFlagBits2 signal_mask)&&
             {
-                _signal_data = std::make_tuple(BinarySemaphore{ generateSemaphoreName() }, signal_mask);
+                auto semaphore = BinarySemaphore{ generateSemaphoreName() };
+                _graph.registerSemaphore(semaphore);
+                _signal_data = std::make_tuple(semaphore, signal_mask);
                 return { std::move(*this) };
             }
             GpuLinkBuilder<OP_FLAG_WAIT> signalOnGpu(const TimelineSemaphore& semaphore, uint64_t value, VkPipelineStageFlagBits2 signal_mask)&&
@@ -246,6 +262,8 @@ namespace RenderEngine
         private:
 
             Link& _link;
+            Graph& _graph;
+
             std::variant<EmptySignalData, BinarySemaphoreSignalData, TimelineSemaphoreSignalData> _signal_data;
 
             std::string generateSemaphoreName()

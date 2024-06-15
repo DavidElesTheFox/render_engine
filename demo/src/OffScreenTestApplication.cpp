@@ -25,8 +25,9 @@ void OffScreenTestApplication::init()
                                                           _window->getDevice(),
                                                           _window->getRenderEngine());
 
-    _render_manager = std::make_unique<Scene::SceneRenderManager>(_scene->getNodeLookup(), *_window);
-
+    _render_manager = std::make_unique<Scene::SceneRenderManager>(_scene->getNodeLookup(),
+                                                                  static_cast<ForwardRenderer*>(_window->findRenderer(ForwardRenderer::kRendererId)),
+                                                                  static_cast<VolumeRenderer*>(_window->findRenderer(VolumeRenderer::kRendererId)));
     _render_manager->registerMeshesForRender();
 
     _asset_browser = std::make_unique<Ui::AssetBrowserUi>(_assets, *_scene);

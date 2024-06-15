@@ -209,7 +209,7 @@ namespace RenderEngine::RenderGraph
 
     void Graph::accept(GraphVisitor& visitor)
     {
-        std::unique_lock lock{ _graph_mutex };
+        std::shared_lock lock{ _graph_mutex };
         for (auto& node_ptr : _graph.nodes | std::views::values)
         {
             node_ptr->accept(visitor);
@@ -326,6 +326,10 @@ namespace RenderEngine::RenderGraph
         {
             callback(_graph);
         }
+        _add_node_commands.clear();
+        _add_edge_commands.clear();
+        _remove_node_commands.clear();
+        _remove_edge_commands.clear();
     }
 
     void Graph::registerSemaphore(BinarySemaphore semaphore)

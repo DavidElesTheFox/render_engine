@@ -7,6 +7,8 @@
 #include <scene/SceneRenderManager.h>
 
 #include <render_engine/ParallelRenderEngine.h>
+#include <render_engine/renderers/ForwardRenderer.h>
+#include <render_engine/renderers/UIRenderer.h>
 
 #include <DemoSceneBuilder.h>
 #include <ui/AssetBrowserUi.h>
@@ -45,4 +47,6 @@ private:
     std::unique_ptr<Scene::SceneRenderManager> _render_manager;
     std::unique_ptr<Ui::AssetBrowserUi> _asset_browser;
     DemoSceneBuilder::CreationResult _scene_resources;
+    RenderEngine::UIRenderer* _ui_renderer{ nullptr };
+    RenderEngine::ForwardRenderer* _forward_renderer{ nullptr };
 };

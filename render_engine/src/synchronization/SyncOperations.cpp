@@ -5,6 +5,8 @@
 #include <cassert>
 #include <ranges>
 
+#include <iostream>
+
 namespace RenderEngine
 {
     void SyncOperations::addWaitOperation(SyncPrimitives& sync_object, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask)
@@ -41,6 +43,7 @@ namespace RenderEngine
         submit_info.semaphore = sync_object.getSemaphore(semaphore_name);
         submit_info.stageMask = stage_mask;
         submit_info.value = sync_object.getTimelineOffset(semaphore_name) + value;
+        std::cout << "[WAT]" << "Define Signal: " << semaphore_name << " id: " << _signal_semaphore_dependency.size() << std::endl;
         _signal_semaphore_dependency.emplace_back(std::move(submit_info));
     }
 
@@ -51,6 +54,10 @@ namespace RenderEngine
 
         submit_info.signalSemaphoreInfoCount = static_cast<uint32_t>(_signal_semaphore_dependency.size());
         submit_info.pSignalSemaphoreInfos = _signal_semaphore_dependency.data();
+        for (uint32_t i = 0; i < _signal_semaphore_dependency.size(); ++i)
+        {
+            std::cout << "[WAT] Signal (" << i << ") with value: " << _signal_semaphore_dependency[i].value << std::endl;
+        }
         return *this;
     }
 

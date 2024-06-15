@@ -10,7 +10,7 @@ namespace RenderEngine::RenderGraph
         {
         public:
             VisitorForTaskCreation(Graph& graph,
-                                   Job::ExecutionContext& execution_context,
+                                   ExecutionContext& execution_context,
                                    LogicalDevice& logical_device,
                                    const std::vector<SyncObject*>& sync_objects)
                 : GraphVisitor(graph)
@@ -31,17 +31,9 @@ namespace RenderEngine::RenderGraph
             {
                 _task_map.clear();
                 return std::move(_task_container);
-            }
-        private:
-
-            struct TaskDetails
-            {
-                TaskDetails(tf::Task task, std::unique_ptr<Job> job)
-                    : task(task), job(std::move(job))
-                {}
-                tf::Task task;
-                std::unique_ptr<Job> job;
             };
+
+        private:
 
             void visitImpl(Node* node);
             void collectSyncOperationForNode(const Node* node, SyncObject& sync_object)
@@ -127,9 +119,9 @@ namespace RenderEngine::RenderGraph
 
             LogicalDevice& _logical_device;
             const std::vector<SyncObject*>& _sync_objects;
-            Job::ExecutionContext& _execution_context;
+            ExecutionContext& _execution_context;
             tf::Taskflow _task_container;
-            std::unordered_map<std::string, TaskDetails> _task_map;
+            std::unordered_map<std::string, tf::Task> _task_map;
         };
         void VisitorForTaskCreation::visit(Link* edge)
         {
@@ -150,7 +142,7 @@ namespace RenderEngine::RenderGraph
                 for (auto& node_before : all_node_before)
                 {
                     auto& task_before = _task_map.at(node_before->getName());
-                    task_before.task.precede(task_later.task);
+                    task_before.precede(task_later);
                 }
             }
             // Link all the task dependences after this node that can run parallel on CPU
@@ -163,7 +155,7 @@ namespace RenderEngine::RenderGraph
                 for (auto& node_after : all_node_after)
                 {
                     auto& task_after = _task_map.at(node_after->getName());
-                    task_after.task.succeed(task_before.task);
+                    task_after.succeed(task_before);
                 }
             }
         }
@@ -176,20 +168,22 @@ namespace RenderEngine::RenderGraph
             }
             SyncObject sync_object{ _logical_device }; // this sync object cannot die during the process.
             collectSyncOperationForNode(node, sync_object);
-            auto job = node->createJob();
-            auto tf_task = _task_container.emplace([job_to_execute = job.get(),
-                                                   //stored_sync_object = std::move(sync_object),
-                                                   &execution_context_for_job = _execution_context]
+
+            node->register_execution_context(_execution_context);
+
+            auto tf_task = _task_container.emplace([node, &execution_context_for_job = _execution_context]
                                                    {
-                                                       job_to_execute->execute(execution_context_for_job);
+                                                       // TODO implement tracking: Probably the parameter can go to a member of the node
+                                                       node->execute(execution_context_for_job, nullptr);
                                                    });
-            _task_map.insert({ node->getName(), TaskDetails{ std::move(tf_task), std::move(job) } });
+            assert(_task_map.contains(node->getName()) == false);
+            _task_map.insert({ node->getName(), std::move(tf_task) });
         }
     }
 
 
     tf::Taskflow TaskflowBuilder::createTaskflow(Graph& graph,
-                                                 Job::ExecutionContext& execution_context,
+                                                 ExecutionContext& execution_context,
                                                  LogicalDevice& logical_device,
                                                  const std::vector<SyncObject*>& sync_objects)
     {

@@ -5,48 +5,39 @@
 
 namespace RenderEngine
 {
-    uint32_t RenderEngine::SyncObject::SharedOperations::waitAnyOfSemaphores(std::string semaphore_names, uint64_t value)&&
+    const SyncObject* RenderEngine::SyncObject::SharedOperations::waitAnyOfSemaphores(std::string semaphore_names, uint64_t value, const IndexSet<uint32_t>& blacklist)&&
     {
+        if (_sync_objects.empty())
+        {
+            return nullptr;
+        }
         std::vector<VkSemaphore> semaphores;
-        std::optional<uint64_t> current_value;
-        std::optional<uint64_t> timeline_offset;
+        std::vector<uint64_t> wait_values;
+        std::vector<uint64_t> current_values;
         LogicalDevice& logical_device = _sync_objects[0]->getPrimitives().getLogicalDevice();
 
-        for (auto& sync_object : _sync_objects)
+        for (uint32_t i = 0; i < _sync_objects.size(); ++i)
         {
+            const auto* sync_object = _sync_objects[i];
             if (sync_object->getPrimitives().hasSemaphore(semaphore_names) == false)
             {
                 continue;
             }
-            semaphores.push_back(sync_object->getPrimitives().getSemaphore(semaphore_names));
-            if (timeline_offset == std::nullopt)
+            if (blacklist.contains(i) == false)
             {
-                timeline_offset = sync_object->getPrimitives().getTimelineOffset(semaphore_names);
-            }
-            else
-            {
-                assert(timeline_offset == sync_object->getPrimitives().getTimelineOffset(semaphore_names));
-            }
-            if (current_value == std::nullopt)
-            {
-                current_value = sync_object->getSemaphoreValue(semaphore_names);
-            }
-            else
-            {
-                assert(current_value == sync_object->getSemaphoreValue(semaphore_names));
+                semaphores.push_back(sync_object->getPrimitives().getSemaphore(semaphore_names));
+                const uint64_t timeline_offset = sync_object->getPrimitives().getTimelineOffset(semaphore_names);
+                wait_values.push_back(timeline_offset + value);
+                current_values.push_back(sync_object->getSemaphoreValue(semaphore_names));
+
             }
         }
-        if (timeline_offset == std::nullopt)
-        {
-            throw std::runtime_error("Shared operation should wait a semaphore that is not defined in the set of sync objects.");
-        }
-        const uint64_t value_to_wait = *timeline_offset + value;
 
         VkSemaphoreWaitInfo wait_info{};
         wait_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
         wait_info.pSemaphores = semaphores.data();
         wait_info.semaphoreCount = static_cast<uint32_t>(semaphores.size());
-        wait_info.pValues = &value_to_wait;
+        wait_info.pValues = wait_values.data();
         wait_info.flags = VK_SEMAPHORE_WAIT_ANY_BIT;
 
         if (logical_device->vkWaitSemaphores(*logical_device, &wait_info, UINT64_MAX) != VK_SUCCESS)
@@ -61,13 +52,13 @@ namespace RenderEngine
             {
                 continue;
             }
-            if (sync_object->getSemaphoreValue(semaphore_names) == value_to_wait)
+            if (sync_object->getSemaphoreRealValue(semaphore_names) == wait_values[i])
             {
-                return i;
+                return sync_object;
             }
         }
         assert(false && "Wait was successful but no semaphore was found with the wait value. Should never happen");
-        return 0;
+        return nullptr;
     }
 
     void SyncObject::addSignalOperationToGroup(const std::string& group_name, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask)
@@ -116,8 +107,12 @@ namespace RenderEngine
             throw std::runtime_error("Couldn't wait semaphore: " + name);
         }
     }
-
     uint64_t RenderEngine::SyncObject::getSemaphoreValue(const std::string& name) const
+    {
+        return getSemaphoreRealValue(name) % _primitives.getTimelineWidth(name);
+    }
+
+    uint64_t RenderEngine::SyncObject::getSemaphoreRealValue(const std::string& name) const
     {
         auto semaphore = _primitives.getSemaphore(name);
 
@@ -126,15 +121,19 @@ namespace RenderEngine
         {
             throw std::runtime_error("Couldn't read semaphore value");
         }
-        return value % _primitives.getTimelineWidth(name);
+        return value;
     }
 
-    std::pair<VkResult, uint32_t> SyncObject::acquireNextSwapChainImage(LogicalDevice& logical_device, VkSwapchainKHR swap_chain, const std::string& semaphore_name) const
+    std::pair<VkResult, uint32_t> SyncObject::acquireNextSwapChainImage(LogicalDevice& logical_device,
+                                                                        VkSwapchainKHR swap_chain,
+                                                                        const std::string& semaphore_name,
+                                                                        std::optional<std::chrono::nanoseconds> timeout) const
     {
         uint32_t image_index = 0;
+        const uint64_t timeout_ns = timeout.value_or(std::chrono::milliseconds{ UINT64_MAX }).count();
         auto call_result = logical_device->vkAcquireNextImageKHR(*logical_device,
                                                                  swap_chain,
-                                                                 UINT64_MAX,
+                                                                 timeout_ns,
                                                                  getPrimitives().getSemaphore(semaphore_name),
                                                                  VK_NULL_HANDLE,
                                                                  &image_index);

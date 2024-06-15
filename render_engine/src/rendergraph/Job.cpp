@@ -5,21 +5,8 @@
 
 namespace RenderEngine::RenderGraph
 {
-    std::unordered_map<const SyncObject*, std::vector<std::string>> Job::ExecutionContext::SyncObjectUpdateData::clear()
-    {
-        std::lock_guard lock{ _timeline_semaphores_to_shift_mutex };
 
-        auto result = _timeline_semaphores_to_shift;
-        _timeline_semaphores_to_shift.clear();
-
-        return result;
-    }
-    void Job::ExecutionContext::SyncObjectUpdateData::requestTimelineSemaphoreShift(const SyncObject* sync_object, const std::string& name)
-    {
-        std::lock_guard lock{ _timeline_semaphores_to_shift_mutex };
-        _timeline_semaphores_to_shift[sync_object].push_back(name);
-    }
-
+    /*
     void Job::execute(ExecutionContext& execution_context) noexcept
     {
         try
@@ -42,26 +29,52 @@ namespace RenderEngine::RenderGraph
 
         }
     }
-    uint32_t Job::ExecutionContext::getRenderTargetIndex() const
+    */
+    uint32_t ExecutionContext::getRenderTargetIndex() const
     {
         std::shared_lock lock(_render_target_index_mutex);
         return *_render_target_index;
     }
-    bool Job::ExecutionContext::hasRenderTargetIndex() const
+    bool ExecutionContext::hasRenderTargetIndex() const
     {
         std::shared_lock lock(_render_target_index_mutex);
         return _render_target_index != std::nullopt;
     }
-    void Job::ExecutionContext::setRenderTargetIndex(uint32_t index)
+    void ExecutionContext::setRenderTargetIndex(uint32_t index)
     {
         std::unique_lock lock(_render_target_index_mutex);
         _render_target_index = index;
+        on_render_target_index_set(index);
     }
-    void Job::ExecutionContext::clearRenderTargetIndex()
+    void ExecutionContext::clearRenderTargetIndex()
     {
         std::unique_lock lock(_render_target_index_mutex);
+        uint32_t old_index = *_render_target_index;
         _render_target_index = std::nullopt;
+        on_render_target_index_clear(old_index);
+    }
+    void ExecutionContext::add_events(Events events)
+    {
+        std::unique_lock lock(_event_mutex);
+        _events.push_back(std::move(events));
     }
 
+    void ExecutionContext::on_render_target_index_set(uint32_t index)
+    {
+        std::shared_lock lock(_event_mutex);
+        for (auto& event : _events | std::views::filter([](const auto& events) { return events.on_render_target_index_set != nullptr; }))
+        {
+            event.on_render_target_index_set(index);
+        }
+    }
+
+    void ExecutionContext::on_render_target_index_clear(uint32_t index)
+    {
+        std::shared_lock lock(_event_mutex);
+        for (auto& event : _events | std::views::filter([](const auto& events) { return events.on_render_target_index_clear != nullptr; }))
+        {
+            event.on_render_target_index_clear(index);
+        }
+    }
 
 }

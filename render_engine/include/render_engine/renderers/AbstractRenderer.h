@@ -35,6 +35,11 @@ namespace RenderEngine
             bool _finished = false;
         };
         friend class ReinitializationCommand;
+        AbstractRenderer(AbstractRenderer&&) = delete;
+        AbstractRenderer(const AbstractRenderer&) = delete;
+
+        AbstractRenderer& operator=(AbstractRenderer&&) = delete;
+        AbstractRenderer& operator=(const AbstractRenderer&) = delete;
 
         virtual ~AbstractRenderer() = default;
         virtual void onFrameBegin(uint32_t frame_number) = 0;
@@ -43,6 +48,8 @@ namespace RenderEngine
         virtual SyncOperations getSyncOperations(uint32_t frame_number) = 0;
         [[nodiscard]]
         ReinitializationCommand reinit();
+    protected:
+        AbstractRenderer() = default;
     private:
         virtual void beforeReinit() = 0;
         virtual void finalizeReinit(const RenderTarget& render_target) = 0;

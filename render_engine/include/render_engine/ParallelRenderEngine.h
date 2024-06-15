@@ -36,6 +36,7 @@ namespace RenderEngine
         CommandContext& getCommandContext() override { return *_render_context; }
         SingleShotCommandContext& getTransferCommandContext() override { return *_transfer_context; }
         Device& getDevice() override { return _device; }
+        void waitIdle();
     private:
         struct RenderingProcess
         {

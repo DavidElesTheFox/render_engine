@@ -314,8 +314,8 @@ namespace RenderEngine
                                                           back_buffer_size);
             return std::make_unique<Window>(*this, std::move(render_engine),
                                             window,
-                                            std::move(swap_chain)
-                                            , std::move(command_context));
+                                            std::move(swap_chain),
+                                            std::move(command_context));
         }
         catch (const std::runtime_error&)
         {

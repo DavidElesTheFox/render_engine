@@ -270,7 +270,8 @@ namespace RenderEngine
         {
             return;
         }
-        const int focused = glfwGetWindowAttrib(_window_handle, GLFW_FOCUSED);
+        // TODO implement tracking of window is focused
+        const int focused = 1;
 
         if (focused)
         {

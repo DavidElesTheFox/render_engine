@@ -72,6 +72,17 @@ namespace RenderEngine
         }
     }
 
+    void ParallelRenderEngine::waitIdle()
+    {
+        for (const auto& current_process : _rendering_processes)
+        {
+            if (current_process->calling_token.valid())
+            {
+                current_process->calling_token.wait();
+            }
+        }
+    }
+
     void ParallelRenderEngine::render()
     {
         if (_skeleton == nullptr)

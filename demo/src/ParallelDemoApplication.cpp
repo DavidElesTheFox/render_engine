@@ -213,11 +213,19 @@ void ParallelDemoApplication::createRenderEngine()
 
     ImageAcquireTask* image_acquire_task{ nullptr };
     {
-        auto ui_renderer = std::make_unique<RenderEngine::UIRenderer>(_window_setup->getUiWindow(), _window_setup->getRenderingWindow().createRenderTarget(), 3);
-        _ui_renderer = ui_renderer.get();
-        auto forward_renderer = std::make_unique<RenderEngine::ForwardRenderer>(render_engine, _window_setup->getRenderingWindow().createRenderTarget());
+        const auto base_render_target = _window_setup->getRenderingWindow().createRenderTarget();
+
+        auto forward_renderer = std::make_unique<RenderEngine::ForwardRenderer>(render_engine,
+                                                                                base_render_target.clone()
+                                                                                .changeFinalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL));
         _forward_renderer = forward_renderer.get();
 
+        auto ui_renderer = std::make_unique<RenderEngine::UIRenderer>(_window_setup->getUiWindow(),
+                                                                      base_render_target.clone()
+                                                                      .changeInitialLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+                                                                      .changeLoadOperation(VK_ATTACHMENT_LOAD_OP_LOAD),
+                                                                      3);
+        _ui_renderer = ui_renderer.get();
         auto image_acquire_task_ptr = std::make_unique<ImageAcquireTask>(_window_setup->getUiWindow(), _window_setup->getUiWindow().getDevice().getLogicalDevice(), _window_setup->getBackbufferCount());
         image_acquire_task = image_acquire_task_ptr.get();
         builder.addDeviceSynchronizeNode("SynchronizeRenderGpu", _window_setup->getRenderingWindow().getDevice());
@@ -301,7 +309,7 @@ void ParallelDemoApplication::run()
     while (getUiWindow().isClosed() == false)
     {
         ApplicationContext::instance().onFrameBegin();
-        //_window_setup->update();
+        _window_setup->update();
         render_engine.render();
         ApplicationContext::instance().updateInputEvents();
         ApplicationContext::instance().onFrameEnd();
@@ -310,8 +318,11 @@ void ParallelDemoApplication::run()
 
 ParallelDemoApplication::~ParallelDemoApplication()
 {
+
     if (_window_setup != nullptr)
     {
+        auto& render_engine = static_cast<RenderEngine::ParallelRenderEngine&>(_window_setup->getRenderingWindow().getRenderEngine());
+        render_engine.waitIdle();
         // finish all rendering before destroying anything
         getRenderingWindow().getDevice().waitIdle();
         getUiWindow().getDevice().waitIdle();

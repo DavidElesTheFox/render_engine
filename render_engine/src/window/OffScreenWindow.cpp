@@ -44,7 +44,7 @@ namespace RenderEngine
         {
             auto& texture = *textures[i];
             _back_buffer.emplace_back(FrameData{
-                .synch_render = SyncObject(device.getLogicalDevice()),
+                .synch_render = SyncObject(device.getLogicalDevice(), std::format("OffscreenRenderer-{:d}", i)),
                 .contains_image = false,
                 .render_target_texture = std::move(textures[i]),
                 .render_target_texture_view = texture.createTextureView(image_view_data, std::nullopt) });

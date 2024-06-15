@@ -52,9 +52,9 @@ namespace RenderEngine
 
         assert(*src->getLogicalDevice() == *dst->getLogicalDevice());
         assert(dst->isPipelineStageSupported(new_state.pipeline_stage));
-        SyncObject sync_object(src->getLogicalDevice());
+        SyncObject sync_object(src->getLogicalDevice(), std::format("TransferOwnership-{:#018x}-{:#018x}", reinterpret_cast<uintptr_t>(src), reinterpret_cast<intptr_t>(dst)));
 
-        const std::string texture_semaphore_name = std::format("{:#x}", reinterpret_cast<intptr_t>(resource));
+        const std::string texture_semaphore_name = std::format("{:#x}", reinterpret_cast<uintptr_t>(resource));
         sync_object.createTimelineSemaphore(texture_semaphore_name, 0, 2);
 
         // make ownership transform
@@ -267,7 +267,7 @@ namespace RenderEngine
                                                  const SyncOperations& sync_operations,
                                                  QueueSubmitTracker* submit_tracker)
     {
-        SyncObject result(src.getLogicalDevice());
+        SyncObject result(src.getLogicalDevice(), std::format("BarrierAt-{:#018x}", reinterpret_cast<uintptr_t>(&src)));
         result.createTimelineSemaphore("BarrierFinished", 0, 2);
         result.addSignalOperationToGroup(SyncGroups::kInternal,
                                          "BarrierFinished",

@@ -1,6 +1,7 @@
 #include <render_engine/rendergraph/Node.h>
 
 #include <render_engine/CommandContext.h>
+#include <render_engine/RenderContext.h>
 #include <render_engine/rendergraph/GraphVisitor.h>
 
 #include <format>
@@ -16,14 +17,14 @@ namespace RenderEngine::RenderGraph
 
     void RenderNode::execute(ExecutionContext& execution_context, QueueSubmitTracker* queue_tracker)
     {
-        const auto render_target_image_index = execution_context.getRenderTargetIndex();
-        std::cout << "[WAT] Start rendering: " << getName() << " render target: " << render_target_image_index << std::endl;
-        auto sync_object_holder = execution_context.getSyncObject(render_target_image_index);
+        const auto pool_index = execution_context.getPoolIndex();
+        RenderContext::context().getDebugger().print("[WAT] Start rendering: {:s} render target: {:d} (sync index: {:d})", getName(), pool_index.render_target_index, pool_index.sync_object_index);
+        auto sync_object_holder = execution_context.getSyncObject(pool_index.sync_object_index);
         const auto& in_operations = sync_object_holder.sync_object.getOperationsGroup(getName());
-        _renderer->draw(render_target_image_index);
+        _renderer->draw(pool_index.render_target_index);
         std::vector<VkCommandBufferSubmitInfo> command_buffer_infos;
 
-        auto command_buffers = _renderer->getCommandBuffers(render_target_image_index);
+        auto command_buffers = _renderer->getCommandBuffers(pool_index.render_target_index);
         std::ranges::transform(command_buffers,
                                std::back_inserter(command_buffer_infos),
                                [](const auto& command_buffer)
@@ -54,14 +55,14 @@ namespace RenderEngine::RenderGraph
                                           VK_NULL_HANDLE);
         }
         execution_context.setDrawCallRecorded(true);
-        std::cout << "[WAT] Rendering finished: " << getName() << " render target: " << render_target_image_index << std::endl;
+        RenderContext::context().getDebugger().print("[WAT] Rendering finished: {:s} render target: {:d} (sync index: {:d})", getName(), pool_index.render_target_index, pool_index.sync_object_index);
 
     }
 
     void TransferNode::execute(ExecutionContext& execution_context, QueueSubmitTracker*)
     {
-        const auto render_target_image_index = execution_context.getRenderTargetIndex();
-        auto sync_object_holder = execution_context.getSyncObject(render_target_image_index);
+        const auto pool_index = execution_context.getPoolIndex();
+        auto sync_object_holder = execution_context.getSyncObject(pool_index.sync_object_index);
         const auto& in_operations = sync_object_holder.sync_object.getOperationsGroup(getName());
         _scheduler.executeTasks(in_operations, _transfer_engine);
     }
@@ -87,10 +88,9 @@ namespace RenderEngine::RenderGraph
 
     void PresentNode::execute(ExecutionContext& execution_context, QueueSubmitTracker*)
     {
-        const auto render_target_image_index = execution_context.getRenderTargetIndex();
-
-        std::cout << "[WAT] Start presenting: " << getName() << " render target: " << render_target_image_index << std::endl;
-        auto sync_object_holder = execution_context.getSyncObject(render_target_image_index);
+        const auto pool_index = execution_context.getPoolIndex();
+        RenderContext::context().getDebugger().print("[WAT] Start presenting: {:s} render target: {:d} (sync index: {:d})", getName(), pool_index.render_target_index, pool_index.sync_object_index);
+        auto sync_object_holder = execution_context.getSyncObject(pool_index.sync_object_index);
         const auto& in_operations = sync_object_holder.sync_object.getOperationsGroup(getName());
 
         VkPresentInfoKHR present_info{};
@@ -99,10 +99,9 @@ namespace RenderEngine::RenderGraph
         present_info.swapchainCount = 1;
         present_info.pSwapchains = swapChains;
 
-        present_info.pImageIndices = &render_target_image_index;
+        present_info.pImageIndices = &pool_index.render_target_index;
         _command_context->queuePresent(std::move(present_info), in_operations);
-        std::cout << "[WAT] Presenting finished: " << getName() << std::endl;
-
+        RenderContext::context().getDebugger().print("[WAT] Presenting finished: {:s} render target: {:d} (sync index: {:d})", getName(), pool_index.render_target_index, pool_index.sync_object_index);
     }
 
     void PresentNode::accept(GraphVisitor& visitor)

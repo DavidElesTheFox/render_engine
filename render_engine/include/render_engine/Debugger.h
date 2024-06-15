@@ -1,5 +1,7 @@
 #pragma once
 
+#include <render_engine/debug/SyncLogbook.h>
+
 #include <format>
 #include <functional>
 #include <string_view>
@@ -9,7 +11,14 @@ namespace RenderEngine
 {
     class Debugger
     {
+    private:
+        static constexpr const uint32_t sync_logbook_max_stacksize = 32;
     public:
+        enum class PrintDestinationType
+        {
+            Null,
+            Console
+        };
         class GuiCallbackToken
         {
         public:
@@ -45,8 +54,12 @@ namespace RenderEngine
         }
 
         void callGuiCallbacks() const;
+
+        SyncLogbook& getSyncLogbook() { return _sync_logbook; }
     private:
         void removeCallback(std::function<void()>& callback);
         std::vector<std::function<void()>> _on_gui_callbacks;
+        SyncLogbook _sync_logbook{ sync_logbook_max_stacksize };
+        PrintDestinationType _print_destination_type{ PrintDestinationType::Null };
     };
 }

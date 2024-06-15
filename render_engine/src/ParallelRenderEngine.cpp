@@ -48,7 +48,7 @@ namespace RenderEngine
         std::vector<SyncObject*> non_const_sync_objects;
         for (uint32_t i = 0; i < back_buffer_size; ++i)
         {
-            std::unique_ptr<SyncObject> sync_object = std::make_unique<SyncObject>(_device.getLogicalDevice());
+            std::unique_ptr<SyncObject> sync_object = std::make_unique<SyncObject>(_device.getLogicalDevice(), std::format("ExecutionContext-{:d}", i));
             for (const std::variant<RenderGraph::TimelineSemaphore, RenderGraph::BinarySemaphore>& semaphore_definition : _skeleton->getSemaphoreDefinitions())
             {
                 std::visit(overloaded(
@@ -86,12 +86,16 @@ namespace RenderEngine
         }
         if (current_process->execution_context.isDrawCallRecorded())
         {
-            current_process->execution_context.clearRenderTargetIndex();
+            current_process->execution_context.clearPoolIndex();
             current_process->execution_context.setDrawCallRecorded(false);
         }
 
         current_process->calling_token = current_process->executor.run(current_process->task_flow);
 
+        auto& debugger = RenderContext::context().getDebugger();
+        debugger.print("Synchronization Log @{:d}: \n{:s}\n",
+                       _render_call_count,
+                       debugger.getSyncLogbook().toString());
         _render_call_count++;
 
     }

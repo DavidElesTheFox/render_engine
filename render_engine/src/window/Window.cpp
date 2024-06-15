@@ -43,7 +43,7 @@ namespace RenderEngine
         _back_buffer.reserve(_render_engine->getBackBufferSize());
         for (uint32_t i = 0; i < _render_engine->getBackBufferSize(); ++i)
         {
-            _back_buffer.emplace_back(FrameData{ device.getLogicalDevice() });
+            _back_buffer.emplace_back(FrameData{ device.getLogicalDevice(), "WindowFrame-" + std::to_string(i) });
         }
         initSynchronizationObjects();
     }

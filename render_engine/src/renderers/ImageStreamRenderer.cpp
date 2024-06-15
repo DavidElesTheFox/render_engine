@@ -286,9 +286,9 @@ namespace RenderEngine
 
     void ImageStreamRenderer::destroy() noexcept
     {
-        for (auto& upload_data : _upload_data | std::ranges::views::values)
+        for (auto& [texture, upload_data] : _upload_data)
         {
-            upload_data.synchronization_object = SyncObject(getLogicalDevice());
+            upload_data.synchronization_object = SyncObject(getLogicalDevice(), std::format("ImageStreamRenderer-UploadData-{:#018x}", reinterpret_cast<uintptr_t>(texture)));
         }
     }
 
@@ -308,7 +308,7 @@ namespace RenderEngine
             auto it = _upload_data.find(upload_texture.get());
             if (it == _upload_data.end())
             {
-                SyncObject sync_objcet(logical_device);
+                SyncObject sync_objcet(logical_device, "ImageStreamRenderer-UploadSync");
 
                 sync_objcet.createSemaphore("copy-finished");
                 sync_objcet.addSignalOperationToGroup(SyncGroups::kInternal,

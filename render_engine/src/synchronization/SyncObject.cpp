@@ -1,11 +1,13 @@
 #include <render_engine/synchronization/SyncObject.h>
 
+#include <render_engine/RenderContext.h>
+
 #include <ranges>
 #include <stdexcept>
 
 namespace RenderEngine
 {
-    const SyncObject* RenderEngine::SyncObject::SharedOperations::waitAnyOfSemaphores(std::string semaphore_names, uint64_t value, const IndexSet<uint32_t>& blacklist)&&
+    const SyncObject* SyncObject::SharedOperations::waitAnyOfSemaphores(std::string semaphore_names, uint64_t value, const IndexSet<uint32_t>& blacklist)&&
     {
         if (_sync_objects.empty())
         {
@@ -90,6 +92,7 @@ namespace RenderEngine
         {
             throw std::runtime_error("Couldn't signal semaphore: " + name);
         }
+        RenderContext::context().getDebugger().getSyncLogbook().signaledSemaphoreFromHost(semaphore, value);
     }
     void SyncObject::waitSemaphore(const std::string& name, uint64_t value) const
     {
@@ -107,12 +110,12 @@ namespace RenderEngine
             throw std::runtime_error("Couldn't wait semaphore: " + name);
         }
     }
-    uint64_t RenderEngine::SyncObject::getSemaphoreValue(const std::string& name) const
+    uint64_t SyncObject::getSemaphoreValue(const std::string& name) const
     {
         return getSemaphoreRealValue(name) % _primitives.getTimelineWidth(name);
     }
 
-    uint64_t RenderEngine::SyncObject::getSemaphoreRealValue(const std::string& name) const
+    uint64_t SyncObject::getSemaphoreRealValue(const std::string& name) const
     {
         auto semaphore = _primitives.getSemaphore(name);
 
@@ -137,17 +140,26 @@ namespace RenderEngine
                                                                  getPrimitives().getSemaphore(semaphore_name),
                                                                  VK_NULL_HANDLE,
                                                                  &image_index);
+        RenderContext::context().getDebugger().getSyncLogbook().imageAcquire(getPrimitives().getSemaphore(semaphore_name));
         return { call_result, image_index };
     }
 
 
-    void SyncObject::createSemaphore(std::string name)
+    void SyncObject::createSemaphore(const std::string& name)
     {
-        _primitives.createSemaphore(std::move(name));
+        _primitives.createSemaphore(name);
+        RenderContext::context().getDebugger().getSyncLogbook().registerSemaphore(name,
+                                                                                  SyncLogbook::SemaphoreType::Binary,
+                                                                                  _primitives.getSemaphore(name),
+                                                                                  _name);
     }
-    void SyncObject::createTimelineSemaphore(std::string name, uint64_t initial_value, uint64_t timeline_width)
+    void SyncObject::createTimelineSemaphore(const std::string& name, uint64_t initial_value, uint64_t timeline_width)
     {
-        _primitives.createTimelineSemaphore(std::move(name), initial_value, timeline_width);
+        _primitives.createTimelineSemaphore(name, initial_value, timeline_width);
+        RenderContext::context().getDebugger().getSyncLogbook().registerSemaphore(name,
+                                                                                  SyncLogbook::SemaphoreType::Timeline,
+                                                                                  _primitives.getSemaphore(name),
+                                                                                  _name);
     }
     void SyncObject::stepTimeline(const std::string& name)
     {
@@ -159,8 +171,9 @@ namespace RenderEngine
         }
     }
 
-    SyncObject::SyncObject(LogicalDevice& logical_device)
+    SyncObject::SyncObject(LogicalDevice& logical_device, std::string name)
         : _primitives(logical_device)
+        , _name(std::move(name))
         , _operation_groups{ }
     {}
 }

@@ -166,7 +166,7 @@ namespace RenderEngine::RenderGraph
             {
                 return;
             }
-            SyncObject sync_object{ _logical_device }; // this sync object cannot die during the process.
+            SyncObject sync_object{ _logical_device, std::format("Node-{:s}", node->getName()) }; // this sync object cannot die during the process.
             collectSyncOperationForNode(node, sync_object);
 
             node->register_execution_context(_execution_context);

@@ -35,19 +35,19 @@ namespace
           * Its gonna be the available_index. Its semaphore will be used to query the next back buffer.
           *
          */
-        std::optional<uint32_t> getNextImage(rg::ExecutionContext& execution_context);
+        std::optional<rg::ExecutionContext::PoolIndex> getNextImage(rg::ExecutionContext& execution_context);
 
-        void releaseRenderTargetIndex(uint32_t index)
+        void releasePoolIndex(const rg::ExecutionContext::PoolIndex& index)
         {
             auto lock = std::lock_guard(_access_mutex);
-            _occupied_render_target_indexes.erase(index);
+            _occupied_sync_object_indexes.erase(index.sync_object_index);
         }
     private:
         std::optional<uint32_t> findUnusedIndex() const
         {
             for (uint32_t i = 0; i < _image_count; ++i)
             {
-                if (_used_render_target_indexes.contains(i) == false)
+                if (_used_sync_object_indexes.contains(i) == false)
                 {
                     return i;
                 }
@@ -55,14 +55,14 @@ namespace
             return std::nullopt;
         }
 
-        uint32_t findFinishedImageIndex(const std::vector<const RenderEngine::SyncObject*>& sync_objects) const;
+        uint32_t findFinishedSyncObjectIndex(const std::vector<const RenderEngine::SyncObject*>& sync_objects) const;
 
         std::optional<uint32_t> tryAcquireImage(rg::ExecutionContext& execution_context,
                                                 uint32_t available_index) const;
 
         std::mutex _access_mutex;
-        RenderEngine::IndexSet<uint32_t> _occupied_render_target_indexes; /**< On the CPU the draw calls are recording right now*/
-        RenderEngine::IndexSet<uint32_t> _used_render_target_indexes; /**< There were any draw call recorded ever */
+        RenderEngine::IndexSet<uint32_t> _occupied_sync_object_indexes; /**< On the CPU the draw calls are recording right now*/
+        RenderEngine::IndexSet<uint32_t> _used_sync_object_indexes; /**< There were any draw call recorded ever */
 
         uint32_t _image_count{ 0 };
         RenderEngine::LogicalDevice& _logical_device;
@@ -81,114 +81,25 @@ namespace
         {}
         void run(rg::ExecutionContext& execution_context) final
         {
-            std::optional<uint32_t> image_index = _swap_chain_image_selector.getNextImage(execution_context);
+            std::optional<rg::ExecutionContext::PoolIndex> pool_index = _swap_chain_image_selector.getNextImage(execution_context);
 
-            if (image_index == std::nullopt)
+            if (pool_index == std::nullopt)
             {
                 _window.reinitSwapChain();
             }
             else
             {
-                execution_context.setRenderTargetIndex(*image_index);
+                execution_context.setPoolIndex(*pool_index);
             }
-            /*
-            std::cout << "[WAT] Start Image Acquire: " << std::endl;
 
-            if (glfwGetWindowAttrib(_window.getWindowHandle(), GLFW_ICONIFIED) == GLFW_TRUE)
-            {
-                std::cout << "[WAT] Finish Acquire - no window: " << std::endl;
-                return;
-            }
-            // TODO add wait
-            if (execution_context.hasRenderTargetIndex())
-            {
-                std::cout << "[WAT] Finish Acquire - has active render target: " << std::endl;
-                return;
-            }
-            {
-
-
-                auto [image_index, available_index] =
-                    [this, &execution_context]() -> std::pair<std::optional<uint32_t>, uint32_t>
-                    {
-                        using namespace std::chrono_literals;
-
-                        std::lock_guard lock(_swapchain_access_mutex);
-                        auto sync_objects = execution_context.getAllSyncObject();
-                        uint32_t available_index =
-                            [&]
-                            {
-                                for (uint32_t i = 0; i < sync_objects.size(); ++i)
-                                {
-                                    if (_used_render_target_indexes.contains(i) == false)
-                                    {
-                                        return i;
-                                    }
-                                }
-                                const RenderEngine::SyncObject* available_object = RenderEngine::SyncObject::SharedOperations::from(sync_objects).waitAnyOfSemaphores(render_finished_semaphore_name, 1, _used_render_target_indexes.negate());
-                                const auto available_index = static_cast<uint32_t>(std::ranges::find(sync_objects, available_object) - sync_objects.begin());
-                                return available_index;
-                            }();
-                        _used_render_target_indexes.insert(available_index);
-                        std::cout << "[WAT][image-acquire]: call swap chain (guess: " << available_index << ")" << std::endl;
-
-
-                        const auto timeout = 30ms;
-
-                        VkResult call_result{ VK_TIMEOUT };
-                        uint32_t image_index = 0;
-
-                        while (call_result == VK_TIMEOUT)
-                        {
-                            std::tie(call_result, image_index) =
-                                execution_context.getSyncObject(available_index).acquireNextSwapChainImage(_logical_device,
-                                                                                                           _window.getSwapChain().getDetails().swap_chain,
-                                                                                                           image_available_semaphore_name, timeout);
-                        }
-                        switch (call_result)
-                        {
-                            case VK_ERROR_OUT_OF_DATE_KHR:
-                            case VK_SUBOPTIMAL_KHR:
-                                _window.reinitSwapChain();
-                                return { std::nullopt, -1 };
-                            case VK_SUCCESS:
-                                break;
-                            default:
-                                throw std::runtime_error("Failed to query swap chain image");
-                        }
-
-
-                        if (image_index != available_index)
-                        {
-                            execution_context.getSyncObject(image_index).waitSemaphore(render_finished_semaphore_name, 1);
-                        }
-
-                        _occupied_render_target_indexes.insert(image_index);
-
-                        std::cout << "[WAT][image-acquire]: call swap chain end" << std::endl;
-
-                        return std::pair{ std::optional{ image_index }, available_index };
-                    }();
-                if (image_index == std::nullopt)
-                {
-                    return;
-                }
-
-                execution_context.setRenderTargetIndex(*image_index);
-                should step it only when it was waited.Should step it once(another bug)
-                    execution_context.getSyncObjectUpdateData().requestTimelineSemaphoreShift(&execution_context.getSyncObject(*image_index), render_finished_semaphore_name);
-                execution_context.getSyncObjectUpdateData().requestTimelineSemaphoreShift(&execution_context.getSyncObject(available_index), render_finished_semaphore_name);
-            }
-            std::cout << "[WAT] Finish Acquire" << std::endl;
-            */
         }
 
         void register_execution_context(rg::ExecutionContext& execution_context) override
         {
             rg::ExecutionContext::Events events
             {
-                .on_render_target_index_set = nullptr,
-                .on_render_target_index_clear = [this](uint32_t index) { _swap_chain_image_selector.releaseRenderTargetIndex(index); }
+                .on_pool_index_set = nullptr,
+                .on_pool_index_clear = [this](const auto& index) { _swap_chain_image_selector.releasePoolIndex(index); }
             };
             execution_context.add_events(std::move(events));
         };
@@ -198,13 +109,6 @@ namespace
 
         RenderEngine::Window& _window;
         SwapChainImageSelector _swap_chain_image_selector;
-        /*
-        RenderEngine::Window& _window;
-        RenderEngine::LogicalDevice& _logical_device;
-        uint32_t _backbuffer_count{ 0 };
-        std::mutex _swapchain_access_mutex;
-        RenderEngine::IndexSet<uint32_t> _occupied_render_target_indexes;
-        RenderEngine::IndexSet<uint32_t> _used_render_target_indexes;*/
     };
 
     /**
@@ -216,55 +120,44 @@ namespace
     *
     */
 
-    inline std::optional<uint32_t> SwapChainImageSelector::getNextImage(rg::ExecutionContext& execution_context)
+    inline std::optional<rg::ExecutionContext::PoolIndex> SwapChainImageSelector::getNextImage(rg::ExecutionContext& execution_context)
     {
         auto lock = std::lock_guard(_access_mutex);
         auto sync_object_holder = execution_context.getAllSyncObject();
 
-        std::optional<uint32_t> available_index = findUnusedIndex();
-        if (available_index == std::nullopt)
+        std::optional<uint32_t> sync_object_index = findUnusedIndex();
+        if (sync_object_index == std::nullopt)
         {
-            available_index = findFinishedImageIndex(sync_object_holder.sync_objects);
+            sync_object_index = findFinishedSyncObjectIndex(sync_object_holder.sync_objects);
         }
 
         std::optional<uint32_t> image_index = tryAcquireImage(execution_context,
-                                                              *available_index);
+                                                              *sync_object_index);
 
         if (image_index == std::nullopt)
         {
             return std::nullopt;
         }
-        /*
-        * If somehow the next image is not the one that is finished we need to wait it until it is not finished.
-        * Like having 3 ongoing render
-        *  [0] : rendering
-        *  [1] : finished
-        *  [2] : rendering
-        * Theoretically, it can happen that the available index is '1' but the acquire next image returns with 2 (even due to a bug or whatever) then
-        * it would be a pity if we mess up the two back buffers. So let's wait for it.
-        */
-        if (image_index != available_index)
-        {
-            // TODO add log warning
-        }
         // Semaphore was used only when the index was used before, thus when it is a new insertion.
-        const bool semaphore_was_used = _used_render_target_indexes.insert(*image_index) == false;
+        const bool semaphore_was_used = _used_sync_object_indexes.insert(*sync_object_index) == false;
 
-        _occupied_render_target_indexes.insert(*image_index);
+        _occupied_sync_object_indexes.insert(*image_index);
+
+        RenderEngine::RenderContext::context().getDebugger().print("[WAT] Image Acquire: Image index {:d} (Using synchronization object: {:d}", *image_index, *sync_object_index);
 
         // !! Unlocking manually. Not fun of this but makes readable the code (i.e.: Dealing with image index, and semaphore_was_used)
         sync_object_holder.lock.unlock();
 
         if (semaphore_was_used)
         {
-            execution_context.stepTimelineSemaphore(*image_index, ImageAcquireTask::render_finished_semaphore_name);
+            execution_context.stepTimelineSemaphore(*sync_object_index, ImageAcquireTask::render_finished_semaphore_name);
         }
-        return *image_index;
+        return rg::ExecutionContext::PoolIndex{ .render_target_index = *image_index, .sync_object_index = *sync_object_index };
     }
-    inline uint32_t SwapChainImageSelector::findFinishedImageIndex(const std::vector<const RenderEngine::SyncObject*>& sync_objects) const
+    inline uint32_t SwapChainImageSelector::findFinishedSyncObjectIndex(const std::vector<const RenderEngine::SyncObject*>& sync_objects) const
     {
-        auto black_list = _used_render_target_indexes.negate(); // Do not count those where no draw cal were recorded.
-        black_list.insert(_occupied_render_target_indexes); // Do not count those where draw calls are recording right now.
+        auto black_list = _used_sync_object_indexes.negate(); // Do not count those where no draw cal were recorded.
+        black_list.insert(_occupied_sync_object_indexes); // Do not count those where draw calls are recording right now.
         const RenderEngine::SyncObject* available_object = RenderEngine::SyncObject::SharedOperations::from(sync_objects)
             .waitAnyOfSemaphores(ImageAcquireTask::render_finished_semaphore_name, 1, black_list);
         const auto available_index = static_cast<uint32_t>(std::ranges::find(sync_objects, available_object) - sync_objects.begin());

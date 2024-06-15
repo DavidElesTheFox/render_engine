@@ -30,28 +30,28 @@ namespace RenderEngine::RenderGraph
         }
     }
     */
-    uint32_t ExecutionContext::getRenderTargetIndex() const
+    ExecutionContext::PoolIndex ExecutionContext::getPoolIndex() const
     {
-        std::shared_lock lock(_render_target_index_mutex);
-        return *_render_target_index;
+        std::shared_lock lock(_pool_index_mutex);
+        return *_pool_index;
     }
-    bool ExecutionContext::hasRenderTargetIndex() const
+    bool ExecutionContext::hasPoolIndex() const
     {
-        std::shared_lock lock(_render_target_index_mutex);
-        return _render_target_index != std::nullopt;
+        std::shared_lock lock(_pool_index_mutex);
+        return _pool_index != std::nullopt;
     }
-    void ExecutionContext::setRenderTargetIndex(uint32_t index)
+    void ExecutionContext::setPoolIndex(ExecutionContext::PoolIndex index)
     {
-        std::unique_lock lock(_render_target_index_mutex);
-        _render_target_index = index;
-        on_render_target_index_set(index);
+        std::unique_lock lock(_pool_index_mutex);
+        _pool_index = std::move(index);
+        onPoolIndexSet(*_pool_index);
     }
-    void ExecutionContext::clearRenderTargetIndex()
+    void ExecutionContext::clearPoolIndex()
     {
-        std::unique_lock lock(_render_target_index_mutex);
-        uint32_t old_index = *_render_target_index;
-        _render_target_index = std::nullopt;
-        on_render_target_index_clear(old_index);
+        std::unique_lock lock(_pool_index_mutex);
+        auto old_index = *_pool_index;
+        _pool_index = std::nullopt;
+        onPoolIndexReset(old_index);
     }
     void ExecutionContext::add_events(Events events)
     {
@@ -59,21 +59,21 @@ namespace RenderEngine::RenderGraph
         _events.push_back(std::move(events));
     }
 
-    void ExecutionContext::on_render_target_index_set(uint32_t index)
+    void ExecutionContext::onPoolIndexSet(const PoolIndex& index)
     {
         std::shared_lock lock(_event_mutex);
-        for (auto& event : _events | std::views::filter([](const auto& events) { return events.on_render_target_index_set != nullptr; }))
+        for (auto& event : _events | std::views::filter([](const auto& events) { return events.on_pool_index_set != nullptr; }))
         {
-            event.on_render_target_index_set(index);
+            event.on_pool_index_set(index);
         }
     }
 
-    void ExecutionContext::on_render_target_index_clear(uint32_t index)
+    void ExecutionContext::onPoolIndexReset(const PoolIndex& index)
     {
         std::shared_lock lock(_event_mutex);
-        for (auto& event : _events | std::views::filter([](const auto& events) { return events.on_render_target_index_clear != nullptr; }))
+        for (auto& event : _events | std::views::filter([](const auto& events) { return events.on_pool_index_clear != nullptr; }))
         {
-            event.on_render_target_index_clear(index);
+            event.on_pool_index_clear(index);
         }
     }
 

@@ -19,10 +19,15 @@ namespace RenderEngine
         class ExecutionContext
         {
         public:
+            struct PoolIndex
+            {
+                uint32_t render_target_index;
+                uint32_t sync_object_index;
+            };
             struct Events
             {
-                std::function<void(uint32_t)> on_render_target_index_set;
-                std::function<void(uint32_t)> on_render_target_index_clear;
+                std::function<void(const PoolIndex&)> on_pool_index_set;
+                std::function<void(const PoolIndex&)> on_pool_index_clear;
             };
 
             explicit ExecutionContext(std::vector<SyncObject*> sync_objects)
@@ -36,10 +41,10 @@ namespace RenderEngine
             ExecutionContext& operator=(const ExecutionContext&) noexcept = delete;
             ExecutionContext& operator=(ExecutionContext&&) noexcept = default;
 
-            uint32_t getRenderTargetIndex() const;
-            bool hasRenderTargetIndex() const;
-            void setRenderTargetIndex(uint32_t index);
-            void clearRenderTargetIndex();
+            PoolIndex getPoolIndex() const;
+            bool hasPoolIndex() const;
+            void setPoolIndex(PoolIndex index);
+            void clearPoolIndex();
 
             bool isDrawCallRecorded() const { return _draw_call_recorded.load(std::memory_order_relaxed); }
             void setDrawCallRecorded(bool v) { _draw_call_recorded.store(v, std::memory_order_relaxed); }
@@ -79,9 +84,10 @@ namespace RenderEngine
 
             void add_events(Events events);
         private:
-            std::optional<uint32_t> _render_target_index{ std::nullopt };
+            std::optional<PoolIndex> _pool_index{ std::nullopt };
+            mutable std::shared_mutex _pool_index_mutex;
+
             std::atomic_bool _draw_call_recorded{ false };
-            mutable std::shared_mutex _render_target_index_mutex;
 
             mutable std::shared_mutex _sync_object_access_mutex;
             std::vector<SyncObject*> _sync_objects;
@@ -91,8 +97,8 @@ namespace RenderEngine
             std::vector<Events> _events;
 
 
-            void on_render_target_index_set(uint32_t index);
-            void on_render_target_index_clear(uint32_t index);
+            void onPoolIndexSet(const PoolIndex& index);
+            void onPoolIndexReset(const PoolIndex& index);
         };
         /*
         class Job

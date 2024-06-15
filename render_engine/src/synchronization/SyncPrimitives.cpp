@@ -1,5 +1,6 @@
 #include <render_engine/synchronization/SyncPrimitives.h>
 
+
 #include <cassert>
 #include <ranges>
 #include <stdexcept>

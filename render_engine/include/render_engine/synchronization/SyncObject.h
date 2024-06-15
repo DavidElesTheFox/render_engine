@@ -95,7 +95,7 @@ namespace RenderEngine
         SyncObject& operator=(const SyncObject&) = delete;
         SyncObject& operator=(SyncObject&&) = default;
 
-        explicit SyncObject(LogicalDevice& logical_device);
+        SyncObject(LogicalDevice& logical_device, std::string name);
 
         const SyncOperations& getOperationsGroup(const std::string& name) const
         {
@@ -134,18 +134,18 @@ namespace RenderEngine
 
         const SyncPrimitives& getPrimitives() const { return _primitives; }
 
-        void createSemaphore(std::string name);
+        void createSemaphore(const std::string& name);
 
-        void createTimelineSemaphore(std::string name, uint64_t initial_value, uint64_t timeline_width);
+        void createTimelineSemaphore(const std::string& name, uint64_t initial_value, uint64_t timeline_width);
 
         void stepTimeline(const std::string& name);
 
         Query query() const { return Query::from(*this); }
+
     private:
-
         SyncPrimitives _primitives;
+        std::string _name;
         std::unordered_map<std::string, SyncOperations> _operation_groups;
-
     };
 
 

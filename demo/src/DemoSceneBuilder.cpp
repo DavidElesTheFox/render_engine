@@ -190,7 +190,7 @@ namespace
         {
             {
                 auto& logical_device = _device.getLogicalDevice();
-                RenderEngine::SyncObject sync_object(logical_device);
+                RenderEngine::SyncObject sync_object(logical_device, "QuadSceneUpload");
                 RenderEngine::Image image(std::filesystem::path{ IMAGE_BASE } / "statue.jpg");
                 auto texture = _device.getTextureFactory().create(image, VK_IMAGE_ASPECT_COLOR_BIT,
                                                                   VK_SHADER_STAGE_FRAGMENT_BIT,
@@ -380,7 +380,7 @@ namespace
             ct_image_path_container.push_back(ct_base_path / std::format("IMG-0003-{:0>5d}.jpg", i + 1));
         }
 
-        RenderEngine::SyncObject sync_object(logical_device);
+        RenderEngine::SyncObject sync_object(logical_device, "VolumetricSceneUpload");
         RenderEngine::Image image_3d(ct_image_path_container);
 
         if (_use_ao)

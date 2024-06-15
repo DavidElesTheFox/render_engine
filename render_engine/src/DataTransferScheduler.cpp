@@ -301,12 +301,13 @@ namespace RenderEngine
         };
         [[nodiscard]]
         SyncObject unifiedQueueTransfer(
+            const std::string& id,
             SyncOperations sync_operations,
             TransferEngine& transfer_engine,
             std::function<void(VkCommandBuffer)> upload_command,
             QueueSubmitTracker* submit_tracker)
         {
-            SyncObject transfer_sync_object(transfer_engine.getTransferContext().getLogicalDevice());
+            SyncObject transfer_sync_object(transfer_engine.getTransferContext().getLogicalDevice(), "UnifiedQueueTransfer-" + id);
             transfer_sync_object.createTimelineSemaphore(DataTransferScheduler::kDataTransferFinishSemaphoreName, 0, 2);
             transfer_sync_object.addSignalOperationToGroup(SyncGroups::kInternal,
                                                            DataTransferScheduler::kDataTransferFinishSemaphoreName,
@@ -323,21 +324,23 @@ namespace RenderEngine
         }
 
         [[nodiscard]]
-        std::vector<SyncObject> textureNotUnifiedQueueTransfer(Texture& texture,
-                                                               SyncOperations sync_operations,
-                                                               TransferEngine& transfer_engine,
-                                                               SingleShotCommandContext& src_context,
-                                                               SingleShotCommandContext& dst_context,
-                                                               TextureState final_state,
-                                                               std::function<void(VkCommandBuffer)> upload_command,
-                                                               DataTransferType transfer_type,
-                                                               QueueSubmitTracker* submit_tracker)
+        std::vector<SyncObject> textureNotUnifiedQueueTransfer(
+            const std::string& id,
+            Texture& texture,
+            SyncOperations sync_operations,
+            TransferEngine& transfer_engine,
+            SingleShotCommandContext& src_context,
+            SingleShotCommandContext& dst_context,
+            TextureState final_state,
+            std::function<void(VkCommandBuffer)> upload_command,
+            DataTransferType transfer_type,
+            QueueSubmitTracker* submit_tracker)
         {
             std::vector<SyncObject> result;
             const bool is_initial_transfer = texture.getResourceState().command_context.expired();
 
 
-            SyncObject transfer_sync_object(src_context.getLogicalDevice());
+            SyncObject transfer_sync_object(src_context.getLogicalDevice(), "TextureNotUnifiedQueueTransfer-" + id);
             transfer_sync_object.createTimelineSemaphore(DataTransferScheduler::kDataTransferFinishSemaphoreName, 0, 2);
             transfer_sync_object.addSignalOperationToGroup(SyncGroups::kInternal,
                                                            DataTransferScheduler::kDataTransferFinishSemaphoreName,
@@ -399,18 +402,20 @@ namespace RenderEngine
         }
 
         [[nodiscard]]
-        std::vector<SyncObject> bufferNotUnifiedQueueTransfer(Buffer& buffer,
-                                                              SyncOperations sync_operations,
-                                                              TransferEngine& transfer_engine,
-                                                              SingleShotCommandContext& src_context,
-                                                              SingleShotCommandContext& dst_context,
-                                                              BufferState final_buffer_state,
-                                                              std::function<void(VkCommandBuffer)> upload_command,
-                                                              QueueSubmitTracker* submit_tracker)
+        std::vector<SyncObject> bufferNotUnifiedQueueTransfer(
+            const std::string& id,
+            Buffer& buffer,
+            SyncOperations sync_operations,
+            TransferEngine& transfer_engine,
+            SingleShotCommandContext& src_context,
+            SingleShotCommandContext& dst_context,
+            BufferState final_buffer_state,
+            std::function<void(VkCommandBuffer)> upload_command,
+            QueueSubmitTracker* submit_tracker)
         {
             std::vector<SyncObject> result;
 
-            SyncObject transfer_sync_object(src_context.getLogicalDevice());
+            SyncObject transfer_sync_object(src_context.getLogicalDevice(), "BufferNotUnifiedQueueTransfer-" + id);
             transfer_sync_object.createTimelineSemaphore(DataTransferScheduler::kDataTransferFinishSemaphoreName, 0, 2);
             transfer_sync_object.addSignalOperationToGroup(SyncGroups::kInternal,
                                                            DataTransferScheduler::kDataTransferFinishSemaphoreName,
@@ -503,7 +508,8 @@ namespace RenderEngine
                 if (dst_context.getQueueFamilyIndex() != transfer_engine.getTransferContext().getQueueFamilyIndex()
                     || src_context->getQueueFamilyIndex() != transfer_engine.getTransferContext().getQueueFamilyIndex())
                 {
-                    return textureNotUnifiedQueueTransfer(*texture,
+                    return textureNotUnifiedQueueTransfer(std::format("{:#018x}", reinterpret_cast<uintptr_t>(texture)),
+                                                          *texture,
                                                           sync_operations.createUnionWith(additional_sync_operations),
                                                           transfer_engine,
                                                           *src_context,
@@ -515,7 +521,8 @@ namespace RenderEngine
                 }
                 else
                 {
-                    SyncObject transfer_sync_object = unifiedQueueTransfer(sync_operations.createUnionWith(additional_sync_operations),
+                    SyncObject transfer_sync_object = unifiedQueueTransfer(std::format("{:#018x}", reinterpret_cast<uintptr_t>(texture)),
+                                                                           sync_operations.createUnionWith(additional_sync_operations),
                                                                            transfer_engine,
                                                                            createTextureUnifiedUploadCommand(*texture, dst_context, std::move(final_texture_state)),
                                                                            &submit_tracker);
@@ -566,7 +573,8 @@ namespace RenderEngine
                 if (dst_context.getQueueFamilyIndex() != transfer_engine.getTransferContext().getQueueFamilyIndex()
                     || src_context->getQueueFamilyIndex() != transfer_engine.getTransferContext().getQueueFamilyIndex())
                 {
-                    result = bufferNotUnifiedQueueTransfer(*buffer,
+                    result = bufferNotUnifiedQueueTransfer(std::format("{:#018x}", reinterpret_cast<uintptr_t>(buffer)),
+                                                           *buffer,
                                                            sync_operations,
                                                            transfer_engine,
                                                            *src_context,
@@ -579,7 +587,8 @@ namespace RenderEngine
                 }
                 else
                 {
-                    SyncObject transfer_sync_object = unifiedQueueTransfer(sync_operations,
+                    SyncObject transfer_sync_object = unifiedQueueTransfer(std::format("{:#018x}", reinterpret_cast<uintptr_t>(buffer)),
+                                                                           sync_operations,
                                                                            transfer_engine,
                                                                            createBufferUnifiedUploadCommand(*buffer,
                                                                                                             staging_buffer,
@@ -609,7 +618,8 @@ namespace RenderEngine
                 auto src_context = texture->getResourceState().command_context.lock();
                 if (src_context->getQueueFamilyIndex() != transfer_engine.getTransferContext().getQueueFamilyIndex())
                 {
-                    return textureNotUnifiedQueueTransfer(*texture,
+                    return textureNotUnifiedQueueTransfer(std::format("{:#018x}", reinterpret_cast<uintptr_t>(texture)),
+                                                          *texture,
                                                           sync_operations.createUnionWith(additional_sync_operations),
                                                           transfer_engine,
                                                           *src_context,
@@ -621,7 +631,8 @@ namespace RenderEngine
                 }
                 else
                 {
-                    SyncObject transfer_sync_object = unifiedQueueTransfer(sync_operations.createUnionWith(additional_sync_operations),
+                    SyncObject transfer_sync_object = unifiedQueueTransfer(std::format("{:#018x}", reinterpret_cast<uintptr_t>(texture)),
+                                                                           sync_operations.createUnionWith(additional_sync_operations),
                                                                            transfer_engine,
                                                                            createTextureUnifiedDownloadCommand(*texture,
                                                                                                                *src_context,

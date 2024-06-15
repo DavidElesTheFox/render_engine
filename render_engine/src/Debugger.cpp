@@ -18,7 +18,14 @@ namespace RenderEngine
     }
     void Debugger::print(std::string_view msg)
     {
-        std::cout << msg << std::endl;
+        switch (_print_destination_type)
+        {
+            case RenderEngine::Debugger::PrintDestinationType::Null:
+                break;
+            case RenderEngine::Debugger::PrintDestinationType::Console:
+                std::cout << msg << std::endl;
+                break;
+        }
     }
     void Debugger::callGuiCallbacks() const
     {

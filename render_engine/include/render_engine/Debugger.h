@@ -12,7 +12,7 @@ namespace RenderEngine
     class Debugger
     {
     private:
-        static constexpr const uint32_t sync_logbook_max_stacksize = 32;
+        static constexpr const uint32_t sync_logbook_max_stacksize = 128;
     public:
         enum class PrintDestinationType
         {
@@ -60,6 +60,6 @@ namespace RenderEngine
         void removeCallback(std::function<void()>& callback);
         std::vector<std::function<void()>> _on_gui_callbacks;
         SyncLogbook _sync_logbook{ sync_logbook_max_stacksize };
-        PrintDestinationType _print_destination_type{ PrintDestinationType::Null };
+        PrintDestinationType _print_destination_type{ PrintDestinationType::Console };
     };
 }

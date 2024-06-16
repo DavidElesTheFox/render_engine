@@ -266,6 +266,7 @@ namespace RenderEngine
 
     void UIRenderer::draw(const VkFramebuffer& frame_buffer, FrameData& frame_data)
     {
+        std::lock_guard access_lock{ getGlobals().access_mutex };
         if (_on_gui == nullptr)
         {
             return;

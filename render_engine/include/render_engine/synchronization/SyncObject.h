@@ -142,6 +142,7 @@ namespace RenderEngine
 
         Query query() const { return Query::from(*this); }
 
+        const std::string& getName() const { return _name; }
     private:
         SyncPrimitives _primitives;
         std::string _name;

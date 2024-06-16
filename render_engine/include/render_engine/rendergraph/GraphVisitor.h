@@ -21,7 +21,9 @@ namespace RenderEngine::RenderGraph
 
         void run()
         {
+            preRun();
             _graph.accept(*this);
+            postRun();
         }
         virtual ~GraphVisitor() = default;
 
@@ -36,6 +38,8 @@ namespace RenderEngine::RenderGraph
         Graph& getGraph() { return _graph; }
         const Graph& getGraph() const { return _graph; }
     private:
+        virtual void preRun() {}
+        virtual void postRun() {}
         Graph& _graph;
     };
 }

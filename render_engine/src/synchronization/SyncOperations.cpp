@@ -11,18 +11,24 @@ namespace RenderEngine
 {
     void SyncOperations::addWaitOperation(SyncPrimitives& sync_object, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask)
     {
+        VkSemaphore semaphore = sync_object.getSemaphore(semaphore_name);
+        assert(std::ranges::find(_wait_semaphore_container, semaphore) == _wait_semaphore_container.end() && "Semaphore cannot be waited two times in the same operation");
+
         VkSemaphoreSubmitInfo submit_info{};
         submit_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
-        submit_info.semaphore = sync_object.getSemaphore(semaphore_name);
+        submit_info.semaphore = semaphore;
         submit_info.stageMask = stage_mask;
         _wait_semaphore_container.emplace_back(submit_info.semaphore);
         _wait_semaphore_dependency.emplace_back(std::move(submit_info));
     }
     void SyncOperations::addWaitOperation(SyncPrimitives& sync_object, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask, uint64_t value)
     {
+        VkSemaphore semaphore = sync_object.getSemaphore(semaphore_name);
+        assert(std::ranges::find(_wait_semaphore_container, semaphore) == _wait_semaphore_container.end() && "Semaphore cannot be waited two times in the same operation");
+
         VkSemaphoreSubmitInfo submit_info{};
         submit_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
-        submit_info.semaphore = sync_object.getSemaphore(semaphore_name);
+        submit_info.semaphore = semaphore;
         submit_info.stageMask = stage_mask;
         submit_info.value = sync_object.getTimelineOffset(semaphore_name) + value;
         _wait_semaphore_container.emplace_back(submit_info.semaphore);
@@ -30,17 +36,23 @@ namespace RenderEngine
     }
     void SyncOperations::addSignalOperation(SyncPrimitives& sync_object, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask)
     {
+        VkSemaphore semaphore = sync_object.getSemaphore(semaphore_name);
+        assert(std::ranges::find(_wait_semaphore_container, semaphore) == _wait_semaphore_container.end() && "Semaphore cannot be signaled two times in the same operation");
+
         VkSemaphoreSubmitInfo submit_info{};
         submit_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
-        submit_info.semaphore = sync_object.getSemaphore(semaphore_name);
+        submit_info.semaphore = semaphore;
         submit_info.stageMask = stage_mask;
         _signal_semaphore_dependency.emplace_back(std::move(submit_info));
     }
     void SyncOperations::addSignalOperation(SyncPrimitives& sync_object, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask, uint64_t value)
     {
+        VkSemaphore semaphore = sync_object.getSemaphore(semaphore_name);
+        assert(std::ranges::find(_wait_semaphore_container, semaphore) == _wait_semaphore_container.end() && "Semaphore cannot be signaled two times in the same operation");
+
         VkSemaphoreSubmitInfo submit_info{};
         submit_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
-        submit_info.semaphore = sync_object.getSemaphore(semaphore_name);
+        submit_info.semaphore = semaphore;
         submit_info.stageMask = stage_mask;
         submit_info.value = sync_object.getTimelineOffset(semaphore_name) + value;
         _signal_semaphore_dependency.emplace_back(std::move(submit_info));

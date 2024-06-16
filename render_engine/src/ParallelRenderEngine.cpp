@@ -38,15 +38,13 @@ namespace RenderEngine
 
         const uint32_t back_buffer_size = _gpu_resource_manager->getBackBufferSize();
         uint32_t thread_count = back_buffer_size;
-        thread_count = 1;
-
 
         _rendering_processes.reserve(thread_count);
         _skeleton = std::move(render_graph);
 
         _sync_objects.clear();
         std::vector<SyncObject*> non_const_sync_objects;
-        for (uint32_t i = 0; i < back_buffer_size; ++i)
+        for (uint32_t i = 0; i < thread_count; ++i)
         {
             std::unique_ptr<SyncObject> sync_object = std::make_unique<SyncObject>(_device.getLogicalDevice(), std::format("ExecutionContext-{:d}", i));
             for (const std::variant<RenderGraph::TimelineSemaphore, RenderGraph::BinarySemaphore>& semaphore_definition : _skeleton->getSemaphoreDefinitions())
@@ -67,7 +65,7 @@ namespace RenderEngine
             rendering_process->task_flow = task_flow_builder.createTaskflow(*_skeleton,
                                                                             rendering_process->execution_context,
                                                                             _device.getLogicalDevice(),
-                                                                            non_const_sync_objects);
+                                                                            non_const_sync_objects[i]);
             _rendering_processes.push_back(std::move(rendering_process));
         }
     }
@@ -102,6 +100,7 @@ namespace RenderEngine
         }
 
         current_process->calling_token = current_process->executor.run(current_process->task_flow);
+
 
         auto& debugger = RenderContext::context().getDebugger();
         debugger.print("Synchronization Log @{:d}: \n{:s}\n",

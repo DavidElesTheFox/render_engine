@@ -26,6 +26,7 @@ namespace RenderEngine
         {
             std::set<ImGuiContext*> invalidContexts;
             std::atomic<VkDevice> loadedDevicePrototypes{ VK_NULL_HANDLE };
+            std::mutex access_mutex;
         };
 
         static ImGuiGlobals& getGlobals();

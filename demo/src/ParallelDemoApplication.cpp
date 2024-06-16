@@ -141,7 +141,7 @@ namespace
         // Semaphore was used only when the index was used before, thus when it is a new insertion.
         const bool semaphore_was_used = _used_sync_object_indexes.insert(*sync_object_index) == false;
 
-        _occupied_sync_object_indexes.insert(*image_index);
+        _occupied_sync_object_indexes.insert(*sync_object_index);
 
         RenderEngine::RenderContext::context().getDebugger().print("[WAT] Image Acquire: Image index {:d} (Using synchronization object: {:d}", *image_index, *sync_object_index);
 

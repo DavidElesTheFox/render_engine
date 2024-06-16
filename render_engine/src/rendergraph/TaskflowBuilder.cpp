@@ -1,5 +1,8 @@
 #include <render_engine/rendergraph/TaskflowBuilder.h>
 
+#include <render_engine/Debugger.h>
+#include <render_engine/RenderContext.h>
+
 #include <render_engine/rendergraph/GraphVisitor.h>
 
 namespace RenderEngine::RenderGraph
@@ -12,10 +15,10 @@ namespace RenderEngine::RenderGraph
             VisitorForTaskCreation(Graph& graph,
                                    ExecutionContext& execution_context,
                                    LogicalDevice& logical_device,
-                                   const std::vector<SyncObject*>& sync_objects)
+                                   SyncObject* sync_object)
                 : GraphVisitor(graph)
                 , _logical_device(logical_device)
-                , _sync_objects(sync_objects)
+                , _sync_object(sync_object)
                 , _execution_context(execution_context)
 
             {}
@@ -35,30 +38,36 @@ namespace RenderEngine::RenderGraph
             };
 
         private:
+            void preRun() override
+            {
+                RenderContext::context().getDebugger().print("==================================================");
+                RenderContext::context().getDebugger().print("|                 BUILDING GRAPH                 |");
+                RenderContext::context().getDebugger().print("==================================================");
+            }
+            void postRun() override
+            {
+                RenderContext::context().getDebugger().print("==================================================");
+                RenderContext::context().getDebugger().print("|               BUILDING GRAPH END               |");
+                RenderContext::context().getDebugger().print("==================================================");
+            }
 
             void visitImpl(Node* node);
-            void collectSyncOperationForNode(const Node* node, SyncObject& sync_object)
+            void collectSyncOperationForNode(const Node* node)
             {
-
                 if (node == nullptr)
                 {
                     return;
                 }
                 for (auto* link : getGraph().findEdgesTo(node))
                 {
+                    RenderContext::context().getDebugger().print("   link:{:s}->{:s}", link->getFromNode()->getName(), link->getToNode()->getName());
+
                     if (link->getFromNode() == nullptr)
                     {
                         continue;
                     }
-                    if (link->getFromNode()->isActive() == false)
-                    {
-                        collectSyncOperationForNode(link->getFromNode(), sync_object);
-                    }
-                    else
-                    {
-                        link->forEachConnections([&](const Link::PipelineConnection& connection) { addSynOperationsForDestination(connection, node->getName()); },
-                                                 [&](const Link::ExternalConnection& connection) { addSynOperationsForDestination(connection, node->getName()); });
-                    }
+                    link->forEachConnections([&](const Link::PipelineConnection& connection) { addSynOperationsForDestination(connection, node->getName()); },
+                                             [&](const Link::ExternalConnection& connection) { addSynOperationsForDestination(connection, node->getName()); });
                 }
                 for (auto* link : getGraph().findEdgesFrom(node))
                 {
@@ -69,21 +78,22 @@ namespace RenderEngine::RenderGraph
 
             void addSynOperationsForSource(const Link::PipelineConnection& connection, const std::string& node_name)
             {
-                for (auto& sync_object : _sync_objects)
+                RenderContext::context().getDebugger().print("      Add signal operation for node: {:s} ({:s}) into: {:s}",
+                                                             node_name,
+                                                             connection.semaphore_name,
+                                                             _sync_object->getName());
+                if (connection.value == std::nullopt)
                 {
-                    if (connection.value == std::nullopt)
-                    {
-                        sync_object->addSignalOperationToGroup(node_name,
-                                                               connection.semaphore_name,
-                                                               connection.signal_stage);
-                    }
-                    else
-                    {
-                        sync_object->addSignalOperationToGroup(node_name,
-                                                               connection.semaphore_name,
-                                                               connection.signal_stage,
-                                                               *connection.value);
-                    }
+                    _sync_object->addSignalOperationToGroup(node_name,
+                                                            connection.semaphore_name,
+                                                            connection.signal_stage);
+                }
+                else
+                {
+                    _sync_object->addSignalOperationToGroup(node_name,
+                                                            connection.semaphore_name,
+                                                            connection.signal_stage,
+                                                            *connection.value);
                 }
             }
             void addSynOperationsForSource(const Link::ExternalConnection&, const std::string&)
@@ -91,35 +101,38 @@ namespace RenderEngine::RenderGraph
 
             void addSynOperationsForDestination(const Link::PipelineConnection& connection, const std::string& node_name)
             {
-                for (auto& sync_object : _sync_objects)
+                RenderContext::context().getDebugger().print("      Add wait operation for node: {:s} ({:s}) into: {:s}",
+                                                             node_name,
+                                                             connection.semaphore_name,
+                                                             _sync_object->getName());
+                if (connection.value == std::nullopt)
                 {
-                    if (connection.value == std::nullopt)
-                    {
-                        sync_object->addWaitOperationToGroup(node_name,
-                                                             connection.semaphore_name,
-                                                             connection.signal_stage);
-                    }
-                    else
-                    {
-                        sync_object->addWaitOperationToGroup(node_name,
-                                                             connection.semaphore_name,
-                                                             connection.signal_stage,
-                                                             *connection.value);
-                    }
+                    _sync_object->addWaitOperationToGroup(node_name,
+                                                          connection.semaphore_name,
+                                                          connection.signal_stage);
+                }
+                else
+                {
+                    _sync_object->addWaitOperationToGroup(node_name,
+                                                          connection.semaphore_name,
+                                                          connection.signal_stage,
+                                                          *connection.value);
                 }
             }
             void addSynOperationsForDestination(const Link::ExternalConnection& connection, const std::string& node_name)
             {
-                for (auto& sync_object : _sync_objects)
-                {
-                    sync_object->addWaitOperationToGroup(node_name,
-                                                         connection.signaled_semaphore_name,
-                                                         connection.wait_stage);
-                }
+
+                RenderContext::context().getDebugger().print("      Add external signal operation for node: {:s} ({:s}) into: {:s}",
+                                                             node_name,
+                                                             connection.signaled_semaphore_name,
+                                                             _sync_object->getName());
+                _sync_object->addWaitOperationToGroup(node_name,
+                                                      connection.signaled_semaphore_name,
+                                                      connection.wait_stage);
             }
 
             LogicalDevice& _logical_device;
-            const std::vector<SyncObject*>& _sync_objects;
+            SyncObject* _sync_object{ nullptr };
             ExecutionContext& _execution_context;
             tf::Taskflow _task_container;
             std::unordered_map<std::string, tf::Task> _task_map;
@@ -163,8 +176,8 @@ namespace RenderEngine::RenderGraph
 
         void VisitorForTaskCreation::visitImpl(Node* node)
         {
-            SyncObject sync_object{ _logical_device, std::format("Node-{:s}", node->getName()) }; // this sync object cannot die during the process.
-            collectSyncOperationForNode(node, sync_object);
+            RenderContext::context().getDebugger().print("Visit node: " + node->getName());
+            collectSyncOperationForNode(node);
 
             node->register_execution_context(_execution_context);
 
@@ -186,9 +199,9 @@ namespace RenderEngine::RenderGraph
     tf::Taskflow TaskflowBuilder::createTaskflow(Graph& graph,
                                                  ExecutionContext& execution_context,
                                                  LogicalDevice& logical_device,
-                                                 const std::vector<SyncObject*>& sync_objects)
+                                                 SyncObject* sync_object)
     {
-        VisitorForTaskCreation visitor(graph, execution_context, logical_device, sync_objects);
+        VisitorForTaskCreation visitor(graph, execution_context, logical_device, sync_object);
         visitor.run();
         return visitor.clear();
     }

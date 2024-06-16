@@ -4,6 +4,7 @@
 #include <render_engine/RenderContext.h>
 
 #include <render_engine/rendergraph/GraphVisitor.h>
+#include <render_engine/rendergraph/Topic.h>
 
 namespace RenderEngine::RenderGraph
 {
@@ -40,15 +41,15 @@ namespace RenderEngine::RenderGraph
         private:
             void preRun() override
             {
-                RenderContext::context().getDebugger().print("==================================================");
-                RenderContext::context().getDebugger().print("|                 BUILDING GRAPH                 |");
-                RenderContext::context().getDebugger().print("==================================================");
+                RenderContext::context().getDebugger().print(Debug::Topics::RenderGraphBuilder{}, "==================================================");
+                RenderContext::context().getDebugger().print(Debug::Topics::RenderGraphBuilder{}, "|                 BUILDING GRAPH                 |");
+                RenderContext::context().getDebugger().print(Debug::Topics::RenderGraphBuilder{}, "==================================================");
             }
             void postRun() override
             {
-                RenderContext::context().getDebugger().print("==================================================");
-                RenderContext::context().getDebugger().print("|               BUILDING GRAPH END               |");
-                RenderContext::context().getDebugger().print("==================================================");
+                RenderContext::context().getDebugger().print(Debug::Topics::RenderGraphBuilder{}, "==================================================");
+                RenderContext::context().getDebugger().print(Debug::Topics::RenderGraphBuilder{}, "|               BUILDING GRAPH END               |");
+                RenderContext::context().getDebugger().print(Debug::Topics::RenderGraphBuilder{}, "==================================================");
             }
 
             void visitImpl(Node* node);
@@ -60,7 +61,7 @@ namespace RenderEngine::RenderGraph
                 }
                 for (auto* link : getGraph().findEdgesTo(node))
                 {
-                    RenderContext::context().getDebugger().print("   link:{:s}->{:s}", link->getFromNode()->getName(), link->getToNode()->getName());
+                    RenderContext::context().getDebugger().print(Debug::Topics::RenderGraphBuilder{}, "   link:{:s}->{:s}", link->getFromNode()->getName(), link->getToNode()->getName());
 
                     if (link->getFromNode() == nullptr)
                     {
@@ -78,7 +79,7 @@ namespace RenderEngine::RenderGraph
 
             void addSynOperationsForSource(const Link::PipelineConnection& connection, const std::string& node_name)
             {
-                RenderContext::context().getDebugger().print("      Add signal operation for node: {:s} ({:s}) into: {:s}",
+                RenderContext::context().getDebugger().print(Debug::Topics::RenderGraphBuilder{}, "      Add signal operation for node: {:s} ({:s}) into: {:s}",
                                                              node_name,
                                                              connection.semaphore_name,
                                                              _sync_object->getName());
@@ -101,7 +102,7 @@ namespace RenderEngine::RenderGraph
 
             void addSynOperationsForDestination(const Link::PipelineConnection& connection, const std::string& node_name)
             {
-                RenderContext::context().getDebugger().print("      Add wait operation for node: {:s} ({:s}) into: {:s}",
+                RenderContext::context().getDebugger().print(Debug::Topics::RenderGraphBuilder{}, "      Add wait operation for node: {:s} ({:s}) into: {:s}",
                                                              node_name,
                                                              connection.semaphore_name,
                                                              _sync_object->getName());
@@ -122,7 +123,7 @@ namespace RenderEngine::RenderGraph
             void addSynOperationsForDestination(const Link::ExternalConnection& connection, const std::string& node_name)
             {
 
-                RenderContext::context().getDebugger().print("      Add external signal operation for node: {:s} ({:s}) into: {:s}",
+                RenderContext::context().getDebugger().print(Debug::Topics::RenderGraphBuilder{}, "      Add external signal operation for node: {:s} ({:s}) into: {:s}",
                                                              node_name,
                                                              connection.signaled_semaphore_name,
                                                              _sync_object->getName());
@@ -176,7 +177,7 @@ namespace RenderEngine::RenderGraph
 
         void VisitorForTaskCreation::visitImpl(Node* node)
         {
-            RenderContext::context().getDebugger().print("Visit node: " + node->getName());
+            RenderContext::context().getDebugger().print(Debug::Topics::RenderGraphBuilder{}, "Visit node: " + node->getName());
             collectSyncOperationForNode(node);
 
             node->register_execution_context(_execution_context);

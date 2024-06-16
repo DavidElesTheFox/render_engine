@@ -5,31 +5,6 @@
 
 namespace RenderEngine::RenderGraph
 {
-
-    /*
-    void Job::execute(ExecutionContext& execution_context) noexcept
-    {
-        try
-        {
-            if (_queue_tracker != nullptr)
-            {
-                _queue_tracker->clear();
-            }
-            _job(execution_context, _queue_tracker.get());
-        }
-        catch (const std::exception& error)
-        {
-            RenderContext::context().getDebugger().print("Error occurred during job execution: {:s}", error.what());
-            assert(false && "Error occurred during job execution");
-        }
-        catch (...)
-        {
-            RenderContext::context().getDebugger().print("Unknown error occurred during job execution");
-            assert(false && "Unknown error occurred during job execution");
-
-        }
-    }
-    */
     ExecutionContext::PoolIndex ExecutionContext::getPoolIndex() const
     {
         std::shared_lock lock(_pool_index_mutex);

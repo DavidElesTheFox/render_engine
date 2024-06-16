@@ -78,6 +78,7 @@ set(RENDER_ENGINE_SYNCHRONIZATION_HEADERS
 	${RENDER_ENGINE_HEADER_LOCATION}/synchronization/SyncOperations.h
 	${RENDER_ENGINE_HEADER_LOCATION}/synchronization/ResourceStateMachine.h
     ${RENDER_ENGINE_HEADER_LOCATION}/synchronization/ResourceStates.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/synchronization/Topic.h
 
 	)
 source_group("src\\synchronization" FILES ${RENDER_ENGINE_SYNCHRONIZATION_SRC})
@@ -175,6 +176,7 @@ set(RENDER_ENGINE_RENDERGRAPH_HEADERS
     ${RENDER_ENGINE_HEADER_LOCATION}/rendergraph/TaskflowBuilder.h
     ${RENDER_ENGINE_HEADER_LOCATION}/rendergraph/RenderGraphBuilder.h
     ${RENDER_ENGINE_HEADER_LOCATION}/rendergraph/DependentName.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/rendergraph/Topic.h
 	)
 
 source_group("src\\rendergraph" FILES ${RENDER_ENGINE_RENDERGRAPH_SRC})
@@ -189,6 +191,7 @@ set(RENDER_ENGINE_DEBUG_SRC
 	)
 set(RENDER_ENGINE_DEBUG_HEADERS 
 	${RENDER_ENGINE_HEADER_LOCATION}/debug/SyncLogbook.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/debug/Topic.h
 	)
 
 source_group("src\\debug" FILES ${RENDER_ENGINE_DEBUG_SRC})

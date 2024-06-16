@@ -2,6 +2,7 @@
 
 #include <render_engine/containers/Views.h>
 #include <render_engine/rendergraph/TaskflowBuilder.h>
+#include <render_engine/synchronization/Topic.h>
 
 namespace RenderEngine
 {
@@ -103,7 +104,7 @@ namespace RenderEngine
 
 
         auto& debugger = RenderContext::context().getDebugger();
-        debugger.print("Synchronization Log @{:d}: \n{:s}\n",
+        debugger.print(Debug::Topics::Synchronization{}, "Synchronization Log @{:d}: \n{:s}\n",
                        _render_call_count,
                        debugger.getSyncLogbook().toString());
         _render_call_count++;

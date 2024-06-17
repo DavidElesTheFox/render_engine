@@ -19,7 +19,12 @@ namespace RenderEngine::RenderGraph
     void RenderNode::execute(ExecutionContext& execution_context, QueueSubmitTracker* queue_tracker)
     {
         const auto pool_index = execution_context.getPoolIndex();
-        RenderContext::context().getDebugger().print(Debug::Topics::RenderGraphExecution{}, "Start rendering: {:s} render target: {:d} (sync index: {:d})", getName(), pool_index.render_target_index, pool_index.sync_object_index);
+        RenderContext::context().getDebugger().print(Debug::Topics::RenderGraphExecution{},
+                                                     "Start rendering: {:s} render target: {:d} (sync index: {:d}) [thread:{}]",
+                                                     getName(),
+                                                     pool_index.render_target_index,
+                                                     pool_index.sync_object_index,
+                                                     std::this_thread::get_id());
         auto sync_object_holder = execution_context.getSyncObject(pool_index.sync_object_index);
         const auto& in_operations = sync_object_holder.sync_object.getOperationsGroup(getName());
         _renderer->draw(pool_index.render_target_index);
@@ -56,7 +61,12 @@ namespace RenderEngine::RenderGraph
                                           VK_NULL_HANDLE);
         }
         execution_context.setDrawCallRecorded(true);
-        RenderContext::context().getDebugger().print(Debug::Topics::RenderGraphExecution{}, "Rendering finished: {:s} render target: {:d} (sync index: {:d})", getName(), pool_index.render_target_index, pool_index.sync_object_index);
+        RenderContext::context().getDebugger().print(Debug::Topics::RenderGraphExecution{},
+                                                     "Rendering finished: {:s} render target: {:d} (sync index: {:d}) [thread: {}]",
+                                                     getName(),
+                                                     pool_index.render_target_index,
+                                                     pool_index.sync_object_index,
+                                                     std::this_thread::get_id());
 
     }
 
@@ -107,7 +117,12 @@ namespace RenderEngine::RenderGraph
     void PresentNode::execute(ExecutionContext& execution_context, QueueSubmitTracker*)
     {
         const auto pool_index = execution_context.getPoolIndex();
-        RenderContext::context().getDebugger().print(Debug::Topics::RenderGraphExecution{}, "Start presenting: {:s} render target: {:d} (sync index: {:d})", getName(), pool_index.render_target_index, pool_index.sync_object_index);
+        RenderContext::context().getDebugger().print(Debug::Topics::RenderGraphExecution{},
+                                                     "Start presenting: {:s} render target: {:d} (sync index: {:d}) [thread: {}]",
+                                                     getName(),
+                                                     pool_index.render_target_index,
+                                                     pool_index.sync_object_index,
+                                                     std::this_thread::get_id());
         auto sync_object_holder = execution_context.getSyncObject(pool_index.sync_object_index);
         const auto& in_operations = sync_object_holder.sync_object.getOperationsGroup(getName());
 
@@ -119,7 +134,12 @@ namespace RenderEngine::RenderGraph
 
         present_info.pImageIndices = &pool_index.render_target_index;
         _command_context->queuePresent(std::move(present_info), in_operations);
-        RenderContext::context().getDebugger().print(Debug::Topics::RenderGraphExecution{}, "Presenting finished: {:s} render target: {:d} (sync index: {:d})", getName(), pool_index.render_target_index, pool_index.sync_object_index);
+        RenderContext::context().getDebugger().print(Debug::Topics::RenderGraphExecution{},
+                                                     "Presenting finished: {:s} render target: {:d} (sync index: {:d}) [thread: {}]",
+                                                     getName(),
+                                                     pool_index.render_target_index,
+                                                     pool_index.sync_object_index,
+                                                     std::this_thread::get_id());
     }
 
     void PresentNode::accept(GraphVisitor& visitor)

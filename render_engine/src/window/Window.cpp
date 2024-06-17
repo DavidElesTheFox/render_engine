@@ -228,8 +228,7 @@ namespace RenderEngine
             presentInfo.pSwapchains = swapChains;
 
             presentInfo.pImageIndices = &*_swap_chain_image_index;
-
-            _present_context->getLogicalDevice()->vkQueuePresentKHR(_present_context->getQueue(), &presentInfo);
+            _present_context->queuePresent(std::move(presentInfo), {});
             _swap_chain_image_index = std::nullopt;
             _presented_frame_counter++;
         }

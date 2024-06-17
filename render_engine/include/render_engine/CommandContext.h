@@ -10,6 +10,7 @@
 #include <memory>
 #include <mutex>
 #include <set>
+#include <shared_mutex>
 #include <unordered_map>
 #include <vector>
 
@@ -17,13 +18,35 @@ namespace RenderEngine
 {
     class SyncOperations;
 
+    class GuardedQueue
+    {
+    public:
+        GuardedQueue(VkQueue queue, std::unique_lock<std::shared_mutex>&& lock)
+            : _queue(queue)
+            , _lock(std::move(lock))
+        {}
+        GuardedQueue(const GuardedQueue&) = delete;
+        GuardedQueue(GuardedQueue&&) = default;
 
+        GuardedQueue& operator=(const GuardedQueue&) = delete;
+        GuardedQueue& operator=(GuardedQueue&&) = default;
+
+        void lock() { _lock.lock(); }
+        void unlock() { _lock.unlock(); }
+        VkQueue getQueue()
+        {
+            assert(_lock.owns_lock());
+            return _queue;
+        }
+    private:
+        VkQueue _queue{ VK_NULL_HANDLE };
+        std::unique_lock<std::shared_mutex> _lock;
+    };
 
     class AbstractCommandContext
     {
     public:
         virtual ~AbstractCommandContext() = default;
-        VkQueue getQueue();
         uint32_t getQueueFamilyIndex() const { return _queue_family_index; }
         LogicalDevice& getLogicalDevice() { return *_logical_device; }
         LogicalDevice& getLogicalDevice() const { return *_logical_device; }
@@ -35,6 +58,8 @@ namespace RenderEngine
         {
             return o._queue_family_index == _queue_family_index;
         }
+
+        GuardedQueue getQueue();
 
         void queueSubmit(VkSubmitInfo2&& submit_info,
                          const SyncOperations& sync_operations,

@@ -14,8 +14,8 @@ namespace RenderEngine::Debug::Topics
 
     struct RenderGraphExecution
     {
-        static inline PrintDestinationType print_destination{ PrintDestinationType::Null };
-        static constexpr const bool enabled{ false };
+        static inline PrintDestinationType print_destination{ PrintDestinationType::Console };
+        static constexpr const bool enabled{ true };
     };
     static_assert(Topic<RenderGraphExecution>, "A debug topic must fulfill the requirements");
 

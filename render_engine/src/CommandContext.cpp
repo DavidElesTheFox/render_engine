@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cassert>
 #include <ranges>
+#include <shared_mutex>
 #include <stdexcept>
 
 namespace RenderEngine
@@ -15,30 +16,42 @@ namespace RenderEngine
     class AbstractCommandContext::QueueLoadBalancer
     {
     public:
+
         explicit QueueLoadBalancer(LogicalDevice& logical_device, uint32_t queue_family_index, uint32_t queue_count)
         {
             for (uint32_t i = 0; i < queue_count; ++i)
             {
                 VkQueue queue;
                 logical_device->vkGetDeviceQueue(*logical_device, queue_family_index, i, &queue);
-                _queue_map.push_back(QueueData{ queue , 0 });
+
+                _queue_map.emplace_back(queue);
             }
         }
-        VkQueue getQueue()
+        GuardedQueue getQueue()
         {
             std::lock_guard lock{ _queue_map_mutex };
             auto it = std::min_element(_queue_map.begin(), _queue_map.end(),
                                        [](auto& a, auto& b) { return a.access_count < b.access_count; });
             it->access_count++;
-            return it->queue;
+            return GuardedQueue{ it->queue,  std::unique_lock{it->access_mutex} };
         }
     private:
         struct QueueData
         {
             VkQueue queue{ VK_NULL_HANDLE };
+            std::shared_mutex access_mutex;
             uint32_t access_count{ 0 };
+
+            explicit QueueData(VkQueue queue)
+                : queue(queue)
+            {}
+            QueueData(const QueueData&) = delete;
+            QueueData(QueueData&&) = delete;
+
+            QueueData& operator=(const QueueData&) = delete;
+            QueueData& operator=(QueueData&&) = delete;
         };
-        std::vector<QueueData> _queue_map;
+        std::list<QueueData> _queue_map;
         std::mutex _queue_map_mutex;
     };
 
@@ -56,10 +69,6 @@ namespace RenderEngine
         _queue_load_balancer = std::make_unique<QueueLoadBalancer>(logical_device, _queue_family_index, *_queue_family_info.queue_count);
     }
 
-    VkQueue AbstractCommandContext::getQueue()
-    {
-        return _queue_load_balancer->getQueue();
-    }
 
     AbstractCommandContext::AbstractCommandContext(AbstractCommandContext&& o) noexcept
     {
@@ -82,7 +91,8 @@ namespace RenderEngine
     {
         sync_operations.fillInfo(submit_info);
 
-        if ((*_logical_device)->vkQueueSubmit2(getQueue(),
+        auto queue = _queue_load_balancer->getQueue();
+        if ((*_logical_device)->vkQueueSubmit2(queue.getQueue(),
                                                1,
                                                &submit_info,
                                                fence) != VK_SUCCESS)
@@ -94,10 +104,17 @@ namespace RenderEngine
     void AbstractCommandContext::queuePresent(VkPresentInfoKHR&& present_info, const SyncOperations& sync_operations)
     {
         sync_operations.fillInfo(present_info);
-        if ((*_logical_device)->vkQueuePresentKHR(getQueue(), &present_info) != VK_SUCCESS)
+
+        auto queue = _queue_load_balancer->getQueue();
+        if ((*_logical_device)->vkQueuePresentKHR(queue.getQueue(), &present_info) != VK_SUCCESS)
         {
             throw std::runtime_error("Failed to present swap chain");
         }
+    }
+
+    GuardedQueue AbstractCommandContext::getQueue()
+    {
+        return _queue_load_balancer->getQueue();
     }
 
     bool AbstractCommandContext::isPipelineStageSupported(VkPipelineStageFlags2 pipeline_stage) const

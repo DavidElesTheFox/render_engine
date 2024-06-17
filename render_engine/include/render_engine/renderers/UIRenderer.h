@@ -68,6 +68,8 @@ namespace RenderEngine
 
         std::function<void()> _on_gui;
         PerformanceMarkerFactory _performance_markers;
+        // Imgui currently doesn't uses the queue but it requires one (there is a bug during destroy and it doesn't wait idle anymore.
+        GuardedQueue _imgui_queue;
 
     };
 }

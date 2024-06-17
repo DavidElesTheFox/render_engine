@@ -189,7 +189,10 @@ namespace RenderEngine
                            RenderTarget render_target,
                            uint32_t back_buffer_size)
         : SingleColorOutputRenderer(window.getRenderEngine())
+        , _imgui_queue(window.getRenderEngine().getCommandContext().getQueue())
     {
+        _imgui_queue.unlock();
+
         _imgui_context_during_init = ImGui::GetCurrentContext();
         _imgui_context = ImGui::CreateContext();
         ImGui::SetCurrentContext(_imgui_context);
@@ -211,15 +214,17 @@ namespace RenderEngine
             initializeRendererOutput(render_target, render_pass, back_buffer_size);
             _descriptor_pool = createDescriptorPool(logical_device);
 
+            _imgui_queue.lock();
             ImGui_ImplVulkan_InitInfo init_info = {};
             init_info.Instance = window.getDevice().getVulkanInstance();
             init_info.PhysicalDevice = window.getDevice().getPhysicalDevice();
             init_info.Device = *logical_device;
-            init_info.Queue = window.getRenderEngine().getCommandContext().getQueue();
+            init_info.Queue = _imgui_queue.getQueue();
             init_info.DescriptorPool = _descriptor_pool;
             init_info.MinImageCount = back_buffer_size;
             init_info.ImageCount = back_buffer_size;
             init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+            _imgui_queue.unlock();
 
 
 

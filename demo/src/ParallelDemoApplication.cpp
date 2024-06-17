@@ -11,7 +11,9 @@
 #include <scene/Camera.h>
 #include <WindowSetup.h>
 
+#include <format>
 #include <memory>
+#include <thread>
 #include <vector>
 
 namespace
@@ -144,7 +146,11 @@ namespace
 
         _occupied_sync_object_indexes.insert(*sync_object_index);
 
-        RenderEngine::RenderContext::context().getDebugger().print(RenderEngine::Debug::Topics::RenderGraphExecution{}, "Image Acquire: Image index {:d} (Using synchronization object: {:d}", *image_index, *sync_object_index);
+        RenderEngine::RenderContext::context().getDebugger().print(RenderEngine::Debug::Topics::RenderGraphExecution{},
+                                                                   "Image Acquire: Image index {:d} (Using synchronization object: {:d}) [thread: {}]",
+                                                                   *image_index,
+                                                                   *sync_object_index,
+                                                                   (std::stringstream{} << std::this_thread::get_id()).str());
 
         // !! Unlocking manually. Not fun of this but makes readable the code (i.e.: Dealing with image index, and semaphore_was_used)
         sync_object_holder.lock.unlock();

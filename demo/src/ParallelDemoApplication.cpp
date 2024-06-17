@@ -189,7 +189,7 @@ namespace
         {
             std::tie(call_result, image_index) =
                 execution_context.getSyncObject(available_index).sync_object.acquireNextSwapChainImage(_logical_device,
-                                                                                                       _swap_chain.getDetails().swap_chain,
+                                                                                                       _swap_chain,
                                                                                                        ImageAcquireTask::image_available_semaphore_name,
                                                                                                        timeout);
         }

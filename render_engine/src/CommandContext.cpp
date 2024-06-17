@@ -39,7 +39,7 @@ namespace RenderEngine
         struct QueueData
         {
             VkQueue queue{ VK_NULL_HANDLE };
-            std::shared_mutex access_mutex;
+            std::mutex access_mutex;
             uint32_t access_count{ 0 };
 
             explicit QueueData(VkQueue queue)

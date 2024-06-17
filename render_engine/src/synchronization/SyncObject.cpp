@@ -1,6 +1,7 @@
 #include <render_engine/synchronization/SyncObject.h>
 
 #include <render_engine/RenderContext.h>
+#include <render_engine/window/SwapChain.h>
 
 #include <ranges>
 #include <stdexcept>
@@ -128,14 +129,15 @@ namespace RenderEngine
     }
 
     std::pair<VkResult, uint32_t> SyncObject::acquireNextSwapChainImage(LogicalDevice& logical_device,
-                                                                        VkSwapchainKHR swap_chain,
+                                                                        SwapChain& swap_chain,
                                                                         const std::string& semaphore_name,
                                                                         std::optional<std::chrono::nanoseconds> timeout) const
     {
         uint32_t image_index = 0;
         const uint64_t timeout_ns = timeout.value_or(std::chrono::milliseconds{ UINT64_MAX }).count();
+        auto [lock, vulkan_swap_chain] = swap_chain.getSwapChain();
         auto call_result = logical_device->vkAcquireNextImageKHR(*logical_device,
-                                                                 swap_chain,
+                                                                 vulkan_swap_chain,
                                                                  timeout_ns,
                                                                  getPrimitives().getSemaphore(semaphore_name),
                                                                  VK_NULL_HANDLE,

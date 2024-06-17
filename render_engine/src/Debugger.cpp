@@ -27,8 +27,8 @@ namespace RenderEngine
     {
         std::erase_if(_on_gui_callbacks, [&](auto& stored_callback) { return &stored_callback == &callback; });
     }
-    void Debugger::printToConsole(const std::string_view& msg)
+    void Debugger::printToConsole(const std::optional<Debug::ConsoleColor>& color, const std::string_view& msg)
     {
-        std::cout << msg << std::endl;
+        _console.println(color, msg);
     }
 }

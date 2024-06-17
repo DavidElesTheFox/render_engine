@@ -7,6 +7,8 @@
 
 namespace RenderEngine
 {
+    class SwapChain;
+
     /**
     * Synchronization group namespace for publicly available groups.
     *
@@ -128,7 +130,7 @@ namespace RenderEngine
         uint64_t getSemaphoreRealValue(const std::string& name) const;
 
         std::pair<VkResult, uint32_t> acquireNextSwapChainImage(LogicalDevice& logical_device,
-                                                                VkSwapchainKHR swap_chain,
+                                                                SwapChain& swap_chain,
                                                                 const std::string& semaphore_name,
                                                                 std::optional<std::chrono::nanoseconds> timeout = std::nullopt) const;
 

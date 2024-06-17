@@ -125,10 +125,11 @@ namespace RenderEngine::RenderGraph
                                                      std::this_thread::get_id());
         auto sync_object_holder = execution_context.getSyncObject(pool_index.sync_object_index);
         const auto& in_operations = sync_object_holder.sync_object.getOperationsGroup(getName());
+        auto [lock, vulkan_swap_chain] = _swap_chain.getSwapChain();
 
         VkPresentInfoKHR present_info{};
         present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-        VkSwapchainKHR swapChains[] = { _swap_chain.getDetails().swap_chain };
+        VkSwapchainKHR swapChains[] = { vulkan_swap_chain };
         present_info.swapchainCount = 1;
         present_info.pSwapchains = swapChains;
 

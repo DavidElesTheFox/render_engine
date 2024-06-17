@@ -21,7 +21,7 @@ namespace RenderEngine
     class GuardedQueue
     {
     public:
-        GuardedQueue(VkQueue queue, std::unique_lock<std::shared_mutex>&& lock)
+        GuardedQueue(VkQueue queue, std::unique_lock<std::mutex>&& lock)
             : _queue(queue)
             , _lock(std::move(lock))
         {}
@@ -40,7 +40,7 @@ namespace RenderEngine
         }
     private:
         VkQueue _queue{ VK_NULL_HANDLE };
-        std::unique_lock<std::shared_mutex> _lock;
+        std::unique_lock<std::mutex> _lock;
     };
 
     class AbstractCommandContext

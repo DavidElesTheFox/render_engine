@@ -1,5 +1,7 @@
 #pragma once
 
+#include <render_engine/debug/Console.h>
+#include <render_engine/debug/ConsoleColor.h>
 #include <render_engine/debug/SyncLogbook.h>
 #include <render_engine/debug/Topic.h>
 
@@ -62,7 +64,7 @@ namespace RenderEngine
                     case Debug::PrintDestinationType::Null:
                         break;
                     case Debug::PrintDestinationType::Console:
-                        printToConsole(msg);
+                        printToConsole(topic.console_color, msg);
                         break;
                 }
             }
@@ -71,9 +73,11 @@ namespace RenderEngine
 
         SyncLogbook& getSyncLogbook() { return _sync_logbook; }
     private:
-        void printToConsole(const std::string_view& msg);
+        void printToConsole(const std::optional<Debug::ConsoleColor>& color, const std::string_view& msg);
         void removeCallback(std::function<void()>& callback);
         std::vector<std::function<void()>> _on_gui_callbacks;
         SyncLogbook _sync_logbook{ sync_logbook_max_stacksize };
+        Debug::Console _console;
+
     };
 }

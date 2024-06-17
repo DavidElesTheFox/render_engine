@@ -191,7 +191,6 @@ namespace RenderEngine
         : SingleColorOutputRenderer(window.getRenderEngine())
         , _imgui_queue(window.getRenderEngine().getCommandContext().getQueue())
     {
-        _imgui_queue.unlock();
 
         _imgui_context_during_init = ImGui::GetCurrentContext();
         _imgui_context = ImGui::CreateContext();
@@ -214,7 +213,6 @@ namespace RenderEngine
             initializeRendererOutput(render_target, render_pass, back_buffer_size);
             _descriptor_pool = createDescriptorPool(logical_device);
 
-            _imgui_queue.lock();
             ImGui_ImplVulkan_InitInfo init_info = {};
             init_info.Instance = window.getDevice().getVulkanInstance();
             init_info.PhysicalDevice = window.getDevice().getPhysicalDevice();

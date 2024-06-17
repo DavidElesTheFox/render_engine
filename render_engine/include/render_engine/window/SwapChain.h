@@ -7,6 +7,7 @@
 #include <GLFW/glfw3.h>
 
 #include <memory>
+#include <mutex>
 #include <vector>
 
 namespace RenderEngine
@@ -50,12 +51,21 @@ namespace RenderEngine
         SwapChain(CreateInfo create_info);
 
         ~SwapChain();
-        const Details& getDetails() const { return _details; }
         RenderTarget createRenderTarget() const;
         void reinit();
+        auto getSwapChain()
+        {
+            struct Result
+            {
+                std::unique_lock<std::mutex> lock;
+                VkSwapchainKHR swap_chain;
+            };
+            return Result{ std::unique_lock(_access_mutex), _details.swap_chain };
+        }
     private:
         void resetSwapChain();
         Details _details;
         CreateInfo _create_info;
+        std::mutex _access_mutex;
     };
 }

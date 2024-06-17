@@ -188,10 +188,13 @@ source_group("include\\rendergraph" FILES ${RENDER_ENGINE_RENDERGRAPH_HEADERS})
 
 set(RENDER_ENGINE_DEBUG_SRC
     src/debug/SyncLogbook.cpp
+    src/debug/Console.cpp
 	)
 set(RENDER_ENGINE_DEBUG_HEADERS 
 	${RENDER_ENGINE_HEADER_LOCATION}/debug/SyncLogbook.h
     ${RENDER_ENGINE_HEADER_LOCATION}/debug/Topic.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/debug/ConsoleColor.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/debug/Console.h
 	)
 
 source_group("src\\debug" FILES ${RENDER_ENGINE_DEBUG_SRC})
@@ -266,7 +269,7 @@ set(RENDER_ENGINE_SRC
 	${RENDER_ENGINE_MEMORY_SRC}
     ${RENDER_ENGINE_RENDERGRAPH_SRC}
     ${RENDER_ENGINE_DEBUG_SRC}
-)
+ )
 
 set(RENDER_ENGINE_HEADERS 
     ${RENDER_ENGINE_RENDERERS_HEADERS}

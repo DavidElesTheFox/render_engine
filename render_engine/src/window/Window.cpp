@@ -184,12 +184,13 @@ namespace RenderEngine
         }
         auto renderers = _renderers | std::views::transform([](const auto& ptr) { return ptr.get(); });
         auto& logical_device = _device.getLogicalDevice();
+        auto [lock, swap_chain] = _swap_chain->getSwapChain();
         if (_swap_chain_image_index == std::nullopt)
         {
             uint32_t image_index = 0;
             frame_data.submit_tracker->wait();
             auto call_result = logical_device->vkAcquireNextImageKHR(*logical_device,
-                                                                     _swap_chain->getDetails().swap_chain,
+                                                                     swap_chain,
                                                                      UINT64_MAX,
                                                                      frame_data.synch_render.getPrimitives().getSemaphore("image-available"),
                                                                      VK_NULL_HANDLE,
@@ -223,7 +224,7 @@ namespace RenderEngine
 
             presentInfo.waitSemaphoreCount = 1;
             presentInfo.pWaitSemaphores = &frame_data.synch_render.getPrimitives().getSemaphore("render-finished");
-            VkSwapchainKHR swapChains[] = { _swap_chain->getDetails().swap_chain };
+            VkSwapchainKHR swapChains[] = { swap_chain };
             presentInfo.swapchainCount = 1;
             presentInfo.pSwapchains = swapChains;
 

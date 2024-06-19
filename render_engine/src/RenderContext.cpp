@@ -64,7 +64,7 @@ namespace
                                                  const VkDebugUtilsMessengerCallbackDataEXT* data,
                                                  void*)
     {
-        if (severity < VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
+        if (severity < VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT && false)
         {
             return VK_FALSE;
         }
@@ -188,6 +188,7 @@ namespace RenderEngine
             throw std::runtime_error(std::string{ "Cannot initialize vulkan instance: " } + string_VkResult(result));
         }
         volkLoadInstance(_instance);
+        vkCreateDebugUtilsMessengerEXT(_instance, &debug_create_info, nullptr, &_debug_messenger);
 
     }
 
@@ -233,6 +234,7 @@ namespace RenderEngine
         {
             _garbage.clear();
             _devices.clear();
+            vkDestroyDebugUtilsMessengerEXT(_instance, _debug_messenger, nullptr);
             vkDestroyInstance(_instance, nullptr);
             _instance = nullptr;
         }

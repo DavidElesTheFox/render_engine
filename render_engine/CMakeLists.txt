@@ -10,6 +10,7 @@ configure_file(config/data_config_in.h "${GENERATED_INCLUDE_DIR}/data_config.h")
 
 ###############################################################################
 
+
 #############
 # Renderers #
 #############
@@ -234,6 +235,7 @@ set(RENDER_ENGINE_ROOT_SRC
         src/Debugger.cpp
         src/ParallelRenderEngine.cpp
         src/QueueSubmitTracker.cpp
+        src/QueueLoadBallancer.cpp
 )
 set(RENDER_ENGINE_ROOT_HEADERS
 	${RENDER_ENGINE_HEADER_LOCATION}/RenderEngine.h
@@ -252,6 +254,7 @@ set(RENDER_ENGINE_ROOT_HEADERS
     ${RENDER_ENGINE_HEADER_LOCATION}/ParallelRenderEngine.h
     ${RENDER_ENGINE_HEADER_LOCATION}/QueueSubmitTracker.h
     ${RENDER_ENGINE_HEADER_LOCATION}/IRenderEngine.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/QueueLoadBallancer.h
 )
 source_group("src" FILES ${RENDER_ENGINE_ROOT_SRC})
 source_group("include" FILES ${RENDER_ENGINE_ROOT_HEADERS})

@@ -20,8 +20,8 @@ namespace RenderEngine
         T* operator->() { return &_obj; }
         const T* operator->() const { return &_obj; }
 
-        T* operator*() { return _obj; }
-        const T* operator*() const { return _obj; }
+        T& operator*() { return _obj; }
+        const T& operator*() const { return _obj; }
     private:
         T& _obj;
     };

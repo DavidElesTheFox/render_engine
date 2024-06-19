@@ -13,76 +13,15 @@ namespace RenderEngine
 
 #pragma region AbstractCommandContext
 
-    class AbstractCommandContext::QueueLoadBalancer
-    {
-    public:
-
-        explicit QueueLoadBalancer(LogicalDevice& logical_device, uint32_t queue_family_index, uint32_t queue_count)
-        {
-            for (uint32_t i = 0; i < queue_count; ++i)
-            {
-                VkQueue queue;
-                logical_device->vkGetDeviceQueue(*logical_device, queue_family_index, i, &queue);
-
-                _queue_map.emplace_back(queue);
-            }
-        }
-        GuardedQueue getQueue()
-        {
-            std::lock_guard lock{ _queue_map_mutex };
-            auto it = std::min_element(_queue_map.begin(), _queue_map.end(),
-                                       [](auto& a, auto& b) { return a.access_count < b.access_count; });
-            it->access_count++;
-            return GuardedQueue{ it->queue,  std::unique_lock{it->access_mutex} };
-        }
-    private:
-        struct QueueData
-        {
-            VkQueue queue{ VK_NULL_HANDLE };
-            std::mutex access_mutex;
-            uint32_t access_count{ 0 };
-
-            explicit QueueData(VkQueue queue)
-                : queue(queue)
-            {}
-            QueueData(const QueueData&) = delete;
-            QueueData(QueueData&&) = delete;
-
-            QueueData& operator=(const QueueData&) = delete;
-            QueueData& operator=(QueueData&&) = delete;
-        };
-        std::list<QueueData> _queue_map;
-        std::mutex _queue_map_mutex;
-    };
 
     AbstractCommandContext::AbstractCommandContext(LogicalDevice& logical_device,
                                                    uint32_t queue_family_index,
-                                                   DeviceLookup::QueueFamilyInfo queue_family_info)
+                                                   RefObj<QueueLoadBalancer> queue_load_balancer)
         : _logical_device(&logical_device)
         , _queue_family_index(queue_family_index)
-        , _queue_family_info(std::move(queue_family_info))
+        , _queue_load_balancer(std::move(queue_load_balancer))
     {
-        assert(_queue_family_info.hasComputeSupport != std::nullopt
-               && _queue_family_info.hasGraphicsSupport != std::nullopt
-               && _queue_family_info.hasTransferSupport != std::nullopt
-               && _queue_family_info.queue_count != std::nullopt);
-        _queue_load_balancer = std::make_unique<QueueLoadBalancer>(logical_device, _queue_family_index, *_queue_family_info.queue_count);
-    }
 
-
-    AbstractCommandContext::AbstractCommandContext(AbstractCommandContext&& o) noexcept
-    {
-        *this = std::move(o);
-    }
-
-    AbstractCommandContext& AbstractCommandContext::operator=(AbstractCommandContext&& o) noexcept
-    {
-        using std::swap;
-        swap(o._logical_device, _logical_device);
-        swap(o._queue_family_index, _queue_family_index);
-        swap(o._queue_family_info, _queue_family_info);
-        swap(o._queue_load_balancer, _queue_load_balancer);
-        return *this;
     }
 
     void AbstractCommandContext::queueSubmit(VkSubmitInfo2&& submit_info,
@@ -226,27 +165,14 @@ namespace RenderEngine
 
     SingleShotCommandContext::SingleShotCommandContext(LogicalDevice& logical_device,
                                                        uint32_t queue_family_index,
-                                                       DeviceLookup::QueueFamilyInfo queue_family_info,
+                                                       RefObj<QueueLoadBalancer> queue_load_balancer,
                                                        CreationToken)
-        : AbstractCommandContext(logical_device, queue_family_index, std::move(queue_family_info))
+        : AbstractCommandContext(logical_device, queue_family_index, std::move(queue_load_balancer))
     {
 
     }
 
-    SingleShotCommandContext::SingleShotCommandContext(SingleShotCommandContext&& o) noexcept
-        : AbstractCommandContext(std::move(o))
-    {
-        *this = std::move(o);
-    }
 
-    SingleShotCommandContext& SingleShotCommandContext::operator=(SingleShotCommandContext&& o) noexcept
-    {
-        std::scoped_lock lock{ o._thread_data_mutex, _thread_data_mutex };
-        using std::swap;
-        AbstractCommandContext::operator=(std::move(o));
-        swap(o._thread_data, _thread_data);
-        return *this;
-    }
 
     VkCommandBuffer SingleShotCommandContext::createCommandBuffer()
     {
@@ -358,26 +284,12 @@ namespace RenderEngine
 
     CommandContext::CommandContext(LogicalDevice& logical_device,
                                    uint32_t queue_family_index,
-                                   DeviceLookup::QueueFamilyInfo queue_family_info,
+                                   RefObj<QueueLoadBalancer> queue_load_balancer,
                                    uint32_t back_buffer_size,
                                    CreationToken)
-        : AbstractCommandContext(logical_device, queue_family_index, std::move(queue_family_info))
+        : AbstractCommandContext(logical_device, queue_family_index, std::move(queue_load_balancer))
         , _back_buffer_size(back_buffer_size)
     {}
-    CommandContext::CommandContext(CommandContext&& o) noexcept
-        : AbstractCommandContext(std::move(o))
-    {
-        *this = std::move(o);
-    }
-    CommandContext& CommandContext::operator=(CommandContext&& o) noexcept
-    {
-        std::scoped_lock lock{ o._thread_data_mutex, _thread_data_mutex };
-        using std::swap;
-        AbstractCommandContext::operator=(std::move(o));
-        swap(o._thread_data, _thread_data);
-        swap(o._back_buffer_size, _back_buffer_size);
-        return *this;
-    }
     CommandContext::~CommandContext() = default;
 
 
@@ -400,11 +312,11 @@ namespace RenderEngine
         return it->second->createCommandBuffers(count, render_target_image_index);
     }
 
-    std::shared_ptr<CommandContext> CommandContext::clone() const
+    std::shared_ptr<CommandContext> CommandContext::clone()
     {
         return std::make_shared<CommandContext>(getLogicalDevice(),
                                                 getQueueFamilyIndex(),
-                                                getQueueFamilyInfo(),
+                                                getLoadBalancer(),
                                                 _back_buffer_size,
                                                 CommandContext::CreationToken{});
     }

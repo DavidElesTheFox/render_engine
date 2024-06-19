@@ -4,11 +4,13 @@
 
 #include <render_engine/DeviceLookup.h>
 #include <render_engine/LogicalDevice.h>
+#include <render_engine/QueueLoadBallancer.h>
 
 #include <memory>
 #include <set>
 #include <span>
 #include <stdexcept>
+#include <unordered_map>
 #include <vector>
 
 
@@ -120,15 +122,15 @@ namespace RenderEngine
         VkInstance& getVulkanInstance() { return _instance; }
 
         CudaCompute::CudaDevice& getCudaDevice() const { return *_cuda_device; }
-        TextureFactory& getTextureFactory() { return _staging_area.getTextureFactory(); }
+        TextureFactory& getTextureFactory() { return _staging_area->getTextureFactory(); }
 
         bool hasCudaDevice() const { return _cuda_device != nullptr; }
 
         void waitIdle();
 
         void synchronizeStagingArea(SyncOperations sync_operations);
-        DataTransferContext& getDataTransferContext() { return _staging_area; }
-        const DataTransferContext& getDataTransferContext() const { return _staging_area; }
+        DataTransferContext& getDataTransferContext() { return *_staging_area; }
+        const DataTransferContext& getDataTransferContext() const { return *_staging_area; }
     private:
         void destroy() noexcept;
 
@@ -140,6 +142,7 @@ namespace RenderEngine
         uint32_t _queue_family_transfer = 0;
         std::unique_ptr<CudaCompute::CudaDevice> _cuda_device;
         DeviceLookup::DeviceInfo _device_info;
-        DataTransferContext _staging_area;
+        std::unique_ptr<DataTransferContext> _staging_area;
+        std::unordered_map<uint32_t, std::unique_ptr<QueueLoadBalancer>> _queue_balancers;
     };
 }

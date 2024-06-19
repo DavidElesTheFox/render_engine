@@ -3,6 +3,7 @@
 #include <scene/Camera.h>
 
 #include <iostream>
+#include <numeric>
 
 #include <imgui.h>
 
@@ -102,7 +103,12 @@ void ApplicationContext::onGui()
     ImGui::Begin("Application");
     ImGui::SliderFloat("Mouse Sensitivity", &_mouse_sensitivity, 0.0f, 1.0f);
     ImGui::SliderFloat("Keyboard Sensitivity", &_keyboard_sensitivity, 0.0f, 1.0f);
-    ImGui::Text("FPS: %06.1f", _current_fps);
+    ImGui::Text("FPS: %06.1f", _fps_data.current);
+    ImGui::Text("FPS min: %06.1f", _fps_data.min);
+    ImGui::Text("FPS max: %06.1f", _fps_data.max);
+    ImGui::Text("FPS avg of %d: %06.1f",
+                _fps_data.tail.size(),
+                std::accumulate(_fps_data.tail.begin(), _fps_data.tail.end(), 0.0f) / static_cast<float>(_fps_data.tail.size()));
     ImGui::End();
 }
 
@@ -115,7 +121,14 @@ void ApplicationContext::onFrameEnd()
         return;
     }
     auto fps = 1000 / static_cast<float>(frame_time_ms);
-    _current_fps = fps;
+    _fps_data.current = fps;
+    _fps_data.min = std::min(fps, _fps_data.min);
+    _fps_data.max = std::max(fps, _fps_data.max);
+    _fps_data.tail.push_front(fps);
+    if (_fps_data.tail.size() > FpsData::tail_size)
+    {
+        _fps_data.tail.pop_back();
+    }
 }
 
 void ApplicationContext::updateKeyboardEvent()

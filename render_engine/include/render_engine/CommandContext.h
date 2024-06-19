@@ -4,6 +4,8 @@
 
 #include <render_engine/DeviceLookup.h>
 #include <render_engine/LogicalDevice.h>
+#include <render_engine/memory/RefObj.h>
+#include <render_engine/QueueLoadBallancer.h>
 
 
 #include <cassert>
@@ -18,30 +20,7 @@ namespace RenderEngine
 {
     class SyncOperations;
 
-    class GuardedQueue
-    {
-    public:
-        GuardedQueue(VkQueue queue, std::unique_lock<std::mutex>&& lock)
-            : _queue(queue)
-            , _lock(std::move(lock))
-        {}
-        GuardedQueue(const GuardedQueue&) = delete;
-        GuardedQueue(GuardedQueue&&) = default;
 
-        GuardedQueue& operator=(const GuardedQueue&) = delete;
-        GuardedQueue& operator=(GuardedQueue&&) = default;
-
-        void lock() { _lock.lock(); }
-        void unlock() { _lock.unlock(); }
-        VkQueue getQueue()
-        {
-            assert(_lock.owns_lock());
-            return _queue;
-        }
-    private:
-        VkQueue _queue{ VK_NULL_HANDLE };
-        std::unique_lock<std::mutex> _lock;
-    };
 
     class AbstractCommandContext
     {
@@ -50,7 +29,6 @@ namespace RenderEngine
         uint32_t getQueueFamilyIndex() const { return _queue_family_index; }
         LogicalDevice& getLogicalDevice() { return *_logical_device; }
         LogicalDevice& getLogicalDevice() const { return *_logical_device; }
-        const DeviceLookup::QueueFamilyInfo& getQueueFamilyInfo() const { return _queue_family_info; }
 
         bool isPipelineStageSupported(VkPipelineStageFlags2 pipeline_stage) const;
 
@@ -68,21 +46,21 @@ namespace RenderEngine
     protected:
         AbstractCommandContext(LogicalDevice& logical_device,
                                uint32_t queue_family_index,
-                               DeviceLookup::QueueFamilyInfo queue_family_info);
+                               RefObj<QueueLoadBalancer> queue_load_balancer);
 
-        AbstractCommandContext(AbstractCommandContext&& o) noexcept;
+        AbstractCommandContext(AbstractCommandContext&& o) noexcept = delete;
         AbstractCommandContext(const AbstractCommandContext& o) noexcept = delete;
 
-        AbstractCommandContext& operator=(AbstractCommandContext&& o) noexcept;
+        AbstractCommandContext& operator=(AbstractCommandContext&& o) noexcept = delete;
         AbstractCommandContext& operator=(const AbstractCommandContext& o) noexcept = delete;
+        QueueLoadBalancer& getLoadBalancer() { return *_queue_load_balancer; }
     private:
-        class QueueLoadBalancer;
 
         LogicalDevice* _logical_device{ nullptr };
         uint32_t _queue_family_index{ 0 };
         DeviceLookup::QueueFamilyInfo _queue_family_info;
 
-        std::unique_ptr<QueueLoadBalancer> _queue_load_balancer;
+        RefObj<QueueLoadBalancer> _queue_load_balancer;
 
     };
 
@@ -94,28 +72,27 @@ namespace RenderEngine
     public:
         static std::shared_ptr<SingleShotCommandContext> create(LogicalDevice& logical_device,
                                                                 uint32_t queue_family_index,
-                                                                DeviceLookup::QueueFamilyInfo queue_family_info)
+                                                                RefObj<QueueLoadBalancer> queue_load_balancer)
         {
             return std::make_shared<SingleShotCommandContext>(logical_device,
                                                               queue_family_index,
-                                                              std::move(queue_family_info),
+                                                              std::move(queue_load_balancer),
                                                               CreationToken{});
         }
         SingleShotCommandContext(LogicalDevice& logical_device,
                                  uint32_t queue_family_index,
-                                 DeviceLookup::QueueFamilyInfo queue_family_info,
+                                 RefObj<QueueLoadBalancer> queue_load_balancer,
                                  CreationToken);
 
-        SingleShotCommandContext(SingleShotCommandContext&&) noexcept;
+        SingleShotCommandContext(SingleShotCommandContext&&) noexcept = delete;
         SingleShotCommandContext(const SingleShotCommandContext&) = delete;
 
-        SingleShotCommandContext& operator=(SingleShotCommandContext&&) noexcept;
+        SingleShotCommandContext& operator=(SingleShotCommandContext&&) noexcept = delete;
         SingleShotCommandContext& operator=(const SingleShotCommandContext&) = delete;
 
         ~SingleShotCommandContext() override;
         VkCommandBuffer createCommandBuffer();
 
-        std::shared_ptr<SingleShotCommandContext> clone() const;
 
         std::weak_ptr<SingleShotCommandContext> getWeakReference() { return shared_from_this(); }
 
@@ -137,32 +114,32 @@ namespace RenderEngine
     public:
         static std::shared_ptr<CommandContext> create(LogicalDevice& logical_device,
                                                       uint32_t queue_family_index,
-                                                      DeviceLookup::QueueFamilyInfo queue_family_info,
+                                                      RefObj<QueueLoadBalancer> queue_load_balancer,
                                                       uint32_t back_buffer_size)
         {
             return std::make_shared<CommandContext>(logical_device,
                                                     queue_family_index,
-                                                    std::move(queue_family_info),
+                                                    std::move(queue_load_balancer),
                                                     back_buffer_size,
                                                     CreationToken{});
         }
         CommandContext(LogicalDevice& logical_device,
                        uint32_t queue_family_index,
-                       DeviceLookup::QueueFamilyInfo queue_family_info,
+                       RefObj<QueueLoadBalancer> queue_load_balancer,
                        uint32_t back_buffer_size,
                        CreationToken);
 
-        CommandContext(CommandContext&&) noexcept;
+        CommandContext(CommandContext&&) noexcept = delete;
         CommandContext(const CommandContext&) = delete;
 
-        CommandContext& operator=(CommandContext&&) noexcept;
+        CommandContext& operator=(CommandContext&&) noexcept = delete;
         CommandContext& operator=(const CommandContext&) = delete;
 
         ~CommandContext() override;
         VkCommandBuffer createCommandBuffer(uint32_t render_target_image_index);
         std::vector<VkCommandBuffer> createCommandBuffers(uint32_t count, uint32_t render_target_image_index);
 
-        std::shared_ptr<CommandContext> clone() const;
+        std::shared_ptr<CommandContext> clone();
 
 
     private:

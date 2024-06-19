@@ -60,7 +60,14 @@ public:
 
 private:
     using ApplicationClock = std::chrono::steady_clock;
-
+    struct FpsData
+    {
+        float current{ 0.0f };
+        float min = std::numeric_limits<float>::max();
+        float max = std::numeric_limits<float>::min();
+        std::deque<float> tail;
+        static constexpr const uint32_t tail_size = 120;
+    };
     void updateKeyboardEvent();
     Scene::Scene* getScene() { return _scene; }
 
@@ -73,6 +80,6 @@ private:
     GLFWmousebuttonfun original_mouse_button_callback{ nullptr };
     GLFWkeyfun originak_key_callback{ nullptr };
     IdGenerator _id_generator;
-    float _current_fps{ 0.0f };
+    FpsData _fps_data{};
     ApplicationClock::time_point _frame_start_time{};
 };

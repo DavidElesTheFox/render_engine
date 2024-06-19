@@ -20,6 +20,13 @@ add_subdirectory(3rd_party/glm-src)
 set(TF_BUILD_TESTS OFF)
 set(TF_BUILD_EXAMPLES OFF)
 add_subdirectory(3rd_party/taskflow-src)
+add_custom_target(ValidationLayersBuild ALL 
+    COMMAND 
+        ${CMAKE_COMMAND} --install build/ --config Debug --prefix build/install
+    WORKING_DIRECTORY
+        ${CMAKE_CURRENT_SOURCE_DIR}/3rd_party/vulkan-validation-layers
+)
+    
 
 add_subdirectory(render_engine)
 add_subdirectory(demo)

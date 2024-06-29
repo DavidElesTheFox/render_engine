@@ -5,6 +5,7 @@
 #include <render_engine/debug/SyncLogbook.h>
 #include <render_engine/debug/Topic.h>
 
+#include <chrono>
 #include <format>
 #include <functional>
 #include <iostream>
@@ -73,11 +74,15 @@ namespace RenderEngine
 
         SyncLogbook& getSyncLogbook() { return _sync_logbook; }
     private:
+        using Clock = std::chrono::steady_clock;
+
         void printToConsole(const std::optional<Debug::ConsoleColor>& color, const std::string_view& msg);
         void removeCallback(std::function<void()>& callback);
+        std::string getLogPrefix() const;
+
         std::vector<std::function<void()>> _on_gui_callbacks;
         SyncLogbook _sync_logbook{ sync_logbook_max_stacksize };
         Debug::Console _console;
-
+        Clock::time_point _start_time{ Clock::now() };
     };
 }

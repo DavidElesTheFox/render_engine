@@ -80,6 +80,7 @@ private:
     GLFWmousebuttonfun original_mouse_button_callback{ nullptr };
     GLFWkeyfun originak_key_callback{ nullptr };
     IdGenerator _id_generator;
+    std::mutex _ui_mutex;
     FpsData _fps_data{};
     ApplicationClock::time_point _frame_start_time{};
 };

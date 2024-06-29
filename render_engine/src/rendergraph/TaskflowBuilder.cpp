@@ -180,16 +180,23 @@ namespace RenderEngine::RenderGraph
             RenderContext::context().getDebugger().print(Debug::Topics::RenderGraphBuilder{}, "Visit node: " + node->getName());
             collectSyncOperationForNode(node);
 
-            node->register_execution_context(_execution_context);
+            node->registerExectionContext(_execution_context);
+            QueueSubmitTracker* submit_tracker = nullptr;
+            if (node->isUsesTracking())
+            {
+                auto tracker = std::make_unique<QueueSubmitTracker>(_logical_device, node->getName());
+                submit_tracker = tracker.get();
+                _execution_context.addQueueSubmitTracker(node->getName(), std::move(tracker));
+            }
 
-            auto tf_task = _task_container.emplace([node, &execution_context_for_job = _execution_context]
+            auto tf_task = _task_container.emplace([node, &execution_context_for_job = _execution_context, submit_tracker]
                                                    {
                                                        if (node->isActive() == false)
                                                        {
                                                            return;
                                                        }
                                                        // TODO implement tracking: Probably the parameter can go to a member of the node
-                                                       node->execute(execution_context_for_job, nullptr);
+                                                       node->execute(execution_context_for_job, submit_tracker);
                                                    });
             assert(_task_map.contains(node->getName()) == false);
             _task_map.insert({ node->getName(), std::move(tf_task) });

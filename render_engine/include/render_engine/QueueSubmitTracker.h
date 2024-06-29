@@ -13,8 +13,9 @@ namespace RenderEngine
     class QueueSubmitTracker
     {
     public:
-        explicit QueueSubmitTracker(LogicalDevice& logical_device)
-            :_logical_device(&logical_device)
+        QueueSubmitTracker(LogicalDevice& logical_device, std::string name)
+            : _logical_device(&logical_device)
+            , _name(std::move(name))
         {}
         ~QueueSubmitTracker();
 
@@ -27,7 +28,7 @@ namespace RenderEngine
                          const SyncOperations& sync_operations,
                          AbstractCommandContext& command_context);
 
-        void wait();
+        void wait() const;
 
         [[nodiscard]]
         uint32_t queryNumOfSuccess() const;
@@ -39,13 +40,16 @@ namespace RenderEngine
         }
 
         bool isComplete() const { return queryNumOfSuccess() == getNumOfFences(); }
+        void waitAndClear();
         void clear();
+        const std::string& getName() const { return _name; }
     private:
         VkFence createFence();
-        void noLockingWait();
+        void noLockingWait() const;
         void noLockingClear();
 
         LogicalDevice* _logical_device{ nullptr };
+        std::string _name;
         std::vector<VkFence> _fences;
         std::vector<VkFence> _fence_pool;
         mutable std::mutex _fence_mutex;

@@ -28,7 +28,11 @@ namespace RenderEngine
                 OP_FLAG_WAIT = 1 << 1,
                 OP_FLAG_WAIT_EXTERNAL = 1 << 2
             };
-
+            enum class TrackingMode
+            {
+                On,
+                Off
+            };
 
             template<uint32_t OperationFlag>
             class GpuLinkBuilder;
@@ -42,7 +46,7 @@ namespace RenderEngine
 
             ~RenderGraphBuilder() = default;
 
-            void addRenderNode(std::string name, std::unique_ptr<AbstractRenderer> renderer);
+            void addRenderNode(std::string name, std::unique_ptr<AbstractRenderer> renderer, TrackingMode tracking_mode);
             void addTransferNode(std::string name);
             void addDeviceSynchronizeNode(std::string name, Device& device);
             void addComputeNode(std::string name, std::unique_ptr<RenderGraph::ComputeNode::IComputeTask> task);

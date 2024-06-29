@@ -435,7 +435,8 @@ namespace RenderEngine
                                                                                                  .setAccessFlag(0),
                                                                                                  buffer.getResourceState().command_context.lock().get(),
                                                                                                  &transfer_engine.getTransferContext(),
-                                                                                                 sync_operations.extract(SyncOperations::ExtractWaitOperations));
+                                                                                                 sync_operations.extract(SyncOperations::ExtractWaitOperations),
+                                                                                                 submit_tracker);
                 transfer_engine.transfer(sync_object_src_to_transfer.getOperationsGroup(SyncGroups::kExternal)
                                          .createUnionWith(transfer_sync_object.getOperationsGroup(SyncGroups::kInternal)),
                                          upload_command,
@@ -445,7 +446,7 @@ namespace RenderEngine
             }
             else
             {
-                SyncObject execution_barrier = ResourceStateMachine::barrier(&buffer, &src_context, sync_operations);
+                SyncObject execution_barrier = ResourceStateMachine::barrier(&buffer, &src_context, sync_operations, submit_tracker);
                 transfer_engine.transfer(execution_barrier.getOperationsGroup(SyncGroups::kExternal)
                                          .createUnionWith(transfer_sync_object.getOperationsGroup(SyncGroups::kInternal)),
                                          upload_command,
@@ -461,8 +462,8 @@ namespace RenderEngine
                                                                                              buffer.getResourceState().command_context.lock().get(),
                                                                                              &dst_context,
                                                                                              sync_operations.extract(SyncOperations::ExtractSignalOperations)
-                                                                                             .createUnionWith(transfer_sync_object.getOperationsGroup(SyncGroups::kExternal))
-            );
+                                                                                             .createUnionWith(transfer_sync_object.getOperationsGroup(SyncGroups::kExternal)),
+                                                                                             submit_tracker);
             assert(buffer.getResourceState().getQueueFamilyIndex() == dst_context.getQueueFamilyIndex());
             result.push_back(std::move(sync_object_transfer_to_dst));
             result.push_back(std::move(transfer_sync_object));
@@ -531,7 +532,7 @@ namespace RenderEngine
                     return result;
                 }
             };
-        std::shared_ptr<UploadTask> result = std::make_shared<UploadTask>(dst_context.getLogicalDevice(), std::move(task));
+        std::shared_ptr<UploadTask> result = std::make_shared<UploadTask>(dst_context.getLogicalDevice(), std::move(task), std::format("UploadTask-{:#18x}", reinterpret_cast<uintptr_t>(texture)));
         _textures_staging_area.uploads[texture] = result;
         return result;
     }
@@ -601,7 +602,9 @@ namespace RenderEngine
                 return result;
 
             };
-        std::shared_ptr<UploadTask> result = std::make_shared<UploadTask>(dst_context.getLogicalDevice(), std::move(task));
+        std::shared_ptr<UploadTask> result = std::make_shared<UploadTask>(dst_context.getLogicalDevice(),
+                                                                          std::move(task),
+                                                                          std::format("UploadTask-{:#18x}", reinterpret_cast<uintptr_t>(buffer)));
         _buffers_staging_area.uploads[buffer] = result;
         return result;
     }
@@ -643,7 +646,10 @@ namespace RenderEngine
                     return result;
                 }
             };
-        std::shared_ptr<DownloadTask> result = std::make_shared<DownloadTask>(std::move(task), texture, texture->getResourceState().command_context.lock()->getLogicalDevice());
+        std::shared_ptr<DownloadTask> result = std::make_shared<DownloadTask>(std::move(task),
+                                                                              texture,
+                                                                              texture->getResourceState().command_context.lock()->getLogicalDevice(),
+                                                                              std::format("{:#018x}", reinterpret_cast<uintptr_t>(texture)));
         _textures_staging_area.downloads[texture] = result;
         return result;
     }

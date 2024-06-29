@@ -46,9 +46,9 @@ namespace
             _occupied_sync_object_indexes.erase(index.sync_object_index);
         }
     private:
-        std::optional<uint32_t> findUnusedIndex() const
+        std::optional<uint32_t> findUnusedIndex(uint32_t thread_count) const
         {
-            for (uint32_t i = 0; i < _image_count; ++i)
+            for (uint32_t i = 0; i < thread_count; ++i)
             {
                 if (_used_sync_object_indexes.contains(i) == false)
                 {
@@ -76,14 +76,19 @@ namespace
     class ImageAcquireTask : public rg::CpuNode::ICpuTask
     {
     public:
-        constexpr static auto render_finished_semaphore_name = "render-finished";
         constexpr static auto image_available_semaphore_name = "image-available";
-        ImageAcquireTask(RenderEngine::Window& window, RenderEngine::LogicalDevice& logical_device, uint32_t back_buffer_count)
+        ImageAcquireTask(RenderEngine::Window& window,
+                         RenderEngine::LogicalDevice& logical_device,
+                         uint32_t back_buffer_count,
+                         std::string image_user_node_name)
             : _window(window)
             , _swap_chain_image_selector(back_buffer_count, logical_device, window.getSwapChain())
+            , _image_user_node_name(std::move(image_user_node_name))
         {}
         void run(rg::ExecutionContext& execution_context) final
         {
+            execution_context.findSubmitTracker(_image_user_node_name).wait();
+
             std::optional<rg::ExecutionContext::PoolIndex> pool_index = _swap_chain_image_selector.getNextImage(execution_context);
 
             if (pool_index == std::nullopt)
@@ -97,14 +102,14 @@ namespace
 
         }
 
-        void register_execution_context(rg::ExecutionContext& execution_context) override
+        void registerExectionContext(rg::ExecutionContext& execution_context) override
         {
             rg::ExecutionContext::Events events
             {
                 .on_pool_index_set = nullptr,
                 .on_pool_index_clear = [this](const auto& index) { _swap_chain_image_selector.releasePoolIndex(index); }
             };
-            execution_context.add_events(std::move(events));
+            execution_context.addEvents(std::move(events));
         };
 
         bool isActive() const final { return true; }
@@ -112,6 +117,7 @@ namespace
 
         RenderEngine::Window& _window;
         SwapChainImageSelector _swap_chain_image_selector;
+        std::string _image_user_node_name;
     };
 
     /**
@@ -128,7 +134,7 @@ namespace
         auto lock = std::lock_guard(_access_mutex);
         auto sync_object_holder = execution_context.getAllSyncObject();
 
-        std::optional<uint32_t> sync_object_index = findUnusedIndex();
+        std::optional<uint32_t> sync_object_index = findUnusedIndex(static_cast<uint32_t>(sync_object_holder.sync_objects.size()));
         if (sync_object_index == std::nullopt)
         {
             sync_object_index = findFinishedSyncObjectIndex(sync_object_holder.sync_objects);
@@ -141,10 +147,10 @@ namespace
         {
             return std::nullopt;
         }
-        // Semaphore was used only when the index was used before, thus when it is a new insertion.
-        const bool semaphore_was_used = _used_sync_object_indexes.insert(*sync_object_index) == false;
 
         _occupied_sync_object_indexes.insert(*sync_object_index);
+        _used_sync_object_indexes.insert(*sync_object_index);
+
 
         RenderEngine::RenderContext::context().getDebugger().print(RenderEngine::Debug::Topics::RenderGraphExecution{},
                                                                    "Image Acquire: Image index {:d} (Using synchronization object: {:d}) [thread: {}]",
@@ -152,22 +158,24 @@ namespace
                                                                    *sync_object_index,
                                                                    (std::stringstream{} << std::this_thread::get_id()).str());
 
-        // !! Unlocking manually. Not fun of this but makes readable the code (i.e.: Dealing with image index, and semaphore_was_used)
-        sync_object_holder.lock.unlock();
-
-        if (semaphore_was_used)
-        {
-            execution_context.stepTimelineSemaphore(*sync_object_index, ImageAcquireTask::render_finished_semaphore_name);
-        }
         return rg::ExecutionContext::PoolIndex{ .render_target_index = *image_index, .sync_object_index = *sync_object_index };
     }
     inline uint32_t SwapChainImageSelector::findFinishedSyncObjectIndex(const std::vector<const RenderEngine::SyncObject*>& sync_objects) const
     {
         auto black_list = _used_sync_object_indexes.negate(); // Do not count those where no draw cal were recorded.
         black_list.insert(_occupied_sync_object_indexes); // Do not count those where draw calls are recording right now.
-        const RenderEngine::SyncObject* available_object = RenderEngine::SyncObject::SharedOperations::from(sync_objects)
-            .waitAnyOfSemaphores(ImageAcquireTask::render_finished_semaphore_name, 1, black_list);
-        const auto available_index = static_cast<uint32_t>(std::ranges::find(sync_objects, available_object) - sync_objects.begin());
+        const uint32_t available_index = [&]
+            {
+                for (uint32_t i = 0; i < sync_objects.size(); ++i)
+                {
+                    if (black_list.contains(i) == false)
+                    {
+                        return i;
+                    }
+                }
+                assert(false && "Couldn't find any available item in the pool");
+                return 0u;
+            }();
         return available_index;
     }
     inline std::optional<uint32_t> SwapChainImageSelector::tryAcquireImage(rg::ExecutionContext& execution_context, uint32_t available_index) const
@@ -214,9 +222,7 @@ void ParallelDemoApplication::createRenderEngine()
 
     RenderEngine::RenderGraph::RenderGraphBuilder builder = render_engine.createRenderGraphBuilder("StandardPipeline");
     const RenderEngine::RenderGraph::BinarySemaphore image_available_semaphore{ ImageAcquireTask::image_available_semaphore_name };
-    const RenderEngine::RenderGraph::TimelineSemaphore render_finished_semaphore{ ImageAcquireTask::render_finished_semaphore_name , 0, 2 };
     builder.registerSemaphore(image_available_semaphore);
-    builder.registerSemaphore(render_finished_semaphore);
 
     ImageAcquireTask* image_acquire_task{ nullptr };
     {
@@ -233,12 +239,15 @@ void ParallelDemoApplication::createRenderEngine()
                                                                       .changeLoadOperation(VK_ATTACHMENT_LOAD_OP_LOAD),
                                                                       3);
         _ui_renderer = ui_renderer.get();
-        auto image_acquire_task_ptr = std::make_unique<ImageAcquireTask>(_window_setup->getUiWindow(), _window_setup->getUiWindow().getDevice().getLogicalDevice(), _window_setup->getBackbufferCount());
+        auto image_acquire_task_ptr = std::make_unique<ImageAcquireTask>(_window_setup->getUiWindow(),
+                                                                         _window_setup->getUiWindow().getDevice().getLogicalDevice(),
+                                                                         _window_setup->getBackbufferCount(),
+                                                                         "ForwardRenderer");
         image_acquire_task = image_acquire_task_ptr.get();
         builder.addDeviceSynchronizeNode("SynchronizeRenderGpu", _window_setup->getRenderingWindow().getDevice());
         builder.addCpuNode("AcquireImage", std::move(image_acquire_task_ptr));
-        builder.addRenderNode("ForwardRenderer", std::move(forward_renderer));
-        builder.addRenderNode("ImguiRenderer", std::move(ui_renderer));
+        builder.addRenderNode("ForwardRenderer", std::move(forward_renderer), rg::RenderGraphBuilder::TrackingMode::On);
+        builder.addRenderNode("ImguiRenderer", std::move(ui_renderer), rg::RenderGraphBuilder::TrackingMode::Off);
         builder.addPresentNode("Present", _window_setup->getUiWindow().getSwapChain());
         builder.addEmptyNode("End");
     }
@@ -260,9 +269,6 @@ void ParallelDemoApplication::createRenderEngine()
     builder.addCpuSyncLink("ImguiRenderer", "Present")
         .signalOnGpu(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT)
         .waitOnGpu(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
-    builder.addCpuAsyncLink("ImguiRenderer", "End")
-        .signalOnGpu(render_finished_semaphore, 1, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT)
-        .waitOnGpu(VK_PIPELINE_STAGE_2_NONE);
 
     render_engine.setRenderGraph(builder.reset("none"));
 

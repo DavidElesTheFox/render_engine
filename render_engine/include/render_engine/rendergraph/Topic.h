@@ -16,8 +16,8 @@ namespace RenderEngine::Debug::Topics
     struct RenderGraphExecution
     {
         static inline PrintDestinationType print_destination{ PrintDestinationType::Console };
-        static inline const std::optional<ConsoleColor> console_color = ConsoleColors::Red;
-        static constexpr const bool enabled{ false };
+        static inline const std::optional<ConsoleColor> console_color = ConsoleColors::Cyan;
+        static constexpr const bool enabled{ true };
     };
     static_assert(Topic<RenderGraphExecution>, "A debug topic must fulfill the requirements");
 

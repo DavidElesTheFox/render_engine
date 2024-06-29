@@ -32,9 +32,10 @@ namespace RenderEngine
             LogicalDevice* _logical_device{ nullptr };
         };
         explicit UploadTask(LogicalDevice& logical_device,
-                            std::function<std::vector<SyncObject>(SyncOperations, TransferEngine&, Storage&, QueueSubmitTracker&)>&& task)
+                            std::function<std::vector<SyncObject>(SyncOperations, TransferEngine&, Storage&, QueueSubmitTracker&)>&& task,
+                            std::string name)
             : _task(std::move(task))
-            , _submit_tracker(std::make_unique<QueueSubmitTracker>(logical_device))
+            , _submit_tracker(std::make_unique<QueueSubmitTracker>(logical_device, std::move(name)))
         {}
 
         ~UploadTask();
@@ -65,10 +66,11 @@ namespace RenderEngine
                                                            TransferEngine& transfer_engine,
                                                            QueueSubmitTracker& submit_tracker)>&& task,
                      Texture* texture,
-                     LogicalDevice& logical_device)
+                     LogicalDevice& logical_device,
+                     std::string name)
             : _task(std::move(task))
             , _texture(texture)
-            , _submit_tracker(std::make_unique<QueueSubmitTracker>(logical_device))
+            , _submit_tracker(std::make_unique<QueueSubmitTracker>(logical_device, std::move(name)))
         {}
         ~DownloadTask();
 

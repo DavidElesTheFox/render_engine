@@ -5,7 +5,6 @@
 
 namespace RenderEngine
 {
-
     Debugger::GuiCallbackToken::~GuiCallbackToken()
     {
         _debugger.removeCallback(_callback);
@@ -29,6 +28,15 @@ namespace RenderEngine
     }
     void Debugger::printToConsole(const std::optional<Debug::ConsoleColor>& color, const std::string_view& msg)
     {
-        _console.println(color, msg);
+        _console.println(color, std::format("{:s} {:s}", getLogPrefix(), msg));
     }
+
+    std::string Debugger::getLogPrefix() const
+    {
+        using namespace std::chrono;
+        const auto time_spent = Clock::now() - _start_time;
+        return std::format("[{:%T}]", time_spent);
+    }
+
+
 }

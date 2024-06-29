@@ -1,6 +1,7 @@
 #pragma once
 
 #include <render_engine/containers/Views.h>
+#include <render_engine/QueueSubmitTracker.h>
 #include <render_engine/synchronization/SyncObject.h>
 
 #include <functional>
@@ -82,7 +83,28 @@ namespace RenderEngine
                 _sync_objects[render_target_index]->stepTimeline(name);
             }
 
-            void add_events(Events events);
+            void addEvents(Events events);
+
+            void addQueueSubmitTracker(const std::string& name, std::unique_ptr<QueueSubmitTracker> submit_tracker)
+            {
+                std::unique_lock lock(_submit_trackers_mutex);
+                _submit_trackers.insert({ name, std::move(submit_tracker) });
+            }
+
+            const QueueSubmitTracker& findSubmitTracker(const std::string& name) const
+            {
+                std::shared_lock lock(_submit_trackers_mutex);
+                return *_submit_trackers.at(name);
+            }
+
+            void clearSubmitTrackersPool()
+            {
+                std::unique_lock lock(_submit_trackers_mutex);
+                for (auto& submit_tracker : _submit_trackers)
+                {
+                    submit_tracker.second->clear();
+                }
+            }
         private:
             std::optional<PoolIndex> _pool_index{ std::nullopt };
             mutable std::shared_mutex _pool_index_mutex;
@@ -96,6 +118,8 @@ namespace RenderEngine
             mutable std::shared_mutex _event_mutex;
             std::vector<Events> _events;
 
+            mutable std::shared_mutex _submit_trackers_mutex;
+            std::unordered_map<std::string, std::unique_ptr<QueueSubmitTracker>> _submit_trackers;
 
             void onPoolIndexSet(const PoolIndex& index);
             void onPoolIndexReset(const PoolIndex& index);

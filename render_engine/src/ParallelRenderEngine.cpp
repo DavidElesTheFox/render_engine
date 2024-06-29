@@ -44,6 +44,7 @@ namespace RenderEngine
         _skeleton = std::move(render_graph);
 
         _sync_objects.clear();
+
         std::vector<SyncObject*> non_const_sync_objects;
         for (uint32_t i = 0; i < thread_count; ++i)
         {
@@ -62,6 +63,7 @@ namespace RenderEngine
         for (uint32_t i = 0; i < thread_count; ++i)
         {
             auto rendering_process = std::make_unique<RenderingProcess>(non_const_sync_objects);
+
 
             rendering_process->task_flow = task_flow_builder.createTaskflow(*_skeleton,
                                                                             rendering_process->execution_context,
@@ -98,6 +100,7 @@ namespace RenderEngine
         {
             current_process->execution_context.clearPoolIndex();
             current_process->execution_context.setDrawCallRecorded(false);
+            current_process->execution_context.clearSubmitTrackersPool();
         }
 
         current_process->calling_token = current_process->executor.run(current_process->task_flow);

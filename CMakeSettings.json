@@ -17,8 +17,9 @@
           "type": "BOOL"
         }
       ],
-      "environments": [
+      "environments_": [
         {
+          "VK_ADD_LAYER_PATH": "${projectDir}\\3rd_party\\vulkan-validation-layers\\build\\install\\bin"
         }
       ]
     },

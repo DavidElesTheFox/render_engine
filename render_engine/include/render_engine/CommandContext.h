@@ -46,6 +46,7 @@ namespace RenderEngine
     protected:
         AbstractCommandContext(LogicalDevice& logical_device,
                                uint32_t queue_family_index,
+                               DeviceLookup::QueueFamilyInfo queue_family_info,
                                RefObj<QueueLoadBalancer> queue_load_balancer);
 
         AbstractCommandContext(AbstractCommandContext&& o) noexcept = delete;
@@ -72,15 +73,18 @@ namespace RenderEngine
     public:
         static std::shared_ptr<SingleShotCommandContext> create(LogicalDevice& logical_device,
                                                                 uint32_t queue_family_index,
+                                                                DeviceLookup::QueueFamilyInfo queue_family_info,
                                                                 RefObj<QueueLoadBalancer> queue_load_balancer)
         {
             return std::make_shared<SingleShotCommandContext>(logical_device,
                                                               queue_family_index,
+                                                              std::move(queue_family_info),
                                                               std::move(queue_load_balancer),
                                                               CreationToken{});
         }
         SingleShotCommandContext(LogicalDevice& logical_device,
                                  uint32_t queue_family_index,
+                                 DeviceLookup::QueueFamilyInfo queue_family_info,
                                  RefObj<QueueLoadBalancer> queue_load_balancer,
                                  CreationToken);
 
@@ -114,17 +118,20 @@ namespace RenderEngine
     public:
         static std::shared_ptr<CommandContext> create(LogicalDevice& logical_device,
                                                       uint32_t queue_family_index,
+                                                      DeviceLookup::QueueFamilyInfo queue_family_info,
                                                       RefObj<QueueLoadBalancer> queue_load_balancer,
                                                       uint32_t back_buffer_size)
         {
             return std::make_shared<CommandContext>(logical_device,
                                                     queue_family_index,
+                                                    std::move(queue_family_info),
                                                     std::move(queue_load_balancer),
                                                     back_buffer_size,
                                                     CreationToken{});
         }
         CommandContext(LogicalDevice& logical_device,
                        uint32_t queue_family_index,
+                       DeviceLookup::QueueFamilyInfo queue_family_info,
                        RefObj<QueueLoadBalancer> queue_load_balancer,
                        uint32_t back_buffer_size,
                        CreationToken);
@@ -138,8 +145,6 @@ namespace RenderEngine
         ~CommandContext() override;
         VkCommandBuffer createCommandBuffer(uint32_t render_target_image_index);
         std::vector<VkCommandBuffer> createCommandBuffers(uint32_t count, uint32_t render_target_image_index);
-
-        std::shared_ptr<CommandContext> clone();
 
 
     private:

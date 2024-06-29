@@ -35,6 +35,16 @@ namespace RenderEngine
         std::unique_lock<std::mutex> _lock;
     };
 
+    /*
+    * TODO: The abstraction is wrong. The problems:
+    *  - Maybe this queue family is used for all purpose (render, compute, transfer). In this case the queues should be distributed based on this dimension
+    *  - Previous problem is not a problem only when different queue families are used
+    *  - No real benefits due to synchronization: I.e.: Imagine the simple situation: SceneRender->UI->Present. Here using 2 different queues for the two render passes
+    *    makes no sense because it is already synchronized. Also another issue can be that the synchronization needs to be done with timeline semaphores due to
+    *    queue<->queue synchronization.
+    *
+    * A better approach would be 2 dimensional: 1 Frame: 1 render queue, 2 transfer queue (upload/download), multiple compute queues
+    */
     class QueueLoadBalancer
     {
     public:

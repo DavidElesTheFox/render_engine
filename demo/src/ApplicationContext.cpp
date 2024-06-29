@@ -100,6 +100,8 @@ void ApplicationContext::onFrameBegin()
 
 void ApplicationContext::onGui()
 {
+    std::lock_guard lock(_ui_mutex);
+
     ImGui::Begin("Application");
     ImGui::SliderFloat("Mouse Sensitivity", &_mouse_sensitivity, 0.0f, 1.0f);
     ImGui::SliderFloat("Keyboard Sensitivity", &_keyboard_sensitivity, 0.0f, 1.0f);
@@ -114,6 +116,7 @@ void ApplicationContext::onGui()
 
 void ApplicationContext::onFrameEnd()
 {
+    std::lock_guard lock(_ui_mutex);
     const auto frame_time = std::chrono::steady_clock::now() - _frame_start_time;
     const auto frame_time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(frame_time).count();
     if (frame_time_ms == 0)

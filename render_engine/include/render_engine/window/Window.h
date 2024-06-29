@@ -68,8 +68,8 @@ namespace RenderEngine
         struct FrameData
         {
             FrameData(LogicalDevice& logical_device, std::string name)
-                : synch_render(logical_device, std::move(name))
-                , submit_tracker(std::make_unique<QueueSubmitTracker>(logical_device))
+                : synch_render(logical_device, name)
+                , submit_tracker(std::make_unique<QueueSubmitTracker>(logical_device, std::move(name)))
             {}
             SyncObject synch_render;
             std::unique_ptr<QueueSubmitTracker> submit_tracker;

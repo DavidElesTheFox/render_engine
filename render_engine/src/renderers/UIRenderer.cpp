@@ -228,7 +228,7 @@ namespace RenderEngine
 
             ImGui_ImplVulkan_Init(&init_info, getRenderPass());
             {
-                QueueSubmitTracker submit_tracker{ logical_device };
+                QueueSubmitTracker submit_tracker{ logical_device, "UIDataUpload" };
                 SyncObject sync_object(logical_device, "UIRenderer-UploadSync");
 
                 // Using the render engine's transfer capability

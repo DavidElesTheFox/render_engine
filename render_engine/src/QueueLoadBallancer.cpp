@@ -6,6 +6,7 @@ namespace RenderEngine
 {
     QueueLoadBalancer::QueueLoadBalancer(LogicalDevice& logical_device, uint32_t queue_family_index, uint32_t queue_count)
     {
+        queue_count = 1;
         for (uint32_t i = 0; i < queue_count; ++i)
         {
             VkQueue queue;

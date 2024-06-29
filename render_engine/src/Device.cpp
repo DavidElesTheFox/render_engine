@@ -272,6 +272,7 @@ namespace RenderEngine
             std::unique_ptr<IRenderEngine> render_engine = createParallelRenderEngine(back_buffer_size);
             auto command_context = CommandContext::create(_logical_device,
                                                           _queue_family_present,
+                                                          _device_info.queue_families.at(_queue_family_present),
                                                           *_queue_balancers.at(_queue_family_present),
                                                           back_buffer_size);
             return std::make_unique<Window>(*this, std::move(render_engine),
@@ -319,6 +320,7 @@ namespace RenderEngine
             std::unique_ptr<RenderEngine> render_engine = createRenderEngine(back_buffer_size);
             auto command_context = CommandContext::create(_logical_device,
                                                           _queue_family_present,
+                                                          _device_info.queue_families.at(_queue_family_present),
                                                           *_queue_balancers.at(_queue_family_present),
                                                           back_buffer_size);
             return std::make_unique<Window>(*this, std::move(render_engine),
@@ -359,10 +361,12 @@ namespace RenderEngine
     {
         return std::make_unique<RenderEngine>(*this,
                                               SingleShotCommandContext::create(_logical_device,
-                                                                               _queue_family_graphics,
-                                                                               *_queue_balancers.at(_queue_family_graphics)),
+                                                                               _queue_family_transfer,
+                                                                               _device_info.queue_families.at(_queue_family_transfer),
+                                                                               *_queue_balancers.at(_queue_family_transfer)),
                                               CommandContext::create(_logical_device,
                                                                      _queue_family_graphics,
+                                                                     _device_info.queue_families.at(_queue_family_graphics),
                                                                      *_queue_balancers.at(_queue_family_graphics),
                                                                      back_buffer_size),
                                               back_buffer_size);
@@ -371,14 +375,17 @@ namespace RenderEngine
     {
         return std::make_unique<ParallelRenderEngine>(*this,
                                                       SingleShotCommandContext::create(_logical_device,
-                                                                                       _queue_family_graphics,
-                                                                                       *_queue_balancers.at(_queue_family_graphics)),
+                                                                                       _queue_family_transfer,
+                                                                                       _device_info.queue_families.at(_queue_family_transfer),
+                                                                                       *_queue_balancers.at(_queue_family_transfer)),
                                                       CommandContext::create(_logical_device,
                                                                              _queue_family_graphics,
+                                                                             _device_info.queue_families.at(_queue_family_graphics),
                                                                              *_queue_balancers.at(_queue_family_graphics),
                                                                              back_buffer_size),
                                                       CommandContext::create(_logical_device,
                                                                              _queue_family_present,
+                                                                             _device_info.queue_families.at(_queue_family_present),
                                                                              *_queue_balancers.at(_queue_family_present),
                                                                              back_buffer_size),
                                                       back_buffer_size);
@@ -388,6 +395,7 @@ namespace RenderEngine
     {
         return std::make_unique<TransferEngine>(SingleShotCommandContext::create(_logical_device,
                                                                                  _queue_family_transfer,
+                                                                                 _device_info.queue_families.at(_queue_family_transfer),
                                                                                  *_queue_balancers.at(_queue_family_transfer)));
     }
 

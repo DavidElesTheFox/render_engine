@@ -28,7 +28,7 @@ namespace RenderEngine::RenderGraph
         _pool_index = std::nullopt;
         onPoolIndexReset(old_index);
     }
-    void ExecutionContext::add_events(Events events)
+    void ExecutionContext::addEvents(Events events)
     {
         std::unique_lock lock(_event_mutex);
         _events.push_back(std::move(events));

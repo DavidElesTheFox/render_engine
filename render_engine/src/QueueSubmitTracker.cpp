@@ -32,7 +32,7 @@ namespace RenderEngine
         command_context.queueSubmit(std::move(submit_info), sync_operations, createFence());
     }
 
-    void QueueSubmitTracker::wait()
+    void QueueSubmitTracker::wait() const
     {
         std::lock_guard lock{ _fence_mutex };
 
@@ -53,9 +53,10 @@ namespace RenderEngine
         }
         return result;
     }
-    void QueueSubmitTracker::clear()
+    void QueueSubmitTracker::waitAndClear()
     {
         std::lock_guard lock{ _fence_mutex };
+        noLockingWait();
         noLockingClear();
     }
     VkFence QueueSubmitTracker::createFence()
@@ -85,7 +86,7 @@ namespace RenderEngine
         }
         return _fences.back();
     }
-    void QueueSubmitTracker::noLockingWait()
+    void QueueSubmitTracker::noLockingWait() const
     {
         if (_fences.empty())
         {
@@ -98,9 +99,24 @@ namespace RenderEngine
     }
     void QueueSubmitTracker::noLockingClear()
     {
-        noLockingWait();
         std::ranges::copy(_fences, std::back_inserter(_fence_pool));
 
         _fences.clear();
+    }
+
+    void QueueSubmitTracker::clear()
+    {
+        if (_fences.empty())
+        {
+            return;
+        }
+        std::lock_guard lock{ _fence_mutex };
+        auto fence_is_ready = [&logical_device = *_logical_device](const VkFence& fence)
+            {
+                const auto status = logical_device->vkGetFenceStatus(*logical_device, fence);
+                return status == VK_SUCCESS || VK_ERROR_DEVICE_LOST;
+            };
+        std::ranges::copy_if(_fences, std::back_inserter(_fence_pool), fence_is_ready);
+        std::erase_if(_fences, fence_is_ready);
     }
 }

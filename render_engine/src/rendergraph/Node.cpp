@@ -48,7 +48,7 @@ namespace RenderEngine::RenderGraph
         submit_info.commandBufferInfoCount = static_cast<uint32_t>(command_buffer_infos.size());
         submit_info.pCommandBufferInfos = command_buffer_infos.data();
 
-        if (queue_tracker != nullptr)
+        if (isUsesTracking() && queue_tracker != nullptr)
         {
             queue_tracker->queueSubmit(std::move(submit_info),
                                        in_operations,

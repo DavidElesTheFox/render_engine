@@ -45,7 +45,7 @@ namespace RenderEngine
         {
             _back_buffer.emplace_back(FrameData{ device.getLogicalDevice(), "WindowFrame-" + std::to_string(i) });
         }
-        initSynchronizationObjects();
+        //initSynchronizationObjects();
     }
     catch (const std::runtime_error)
     {
@@ -131,6 +131,10 @@ namespace RenderEngine
 
     void Window::present()
     {
+        if (_renderers.empty())
+        {
+            return;
+        }
         if (_renderdoc_api) ((RENDERDOC_API_1_1_2*)_renderdoc_api)->StartFrameCapture(NULL, NULL);
 
         present(_back_buffer[_presented_frame_counter % _back_buffer.size()]);

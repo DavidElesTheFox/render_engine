@@ -6,6 +6,7 @@
 #include <volk.h>
 
 #include <mutex>
+#include <set>
 #include <vector>
 
 namespace RenderEngine
@@ -48,10 +49,14 @@ namespace RenderEngine
         void noLockingWait() const;
         void noLockingClear();
 
+        void markFencesReady(const std::vector<VkFence>& fences) const;
+
         LogicalDevice* _logical_device{ nullptr };
         std::string _name;
         std::vector<VkFence> _fences;
         std::vector<VkFence> _fence_pool;
         mutable std::mutex _fence_mutex;
+
+        mutable std::set<VkFence> _finished_fences_cache;
     };
 }

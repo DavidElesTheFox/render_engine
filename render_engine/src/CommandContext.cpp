@@ -1,5 +1,6 @@
 #include <render_engine/CommandContext.h>
 
+#include <render_engine/debug/Profiler.h>
 #include <render_engine/synchronization/SyncOperations.h>
 
 #include <algorithm>
@@ -30,6 +31,7 @@ namespace RenderEngine
                                              const SyncOperations& sync_operations,
                                              VkFence fence)
     {
+        PROFILE_SCOPE();
         sync_operations.fillInfo(submit_info);
 
         auto queue = _queue_load_balancer->getQueue();
@@ -44,6 +46,8 @@ namespace RenderEngine
 
     void AbstractCommandContext::queuePresent(VkPresentInfoKHR&& present_info, const SyncOperations& sync_operations)
     {
+        PROFILE_SCOPE();
+
         sync_operations.fillInfo(present_info);
 
         auto queue = _queue_load_balancer->getQueue();

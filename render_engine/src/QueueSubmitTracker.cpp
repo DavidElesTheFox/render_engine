@@ -1,5 +1,6 @@
 #include <render_engine/QueueSubmitTracker.h>
 
+
 namespace RenderEngine
 {
     QueueSubmitTracker::~QueueSubmitTracker()
@@ -37,6 +38,7 @@ namespace RenderEngine
         std::lock_guard lock{ _fence_mutex };
 
         noLockingWait();
+        markFencesReady(_fences);
     }
 
     uint32_t QueueSubmitTracker::queryNumOfSuccess() const
@@ -111,12 +113,17 @@ namespace RenderEngine
             return;
         }
         std::lock_guard lock{ _fence_mutex };
-        auto fence_is_ready = [&logical_device = *_logical_device](const VkFence& fence)
+        auto fence_is_ready = [&](const VkFence& fence)
             {
-                const auto status = logical_device->vkGetFenceStatus(*logical_device, fence);
-                return status == VK_SUCCESS || VK_ERROR_DEVICE_LOST;
+                return _finished_fences_cache.contains(fence);
             };
         std::ranges::copy_if(_fences, std::back_inserter(_fence_pool), fence_is_ready);
         std::erase_if(_fences, fence_is_ready);
+        _finished_fences_cache.clear();
+
+    }
+    void QueueSubmitTracker::markFencesReady(const std::vector<VkFence>& fences) const
+    {
+        _finished_fences_cache.merge(std::set(fences.begin(), fences.end()));
     }
 }

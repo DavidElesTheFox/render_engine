@@ -1,5 +1,6 @@
 #include <render_engine/synchronization/SyncObject.h>
 
+#include <render_engine/debug/Profiler.h>
 #include <render_engine/RenderContext.h>
 #include <render_engine/window/SwapChain.h>
 
@@ -10,6 +11,7 @@ namespace RenderEngine
 {
     const SyncObject* SyncObject::SharedOperations::waitAnyOfSemaphores(std::string semaphore_names, uint64_t value, const IndexSet<uint32_t>& blacklist)&&
     {
+        PROFILE_SCOPE();
         if (_sync_objects.empty())
         {
             return nullptr;
@@ -83,6 +85,7 @@ namespace RenderEngine
     }
     void SyncObject::signalSemaphore(const std::string& name, uint64_t value)
     {
+        PROFILE_SCOPE();
         auto semaphore = _primitives.getSemaphore(name);
 
         VkSemaphoreSignalInfo signal_info{};
@@ -97,6 +100,8 @@ namespace RenderEngine
     }
     void SyncObject::waitSemaphore(const std::string& name, uint64_t value) const
     {
+        PROFILE_SCOPE();
+
         auto semaphore = _primitives.getSemaphore(name);
 
         const uint64_t value_to_wait = _primitives.getTimelineOffset(name) + value;
@@ -118,6 +123,7 @@ namespace RenderEngine
 
     uint64_t SyncObject::getSemaphoreRealValue(const std::string& name) const
     {
+        PROFILE_SCOPE();
         auto semaphore = _primitives.getSemaphore(name);
 
         uint64_t value = 0;
@@ -133,6 +139,7 @@ namespace RenderEngine
                                                                         const std::string& semaphore_name,
                                                                         std::optional<std::chrono::nanoseconds> timeout) const
     {
+        PROFILE_SCOPE();
         uint32_t image_index = 0;
         const uint64_t timeout_ns = timeout.value_or(std::chrono::milliseconds{ UINT64_MAX }).count();
         auto [lock, vulkan_swap_chain] = swap_chain.getSwapChain();

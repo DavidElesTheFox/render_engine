@@ -14,9 +14,13 @@ set(STB_LIBRARY_INCLUDE_PATH "${CMAKE_SOURCE_DIR}/3rd_party/stb")
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/3rd_party/glfw/cmake" "${CMAKE_SOURCE_DIR}/3rd_party/eigen/cmake")
 set(VOLK_STATIC_DEFINES VK_NO_PROTOTYPES VK_USE_PLATFORM_WIN32_KHR)
 
+set(OPTICK_INSTALL_TARGETS OFF)
+set(OPTICK_USE_VULKAN ON)
+
 add_subdirectory(3rd_party/glfw-src)
 add_subdirectory(3rd_party/volk-src)
 add_subdirectory(3rd_party/glm-src)
+add_subdirectory(3rd_party/optick-src)
 set(TF_BUILD_TESTS OFF)
 set(TF_BUILD_EXAMPLES OFF)
 add_subdirectory(3rd_party/taskflow-src)

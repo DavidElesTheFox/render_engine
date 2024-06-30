@@ -1,6 +1,7 @@
 #include <render_engine/synchronization/ResourceStateMachine.h>
 
-#include <render_engine/resources/Buffer.h>
+#include <render_engine/debug/Profiler.h>
+#include <render_engine/resources/Texture.h>
 #include <render_engine/resources/Texture.h>
 
 #include <cassert>
@@ -47,6 +48,7 @@ namespace RenderEngine
                                                            const SyncOperations& sync_operations,
                                                            QueueSubmitTracker* submit_tracker)
     {
+        PROFILE_SCOPE();
         auto src_command_buffer = src->createCommandBuffer();
         auto dst_command_buffer = dst->createCommandBuffer();
 
@@ -129,6 +131,7 @@ namespace RenderEngine
                                                          const SyncOperations& external_operations,
                                                          QueueSubmitTracker* submit_tracker)
     {
+        PROFILE_SCOPE();
         auto& logical_device = command_context->getLogicalDevice();
         ResourceStateMachine src_state_machine(logical_device);
 
@@ -176,6 +179,7 @@ namespace RenderEngine
                                                          const std::function<void(VkCommandBuffer, ResourceStateMachine&)>& additional_command,
                                                          QueueSubmitTracker* submit_tracker)
     {
+        PROFILE_SCOPE();
         auto& logical_device = command_context->getLogicalDevice();
         ResourceStateMachine dst_state_machine(logical_device);
 
@@ -225,6 +229,7 @@ namespace RenderEngine
                                                        const SyncOperations& sync_operations,
                                                        QueueSubmitTracker* submit_tracker)
     {
+        PROFILE_SCOPE();
         return transferOwnershipImpl(texture,
                                      new_state,
                                      src,
@@ -240,6 +245,7 @@ namespace RenderEngine
                                                        const SyncOperations& sync_operations,
                                                        QueueSubmitTracker* submit_tracker)
     {
+        PROFILE_SCOPE();
         return transferOwnershipImpl(buffer,
                                      new_state,
                                      src,
@@ -253,6 +259,7 @@ namespace RenderEngine
                                              const SyncOperations& sync_operations,
                                              QueueSubmitTracker* submit_tracker)
     {
+        PROFILE_SCOPE();
         return barrierImpl(texture, src, sync_operations, submit_tracker);
     }
     SyncObject ResourceStateMachine::barrier(Buffer* buffer,
@@ -260,6 +267,7 @@ namespace RenderEngine
                                              const SyncOperations& sync_operations,
                                              QueueSubmitTracker* submit_tracker)
     {
+        PROFILE_SCOPE();
         return barrierImpl(*buffer, *src, sync_operations, submit_tracker);
     }
     SyncObject ResourceStateMachine::barrierImpl(ResourceStateHolder auto& resource,
@@ -267,6 +275,7 @@ namespace RenderEngine
                                                  const SyncOperations& sync_operations,
                                                  QueueSubmitTracker* submit_tracker)
     {
+        PROFILE_SCOPE();
         SyncObject result(src.getLogicalDevice(), std::format("BarrierAt-{:#018x}", reinterpret_cast<uintptr_t>(&src)));
         result.createTimelineSemaphore("BarrierFinished", 0, 2);
         result.addSignalOperationToGroup(SyncGroups::kInternal,
@@ -319,6 +328,7 @@ namespace RenderEngine
 
     void ResourceStateMachine::commitChanges(VkCommandBuffer command_buffer, bool apply_state_change_on_objects)
     {
+        PROFILE_SCOPE();
         auto image_barriers = createImageBarriers(apply_state_change_on_objects);
         auto buffer_barriers = createBufferBarriers(apply_state_change_on_objects);
         if (image_barriers.empty() && buffer_barriers.empty())
@@ -339,6 +349,7 @@ namespace RenderEngine
 
     std::vector<VkImageMemoryBarrier2> ResourceStateMachine::createImageBarriers(bool apply_state_change_on_texture)
     {
+        PROFILE_SCOPE();
         std::vector<VkImageMemoryBarrier2> image_barriers;
         for (auto& [texture, next_state] : _images)
         {
@@ -382,6 +393,7 @@ namespace RenderEngine
 
     std::vector<VkBufferMemoryBarrier2> ResourceStateMachine::createBufferBarriers(bool apply_state_change_on_buffer)
     {
+        PROFILE_SCOPE();
         std::vector<VkBufferMemoryBarrier2> buffer_barriers;
         for (auto& [buffer, next_state] : _buffers)
         {

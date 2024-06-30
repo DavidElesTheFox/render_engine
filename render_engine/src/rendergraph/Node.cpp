@@ -1,16 +1,23 @@
 #include <render_engine/rendergraph/Node.h>
 
 #include <render_engine/CommandContext.h>
+#include <render_engine/debug/Profiler.h>
 #include <render_engine/RenderContext.h>
 #include <render_engine/rendergraph/GraphVisitor.h>
 #include <render_engine/rendergraph/Topic.h>
 
 #include <format>
-
 #include <iostream>
+
 
 namespace RenderEngine::RenderGraph
 {
+    namespace
+    {
+        static thread_local const std::string g_thread_name = std::format("Thread-{:}", std::this_thread::get_id());
+    }
+#define PROFILE_NODE() PROFILE_THREAD(g_thread_name.c_str()); PROFILE_SCOPE()
+
     void RenderNode::accept(GraphVisitor& visitor)
     {
         visitor.visit(this);
@@ -18,6 +25,7 @@ namespace RenderEngine::RenderGraph
 
     void RenderNode::execute(ExecutionContext& execution_context, QueueSubmitTracker* queue_tracker)
     {
+        PROFILE_NODE();
         const auto pool_index = execution_context.getPoolIndex();
         RenderContext::context().getDebugger().print(Debug::Topics::RenderGraphExecution{},
                                                      "Start rendering: {:s} render target: {:d} (sync index: {:d}) [thread:{}]",
@@ -72,6 +80,8 @@ namespace RenderEngine::RenderGraph
 
     void TransferNode::execute(ExecutionContext& execution_context, QueueSubmitTracker*)
     {
+        PROFILE_NODE();
+
         const auto pool_index = execution_context.getPoolIndex();
         auto sync_object_holder = execution_context.getSyncObject(pool_index.sync_object_index);
         const auto& in_operations = sync_object_holder.sync_object.getOperationsGroup(getName());
@@ -105,8 +115,8 @@ namespace RenderEngine::RenderGraph
 
     void ComputeNode::execute(ExecutionContext& execution_context, QueueSubmitTracker*)
     {
+        PROFILE_NODE();
         _compute_task->run(execution_context);
-
     }
 
     void ComputeNode::accept(GraphVisitor& visitor)
@@ -116,6 +126,8 @@ namespace RenderEngine::RenderGraph
 
     void PresentNode::execute(ExecutionContext& execution_context, QueueSubmitTracker*)
     {
+        PROFILE_NODE();
+
         const auto pool_index = execution_context.getPoolIndex();
         RenderContext::context().getDebugger().print(Debug::Topics::RenderGraphExecution{},
                                                      "Start presenting: {:s} render target: {:d} (sync index: {:d}) [thread: {}]",
@@ -125,22 +137,25 @@ namespace RenderEngine::RenderGraph
                                                      std::this_thread::get_id());
         auto sync_object_holder = execution_context.getSyncObject(pool_index.sync_object_index);
         const auto& in_operations = sync_object_holder.sync_object.getOperationsGroup(getName());
-        auto [lock, vulkan_swap_chain] = _swap_chain.getSwapChain();
+        {
+            PROFILE_SCOPE("PresentNode::execute - Accessing swap chain");
+            auto [lock, vulkan_swap_chain] = _swap_chain.getSwapChain();
 
-        VkPresentInfoKHR present_info{};
-        present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-        VkSwapchainKHR swapChains[] = { vulkan_swap_chain };
-        present_info.swapchainCount = 1;
-        present_info.pSwapchains = swapChains;
+            VkPresentInfoKHR present_info{};
+            present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+            VkSwapchainKHR swapChains[] = { vulkan_swap_chain };
+            present_info.swapchainCount = 1;
+            present_info.pSwapchains = swapChains;
 
-        present_info.pImageIndices = &pool_index.render_target_index;
-        _command_context->queuePresent(std::move(present_info), in_operations);
-        RenderContext::context().getDebugger().print(Debug::Topics::RenderGraphExecution{},
-                                                     "Presenting finished: {:s} render target: {:d} (sync index: {:d}) [thread: {}]",
-                                                     getName(),
-                                                     pool_index.render_target_index,
-                                                     pool_index.sync_object_index,
-                                                     std::this_thread::get_id());
+            present_info.pImageIndices = &pool_index.render_target_index;
+            _command_context->queuePresent(std::move(present_info), in_operations);
+            RenderContext::context().getDebugger().print(Debug::Topics::RenderGraphExecution{},
+                                                         "Presenting finished: {:s} render target: {:d} (sync index: {:d}) [thread: {}]",
+                                                         getName(),
+                                                         pool_index.render_target_index,
+                                                         pool_index.sync_object_index,
+                                                         std::this_thread::get_id());
+        }
     }
 
     void PresentNode::accept(GraphVisitor& visitor)
@@ -150,6 +165,7 @@ namespace RenderEngine::RenderGraph
 
     void CpuNode::execute(ExecutionContext& execution_context, QueueSubmitTracker*)
     {
+        PROFILE_NODE();
         _cpu_task->run(execution_context);
     }
     void CpuNode::accept(GraphVisitor& visitor)

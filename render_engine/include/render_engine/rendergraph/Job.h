@@ -1,6 +1,7 @@
 #pragma once
 
 #include <render_engine/containers/Views.h>
+#include <render_engine/debug/Profiler.h>
 #include <render_engine/QueueSubmitTracker.h>
 #include <render_engine/synchronization/SyncObject.h>
 
@@ -51,6 +52,7 @@ namespace RenderEngine
             void setDrawCallRecorded(bool v) { _draw_call_recorded.store(v, std::memory_order_relaxed); }
             auto getSyncObject(uint32_t render_target_index) const
             {
+                PROFILE_SCOPE();
                 struct Result
                 {
                     Result(const SyncObject& sync_object, std::shared_lock<std::shared_mutex>&& lock)
@@ -65,6 +67,7 @@ namespace RenderEngine
             }
             auto getAllSyncObject() const
             {
+                PROFILE_SCOPE();
                 struct Result
                 {
                     Result(const std::vector<const SyncObject*>& sync_objects, std::shared_lock<std::shared_mutex>&& lock)
@@ -79,6 +82,7 @@ namespace RenderEngine
 
             void stepTimelineSemaphore(uint32_t render_target_index, const std::string& name)
             {
+                PROFILE_SCOPE();
                 std::unique_lock lock{ _sync_object_access_mutex };
                 _sync_objects[render_target_index]->stepTimeline(name);
             }
@@ -93,12 +97,14 @@ namespace RenderEngine
 
             const QueueSubmitTracker& findSubmitTracker(const std::string& name) const
             {
+                PROFILE_SCOPE();
                 std::shared_lock lock(_submit_trackers_mutex);
                 return *_submit_trackers.at(name);
             }
 
             void clearSubmitTrackersPool()
             {
+                PROFILE_SCOPE();
                 std::unique_lock lock(_submit_trackers_mutex);
                 for (auto& submit_tracker : _submit_trackers)
                 {

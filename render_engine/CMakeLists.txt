@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.18)
 
 find_package(Vulkan 1.3.275 REQUIRED)
 
+
 set(EMPTY_SCREEN_IMAGE_PATH "${DATA_DIRECTORY}/empty_screen.bmp")
 
 set(RENDER_ENGINE_HEADER_LOCATION include/render_engine)
@@ -196,6 +197,7 @@ set(RENDER_ENGINE_DEBUG_HEADERS
     ${RENDER_ENGINE_HEADER_LOCATION}/debug/Topic.h
     ${RENDER_ENGINE_HEADER_LOCATION}/debug/ConsoleColor.h
     ${RENDER_ENGINE_HEADER_LOCATION}/debug/Console.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/debug/Profiler.h
 	)
 
 source_group("src\\debug" FILES ${RENDER_ENGINE_DEBUG_SRC})
@@ -345,7 +347,8 @@ target_link_libraries(RenderEngine
 		glfw
 		volk::volk
         glm::glm
-        Taskflow)
+        Taskflow
+        OptickCore)
 		
 target_compile_definitions(RenderEngine 
 	PUBLIC

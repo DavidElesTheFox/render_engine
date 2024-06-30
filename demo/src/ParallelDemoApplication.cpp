@@ -1,8 +1,10 @@
 #include "ParallelDemoApplication.h"
 
 #include <render_engine/containers/IndexSet.h>
+#include <render_engine/debug/Profiler.h>
 #include <render_engine/renderers/ForwardRenderer.h>
 #include <render_engine/renderers/UIRenderer.h>
+#include <render_engine/rendergraph/Node.h>
 #include <render_engine/rendergraph/Topic.h>
 #include <render_engine/synchronization/SyncObject.h>
 
@@ -19,6 +21,13 @@
 namespace
 {
     namespace rg = RenderEngine::RenderGraph;
+
+    static thread_local std::string g_thread_name = []
+        {
+            const std::thread::id id = std::this_thread::get_id();
+            return std::format("Thread-{:}", *reinterpret_cast<const unsigned int*>(&id));
+        }();
+
 
     class SwapChainImageSelector
     {
@@ -42,15 +51,17 @@ namespace
 
         void releasePoolIndex(const rg::ExecutionContext::PoolIndex& index)
         {
-            auto lock = std::lock_guard(_access_mutex);
+            auto lock = std::unique_lock(_occupied_indexes_mutex);
             _occupied_sync_object_indexes.erase(index.sync_object_index);
         }
     private:
         std::optional<uint32_t> findUnusedIndex(uint32_t thread_count) const
         {
+            PROFILE_SCOPE();
+            auto used_sync_objects = getUsedSyncIndexes();
             for (uint32_t i = 0; i < thread_count; ++i)
             {
-                if (_used_sync_object_indexes.contains(i) == false)
+                if (used_sync_objects.contains(i) == false)
                 {
                     return i;
                 }
@@ -58,13 +69,35 @@ namespace
             return std::nullopt;
         }
 
+        void markSyncIndexAsOccupied(uint32_t sync_index)
+        {
+            std::unique_lock lock{ _occupied_indexes_mutex };
+            _occupied_sync_object_indexes.insert(sync_index);
+        }
+        void markSyncIndexAsUsed(uint32_t sync_index)
+        {
+            std::unique_lock lock{ _used_indexes_mutex };
+            _used_sync_object_indexes.insert(sync_index);
+        }
+        RenderEngine::IndexSet<uint32_t> getOccupiedSyncIndexes() const
+        {
+            std::shared_lock lock(_occupied_indexes_mutex);
+            return _occupied_sync_object_indexes;
+        }
+        RenderEngine::IndexSet<uint32_t> getUsedSyncIndexes() const
+        {
+            std::shared_lock lock(_used_indexes_mutex);
+            return _used_sync_object_indexes;
+        }
+
         uint32_t findFinishedSyncObjectIndex(const std::vector<const RenderEngine::SyncObject*>& sync_objects) const;
 
         std::optional<uint32_t> tryAcquireImage(rg::ExecutionContext& execution_context,
                                                 uint32_t available_index) const;
 
-        std::mutex _access_mutex;
+        mutable std::shared_mutex _occupied_indexes_mutex;
         RenderEngine::IndexSet<uint32_t> _occupied_sync_object_indexes; /**< On the CPU the draw calls are recording right now*/
+        mutable std::shared_mutex _used_indexes_mutex;
         RenderEngine::IndexSet<uint32_t> _used_sync_object_indexes; /**< There were any draw call recorded ever */
 
         uint32_t _image_count{ 0 };
@@ -72,7 +105,6 @@ namespace
         RenderEngine::SwapChain& _swap_chain;
 
     };
-
     class ImageAcquireTask : public rg::CpuNode::ICpuTask
     {
     public:
@@ -87,6 +119,8 @@ namespace
         {}
         void run(rg::ExecutionContext& execution_context) final
         {
+            PROFILE_THREAD(g_thread_name.c_str());
+            PROFILE_SCOPE();
             execution_context.findSubmitTracker(_image_user_node_name).wait();
 
             std::optional<rg::ExecutionContext::PoolIndex> pool_index = _swap_chain_image_selector.getNextImage(execution_context);
@@ -104,6 +138,7 @@ namespace
 
         void registerExectionContext(rg::ExecutionContext& execution_context) override
         {
+            PROFILE_SCOPE();
             rg::ExecutionContext::Events events
             {
                 .on_pool_index_set = nullptr,
@@ -120,18 +155,10 @@ namespace
         std::string _image_user_node_name;
     };
 
-    /**
-    * @brief Determines the next available image index.
-    *
-    * This is tricky:
-    * There are renders ongoing on the back buffers. Each back buffer has its own semaphore to trigger when the drawing are finished
-    * Its gonna be the available_index. Its semaphore will be used to query the next back buffer.
-    *
-    */
 
-    inline std::optional<rg::ExecutionContext::PoolIndex> SwapChainImageSelector::getNextImage(rg::ExecutionContext& execution_context)
+    std::optional<rg::ExecutionContext::PoolIndex> SwapChainImageSelector::getNextImage(rg::ExecutionContext& execution_context)
     {
-        auto lock = std::lock_guard(_access_mutex);
+        PROFILE_SCOPE();
         auto sync_object_holder = execution_context.getAllSyncObject();
 
         std::optional<uint32_t> sync_object_index = findUnusedIndex(static_cast<uint32_t>(sync_object_holder.sync_objects.size()));
@@ -147,10 +174,8 @@ namespace
         {
             return std::nullopt;
         }
-
-        _occupied_sync_object_indexes.insert(*sync_object_index);
-        _used_sync_object_indexes.insert(*sync_object_index);
-
+        markSyncIndexAsOccupied(*sync_object_index);
+        markSyncIndexAsUsed(*sync_object_index);
 
         RenderEngine::RenderContext::context().getDebugger().print(RenderEngine::Debug::Topics::RenderGraphExecution{},
                                                                    "Image Acquire: Image index {:d} (Using synchronization object: {:d}) [thread: {}]",
@@ -160,10 +185,11 @@ namespace
 
         return rg::ExecutionContext::PoolIndex{ .render_target_index = *image_index, .sync_object_index = *sync_object_index };
     }
-    inline uint32_t SwapChainImageSelector::findFinishedSyncObjectIndex(const std::vector<const RenderEngine::SyncObject*>& sync_objects) const
+    uint32_t SwapChainImageSelector::findFinishedSyncObjectIndex(const std::vector<const RenderEngine::SyncObject*>& sync_objects) const
     {
-        auto black_list = _used_sync_object_indexes.negate(); // Do not count those where no draw cal were recorded.
-        black_list.insert(_occupied_sync_object_indexes); // Do not count those where draw calls are recording right now.
+        PROFILE_SCOPE();
+        auto black_list = getUsedSyncIndexes().negate(); // Do not count those where no draw cal were recorded.
+        black_list.insert(getOccupiedSyncIndexes()); // Do not count those where draw calls are recording right now.
         const uint32_t available_index = [&]
             {
                 for (uint32_t i = 0; i < sync_objects.size(); ++i)
@@ -178,10 +204,12 @@ namespace
             }();
         return available_index;
     }
-    inline std::optional<uint32_t> SwapChainImageSelector::tryAcquireImage(rg::ExecutionContext& execution_context, uint32_t available_index) const
+    std::optional<uint32_t> SwapChainImageSelector::tryAcquireImage(rg::ExecutionContext& execution_context, uint32_t available_index) const
     {
+        PROFILE_SCOPE();
         using namespace std::chrono_literals;
-        const auto timeout = 30ms;
+        const auto timeout = 1ms;
+        const auto wait_time = 1ms;
 
         VkResult call_result{ VK_TIMEOUT };
         uint32_t image_index = 0;
@@ -195,11 +223,19 @@ namespace
         */
         while (call_result == VK_TIMEOUT)
         {
+            PROFILE_SCOPE("SwapChainImageSelector::tryAcquireImage - probe");
+
             std::tie(call_result, image_index) =
                 execution_context.getSyncObject(available_index).sync_object.acquireNextSwapChainImage(_logical_device,
                                                                                                        _swap_chain,
                                                                                                        ImageAcquireTask::image_available_semaphore_name,
                                                                                                        timeout);
+            if (call_result == VK_TIMEOUT)
+            {
+                PROFILE_SCOPE("SwapChainImageSelector::tryAcquireImage - sleep");
+
+                std::this_thread::sleep_for(wait_time);
+            }
         }
         switch (call_result)
         {
@@ -214,6 +250,7 @@ namespace
         }
         return image_index;
     }
+
 }
 
 void ParallelDemoApplication::createRenderEngine()

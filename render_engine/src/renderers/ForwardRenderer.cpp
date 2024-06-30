@@ -9,6 +9,7 @@
 #include <render_engine/assets/Material.h>
 #include <render_engine/assets/Mesh.h>
 #include <render_engine/assets/Shader.h>
+#include <render_engine/debug/Profiler.h>
 #include <render_engine/GpuResourceManager.h>
 #include <render_engine/resources/Buffer.h>
 #include <render_engine/resources/PushConstantsUpdater.h>
@@ -69,6 +70,7 @@ namespace RenderEngine
 
     void ForwardRenderer::addMesh(const MeshInstance* mesh_instance)
     {
+        PROFILE_SCOPE();
         const auto* mesh = mesh_instance->getMesh();
         const uint32_t material_instance_id = mesh_instance->getMaterialInstance()->getId();
         auto& gpu_resource_manager = getRenderEngine().getGpuResourceManager();
@@ -121,6 +123,7 @@ namespace RenderEngine
 
     void ForwardRenderer::draw(uint32_t swap_chain_image_index)
     {
+        PROFILE_SCOPE();
         FrameData& frame_data = getFrameData(swap_chain_image_index);
 
         VkCommandBufferBeginInfo begin_info{};
@@ -206,6 +209,7 @@ namespace RenderEngine
 
     void ForwardRenderer::onFrameBegin(uint32_t frame_number)
     {
+        PROFILE_SCOPE();
         for (auto& mesh_group : _meshes)
         {
             for (const auto& uniform_binding : mesh_group.technique->getUniformBindings())

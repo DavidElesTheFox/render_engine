@@ -4,6 +4,8 @@
 #include <render_engine/rendergraph/TaskflowBuilder.h>
 #include <render_engine/synchronization/Topic.h>
 
+#include <optick.h>
+
 namespace RenderEngine
 {
     namespace
@@ -86,6 +88,8 @@ namespace RenderEngine
 
     void ParallelRenderEngine::render()
     {
+        OPTICK_FRAME("Main");
+
         if (_skeleton == nullptr)
         {
             return;

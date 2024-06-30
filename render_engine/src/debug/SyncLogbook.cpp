@@ -1,6 +1,7 @@
 #include <render_engine/debug/SyncLogbook.h>
 
 #include <render_engine/containers/Views.h>
+#include <render_engine/debug/Profiler.h>
 
 #include <array>
 #include <format>
@@ -232,6 +233,7 @@ namespace RenderEngine
     }
     void SyncLogbook::signaledSemaphoreFromHost(void* handler, uint64_t value)
     {
+        PROFILE_SCOPE();
         std::unique_lock lock(_stack_mutex);
         _stack.push_front(StackLine
                           {
@@ -243,6 +245,7 @@ namespace RenderEngine
     }
     void SyncLogbook::imageAcquire(void* handler)
     {
+        PROFILE_SCOPE();
         std::unique_lock lock(_stack_mutex);
         _stack.push_front(StackLine
                           {
@@ -253,6 +256,7 @@ namespace RenderEngine
     }
     void SyncLogbook::usedAtSubmitForSignal(void* handler, VkPipelineStageFlagBits2 stage)
     {
+        PROFILE_SCOPE();
         std::unique_lock lock(_stack_mutex);
         _stack.push_front(StackLine
                           {
@@ -264,6 +268,7 @@ namespace RenderEngine
     }
     void SyncLogbook::usedAtSubmitForWait(void* handler, VkPipelineStageFlagBits2 stage)
     {
+        PROFILE_SCOPE();
         std::unique_lock lock(_stack_mutex);
         _stack.push_front(StackLine
                           {
@@ -275,6 +280,7 @@ namespace RenderEngine
     }
     void SyncLogbook::usedAtPresentForWait(void* handler)
     {
+        PROFILE_SCOPE();
         std::unique_lock lock(_stack_mutex);
         _stack.push_front(StackLine
                           {
@@ -296,6 +302,7 @@ namespace RenderEngine
     }
     std::ostream& operator<<(std::ostream& os, const SyncLogbook& logbook)
     {
+        PROFILE_SCOPE();
         os << "Semaphores:" << std::endl;
         const std::vector<SyncLogbook::SemaphoreEntry> entries = [&]
             {

@@ -1,5 +1,6 @@
 #include <render_engine/renderers/UIRenderer.h>
 
+#include <render_engine/debug/Profiler.h>
 #include <render_engine/Device.h>
 #include <render_engine/resources/RenderTarget.h>
 #include <render_engine/window/Window.h>
@@ -269,6 +270,7 @@ namespace RenderEngine
 
     void UIRenderer::draw(const VkFramebuffer& frame_buffer, FrameData& frame_data)
     {
+        PROFILE_SCOPE();
         std::lock_guard access_lock{ getGlobals().access_mutex };
         if (_on_gui == nullptr)
         {

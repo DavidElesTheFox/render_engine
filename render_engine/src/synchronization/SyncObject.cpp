@@ -134,18 +134,6 @@ namespace RenderEngine
         return value;
     }
 
-    SwapChain::ImageAcquireResult SyncObject::acquireNextSwapChainImage(SwapChain& swap_chain,
-                                                                        const std::string& semaphore_name,
-                                                                        std::optional<std::chrono::nanoseconds> timeout) const
-    {
-        PROFILE_SCOPE();
-        const uint64_t timeout_ns = timeout.value_or(std::chrono::milliseconds{ UINT64_MAX }).count();
-        return swap_chain.acquireNextImage(timeout_ns,
-                                           getPrimitives().getSemaphore(semaphore_name),
-                                           VK_NULL_HANDLE);
-    }
-
-
     void SyncObject::createSemaphore(const std::string& name)
     {
         _primitives.createSemaphore(name);

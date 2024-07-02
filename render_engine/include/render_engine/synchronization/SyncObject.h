@@ -129,10 +129,6 @@ namespace RenderEngine
         uint64_t getSemaphoreValue(const std::string& name) const;
         uint64_t getSemaphoreRealValue(const std::string& name) const;
 
-        SwapChain::ImageAcquireResult acquireNextSwapChainImage(SwapChain& swap_chain,
-                                                                const std::string& semaphore_name,
-                                                                std::optional<std::chrono::nanoseconds> timeout = std::nullopt) const;
-
         const SyncPrimitives& getPrimitives() const { return _primitives; }
 
         void createSemaphore(const std::string& name);

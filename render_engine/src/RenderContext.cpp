@@ -64,6 +64,7 @@ namespace
                                                  const VkDebugUtilsMessengerCallbackDataEXT* data,
                                                  void*)
     {
+        // TODO Add topic for validation errors
         if (severity < VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT && false)
         {
             return VK_FALSE;
@@ -120,7 +121,7 @@ namespace RenderEngine
         else
         {
             throw std::runtime_error("Cannot open the file handle: " + std::string{ RENDERDOC_DLL });
-        }
+}
 #endif
         _renderer_factory = std::move(info.renderer_factory);
 

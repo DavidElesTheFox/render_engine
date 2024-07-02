@@ -41,7 +41,6 @@ namespace RenderEngine
 
         const uint32_t back_buffer_size = _gpu_resource_manager->getBackBufferSize();
         uint32_t thread_count = back_buffer_size;
-
         _rendering_processes.reserve(thread_count);
         _skeleton = std::move(render_graph);
 

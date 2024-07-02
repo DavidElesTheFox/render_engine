@@ -75,13 +75,12 @@ namespace RenderEngine::RenderGraph
     public:
         RenderNode(std::string name,
                    std::shared_ptr<CommandContext> command_context,
-                   std::unique_ptr<AbstractRenderer> renderer,
-                   bool enable_tracking)
+                   std::unique_ptr<AbstractRenderer> renderer)
             : Node(std::move(name))
             , _command_context(command_context)
             , _renderer(std::move(renderer))
         {
-            setUsesTracking(enable_tracking);
+            setUsesTracking(true);
         }
         ~RenderNode() override = default;
 

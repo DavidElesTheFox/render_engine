@@ -17,10 +17,9 @@ namespace RenderEngine::RenderGraph
 
     }
 
-    void RenderGraphBuilder::addRenderNode(std::string name, std::unique_ptr<AbstractRenderer> renderer, TrackingMode tracking_mode)
+    void RenderGraphBuilder::addRenderNode(std::string name, std::unique_ptr<AbstractRenderer> renderer)
     {
-        const bool enable_tracking = tracking_mode == TrackingMode::On;
-        _graph->addNode(std::make_unique<RenderNode>(std::move(name), _render_context.lock(), std::move(renderer), enable_tracking));
+        _graph->addNode(std::make_unique<RenderNode>(std::move(name), _render_context.lock(), std::move(renderer)));
     }
     void RenderGraphBuilder::addTransferNode(std::string name)
     {

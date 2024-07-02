@@ -200,8 +200,6 @@ namespace
         {
             PROFILE_SCOPE("SwapChainImageSelector::tryAcquireImage - probe");
             const uint64_t timeout_ns = timeout.count();
-            RenderEngine::RenderContext::context().getDebugger().print(RenderEngine::Debug::Topics::RenderGraphExecution{},
-                                                                       "tryAcquireImage with sync index: {:d}", available_index);
             acquire_result = _swap_chain.acquireNextImage(timeout_ns,
                                                           execution_context.getSyncObject(available_index).sync_object.getPrimitives().getSemaphore(ImageAcquireTask::image_available_semaphore_name),
                                                           VK_NULL_HANDLE);
@@ -258,8 +256,8 @@ void ParallelDemoApplication::createRenderEngine()
         image_acquire_task = image_acquire_task_ptr.get();
         builder.addDeviceSynchronizeNode("SynchronizeRenderGpu", _window_setup->getRenderingWindow().getDevice());
         builder.addCpuNode("AcquireImage", std::move(image_acquire_task_ptr));
-        builder.addRenderNode("ForwardRenderer", std::move(forward_renderer), rg::RenderGraphBuilder::TrackingMode::On);
-        builder.addRenderNode("ImguiRenderer", std::move(ui_renderer), rg::RenderGraphBuilder::TrackingMode::Off);
+        builder.addRenderNode("ForwardRenderer", std::move(forward_renderer));
+        builder.addRenderNode("ImguiRenderer", std::move(ui_renderer));
         builder.addPresentNode("Present", _window_setup->getUiWindow().getSwapChain());
         builder.addEmptyNode("End");
     }

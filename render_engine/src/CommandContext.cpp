@@ -44,17 +44,16 @@ namespace RenderEngine
         }
     }
 
-    void AbstractCommandContext::queuePresent(VkPresentInfoKHR&& present_info, const SyncOperations& sync_operations)
+    void AbstractCommandContext::queuePresent(VkPresentInfoKHR&& present_info,
+                                              const SyncOperations& sync_operations,
+                                              SwapChain& swap_chain)
     {
         PROFILE_SCOPE();
 
         sync_operations.fillInfo(present_info);
 
         auto queue = _queue_load_balancer->getQueue();
-        if ((*_logical_device)->vkQueuePresentKHR(queue.getQueue(), &present_info) != VK_SUCCESS)
-        {
-            throw std::runtime_error("Failed to present swap chain");
-        }
+        swap_chain.present(queue.getQueue(), std::move(present_info));
     }
 
     GuardedQueue AbstractCommandContext::getQueue()

@@ -268,7 +268,8 @@ namespace RenderEngine
                                                                                 this,
                                                                                 _queue_family_graphics,
                                                                                 _queue_family_present,
-                                                                                back_buffer_size });
+                                                                                back_buffer_size,
+                                                                                true });
             std::unique_ptr<IRenderEngine> render_engine = createParallelRenderEngine(back_buffer_size);
             auto command_context = CommandContext::create(_logical_device,
                                                           _queue_family_present,

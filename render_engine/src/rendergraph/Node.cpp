@@ -139,16 +139,12 @@ namespace RenderEngine::RenderGraph
         const auto& in_operations = sync_object_holder.sync_object.getOperationsGroup(getName());
         {
             PROFILE_SCOPE("PresentNode::execute - Accessing swap chain");
-            auto [lock, vulkan_swap_chain] = _swap_chain.getSwapChain();
 
             VkPresentInfoKHR present_info{};
             present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-            VkSwapchainKHR swapChains[] = { vulkan_swap_chain };
-            present_info.swapchainCount = 1;
-            present_info.pSwapchains = swapChains;
 
             present_info.pImageIndices = &pool_index.render_target_index;
-            _command_context->queuePresent(std::move(present_info), in_operations);
+            _command_context->queuePresent(std::move(present_info), in_operations, _swap_chain);
             RenderContext::context().getDebugger().print(Debug::Topics::RenderGraphExecution{},
                                                          "Presenting finished: {:s} render target: {:d} (sync index: {:d}) [thread: {}]",
                                                          getName(),

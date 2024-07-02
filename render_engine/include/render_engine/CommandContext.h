@@ -6,6 +6,7 @@
 #include <render_engine/LogicalDevice.h>
 #include <render_engine/memory/RefObj.h>
 #include <render_engine/QueueLoadBallancer.h>
+#include <render_engine/window/SwapChain.h>
 
 
 #include <cassert>
@@ -42,7 +43,9 @@ namespace RenderEngine
         void queueSubmit(VkSubmitInfo2&& submit_info,
                          const SyncOperations& sync_operations,
                          VkFence fence);
-        void queuePresent(VkPresentInfoKHR&& present_info, const SyncOperations& sync_operations);
+        void queuePresent(VkPresentInfoKHR&& present_info,
+                          const SyncOperations& sync_operations,
+                          SwapChain& swap_chain);
     protected:
         AbstractCommandContext(LogicalDevice& logical_device,
                                uint32_t queue_family_index,

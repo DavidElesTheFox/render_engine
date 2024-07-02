@@ -6,6 +6,7 @@
 
 #include <GLFW/glfw3.h>
 
+#include <future>
 #include <memory>
 #include <mutex>
 #include <vector>
@@ -19,6 +20,11 @@ namespace RenderEngine
     class SwapChain
     {
     public:
+        struct ImageAcquireResult
+        {
+            uint32_t image_index{ 0 };
+            VkResult result{ VK_RESULT_MAX_ENUM };
+        };
         struct Details
         {
             VkSwapchainKHR swap_chain{ VK_NULL_HANDLE };
@@ -47,12 +53,25 @@ namespace RenderEngine
             uint32_t graphics_family_index{ 0 };
             uint32_t present_family_index{ 0 };
             uint32_t back_buffer_size{ 0 };
+            bool use_background_processing{ false };
         };
         SwapChain(CreateInfo create_info);
 
         ~SwapChain();
         RenderTarget createRenderTarget() const;
+
+        std::future<ImageAcquireResult> acquireNextImageAsync(uint64_t timeout, VkSemaphore semaphore, VkFence fence);
+        ImageAcquireResult acquireNextImage(uint64_t timeout, VkSemaphore semaphore, VkFence fence)
+        {
+            return acquireNextImageAsync(timeout, semaphore, fence).get();
+        }
+        std::future<void> presentAsync(VkQueue queue, VkPresentInfoKHR&& present_info);
+        void present(VkQueue queue, VkPresentInfoKHR&& present_info)
+        {
+            presentAsync(queue, std::move(present_info)).get();
+        }
         void reinit();
+        [[ deprecated("Swap chain should not directly accessed") ]]
         auto getSwapChain()
         {
             struct Result
@@ -63,9 +82,14 @@ namespace RenderEngine
             return Result{ std::unique_lock(_access_mutex), _details.swap_chain };
         }
     private:
+        class BackgroundWorker;
+
         void resetSwapChain();
+
         Details _details;
         CreateInfo _create_info;
         std::mutex _access_mutex;
+        std::thread _background_thread;
+        std::unique_ptr<BackgroundWorker> _background_worker;
     };
 }

@@ -1,6 +1,8 @@
 #include <render_engine/window/SwapChain.h>
 
+#include <render_engine/containers/VariantOverloaded.h>
 #include <render_engine/containers/Views.h>
+#include <render_engine/debug/Profiler.h>
 #include <render_engine/resources/RenderTarget.h>
 #include <render_engine/resources/Texture.h>
 
@@ -12,6 +14,7 @@
 
 #include <algorithm>
 #include <array>
+#include <deque>
 #include <limits>
 #include <stdexcept>
 #include <vector>
@@ -20,6 +23,41 @@ namespace RenderEngine
 {
     namespace
     {
+        class Task
+        {
+        public:
+            using TaskResultVariations = std::variant<std::promise<void>, std::promise<SwapChain::ImageAcquireResult>>;
+            Task(std::promise<SwapChain::ImageAcquireResult> result, std::function<void(TaskResultVariations&)> callback)
+                : _result(std::move(result))
+                , _task(std::move(callback))
+            {}
+            Task(std::promise<void> result, std::function<void(TaskResultVariations&)> callback)
+                : _result(std::move(result))
+                , _task(std::move(callback))
+            {}
+            void execute()
+            {
+                PROFILE_SCOPE();
+                try
+                {
+                    _task(_result);
+                }
+                catch (...)
+                {
+                    std::visit(overloaded{
+                        [](std::promise<void>& promise) { promise.set_exception(std::current_exception()); },
+                        [](std::promise<SwapChain::ImageAcquireResult>& promise) { promise.set_exception(std::current_exception()); }
+                               },
+                               _result);
+                }
+            }
+        private:
+            TaskResultVariations _result;
+            std::function<void(TaskResultVariations& result)> _task;
+        };
+
+
+
         struct SwapChainSupportDetails {
             VkSurfaceCapabilitiesKHR capabilities;
             std::vector<VkSurfaceFormatKHR> formats;
@@ -215,20 +253,99 @@ namespace RenderEngine
         }
     }
 
+    class SwapChain::BackgroundWorker
+    {
+    public:
+        void addTask(Task&& task)
+        {
+            std::lock_guard lock(_tasks_mutex);
+            if (_running == false)
+            {
+                return;
+            }
+            _tasks.push_back(std::move(task));
+            _has_new_task.notify_one();
+        }
+
+        void stop()
+        {
+            std::lock_guard lock(_tasks_mutex);
+            _tasks.clear();
+            _running = false;
+            _has_new_task.notify_one();
+
+        }
+        void run()
+        {
+            while (_running)
+            {
+                static std::vector<Task> tasks;
+                tasks.clear();
+                {
+                    std::unique_lock lock(_tasks_mutex);
+                    _has_new_task.wait(lock, [&]() { return _tasks.empty() == false || _running == false; });
+                    for (auto& task : _tasks)
+                    {
+                        tasks.emplace_back(std::move(task));
+                    }
+                    _tasks.clear();
+                }
+                for (auto& task : tasks)
+                {
+                    task.execute();
+                }
+            }
+        }
+    private:
+        bool _running{ true };
+        std::condition_variable _has_new_task;
+        std::mutex _tasks_mutex;
+        std::deque<Task> _tasks;
+    };
+
     SwapChain::Details::~Details() = default;
 
     SwapChain::SwapChain(CreateInfo create_info)
         try : _details{ createSwapChain(create_info) }
         , _create_info(std::move(create_info))
     {
+        if (_create_info.use_background_processing)
+        {
+            _background_worker = std::make_unique<BackgroundWorker>();
+            _background_thread = std::thread([&]
+                                             {
+                                                 PROFILE_THREAD("SwapChain Background Thread");
+                                                 _background_worker->run();
+                                             });
+        }
     }
     catch (const std::runtime_error&)
     {
+        if (_create_info.use_background_processing)
+        {
+            if (_background_worker != nullptr)
+            {
+                _background_worker->stop();
+
+                if (_background_thread.joinable())
+                {
+                    _background_thread.join();
+                }
+            }
+        }
         vkDestroySurfaceKHR(create_info.instance, create_info.surface, nullptr);
     }
 
     SwapChain::~SwapChain()
     {
+        if (_create_info.use_background_processing)
+        {
+            _background_worker->stop();
+            if (_background_thread.joinable())
+            {
+                _background_thread.join();
+            }
+        }
         resetSwapChain();
         vkDestroySurfaceKHR(_create_info.instance, _details.surface, nullptr);
     }
@@ -255,5 +372,91 @@ namespace RenderEngine
         VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
         VK_ATTACHMENT_LOAD_OP_CLEAR,
         VK_ATTACHMENT_STORE_OP_STORE };
+    }
+    std::future<SwapChain::ImageAcquireResult> SwapChain::acquireNextImageAsync(uint64_t timeout, VkSemaphore semaphore, VkFence fence)
+    {
+        PROFILE_SCOPE();
+        using ResultPromise = std::promise<ImageAcquireResult>;
+        if (_create_info.use_background_processing)
+        {
+            ResultPromise promise;
+            auto future_result = promise.get_future();
+            Task task(std::move(promise), [=](Task::TaskResultVariations& result)
+                      {
+                          PROFILE_SCOPE("acquireNextImageAsync - async");
+
+                          uint32_t image_index{ 0 };
+                          auto& logical_device = *_create_info.logical_device;
+                          auto call_result = logical_device->vkAcquireNextImageKHR(*logical_device,
+                                                                                   _details.swap_chain,
+                                                                                   timeout,
+                                                                                   semaphore,
+                                                                                   fence,
+                                                                                   &image_index);
+                          SwapChain::ImageAcquireResult task_result{ .image_index = image_index, .result = call_result };
+                          std::get<ResultPromise>(result).set_value(task_result);
+                      });
+            _background_worker->addTask(std::move(task));
+            return future_result;
+        }
+        else
+        {
+            return std::async(std::launch::deferred, [=]()
+                              {
+                                  PROFILE_SCOPE("acquireNextImageAsync - deferred");
+
+                                  uint32_t image_index{ 0 };
+                                  auto& logical_device = *_create_info.logical_device;
+                                  auto call_result = logical_device->vkAcquireNextImageKHR(*logical_device,
+                                                                                           _details.swap_chain,
+                                                                                           timeout,
+                                                                                           semaphore,
+                                                                                           fence,
+                                                                                           &image_index);
+                                  SwapChain::ImageAcquireResult task_result{ .image_index = image_index, .result = call_result };
+                                  return task_result;
+                              });
+        }
+    }
+
+    std::future<void> SwapChain::presentAsync(VkQueue queue, VkPresentInfoKHR&& present_info)
+    {
+        PROFILE_SCOPE();
+
+        using ResultPromise = std::promise<void>;
+        present_info.swapchainCount = 1;
+        present_info.pSwapchains = &_details.swap_chain;
+
+        if (_create_info.use_background_processing)
+        {
+            ResultPromise result_promise;
+            auto future_result = result_promise.get_future();
+            Task task(std::move(result_promise), [=, present_info = std::move(present_info)](Task::TaskResultVariations& result)
+                      {
+                          PROFILE_SCOPE("presentAsync - async");
+
+                          auto& logical_device = *_create_info.logical_device;
+                          if (logical_device->vkQueuePresentKHR(queue, &present_info) != VK_SUCCESS)
+                          {
+                              throw std::runtime_error("Failed to present swap chain");
+                          }
+                          std::get<ResultPromise>(result).set_value();
+                      });
+            _background_worker->addTask(std::move(task));
+            return future_result;
+        }
+        else
+        {
+            return std::async(std::launch::deferred, [=, present_info = std::move(present_info)]()
+                              {
+                                  PROFILE_SCOPE("presentAsync - deferred");
+
+                                  auto& logical_device = *_create_info.logical_device;
+                                  if (logical_device->vkQueuePresentKHR(queue, &present_info) != VK_SUCCESS)
+                                  {
+                                      throw std::runtime_error("Failed to present swap chain");
+                                  }
+                              });
+        }
     }
 }

@@ -211,8 +211,10 @@ namespace
         const auto timeout = 1ms;
         const auto wait_time = 1ms;
 
-        VkResult call_result{ VK_TIMEOUT };
-        uint32_t image_index = 0;
+        RenderEngine::SwapChain::ImageAcquireResult acquire_result = {
+            .image_index = 0,
+            .result = VK_TIMEOUT
+        };
 
         /*
         * Because forward progress is not guaranteed with this setup we need to specify a timeout.
@@ -221,23 +223,23 @@ namespace
         * https://vulkan.lunarg.com/doc/view/1.3.275.0/windows/1.3-extensions/vkspec.html#VUID-vkAcquireNextImageKHR-surface-07783
         * https://vulkan.lunarg.com/doc/view/1.3.275.0/windows/1.3-extensions/vkspec.html#swapchain-acquire-forward-progress
         */
-        while (call_result == VK_TIMEOUT)
+        while (acquire_result.result == VK_TIMEOUT)
         {
             PROFILE_SCOPE("SwapChainImageSelector::tryAcquireImage - probe");
 
-            std::tie(call_result, image_index) =
-                execution_context.getSyncObject(available_index).sync_object.acquireNextSwapChainImage(_logical_device,
-                                                                                                       _swap_chain,
+            // TODO redirect indirection (i.e.: sync_objcect --> swap_chain change to: swap_chain --> sync_object)
+            acquire_result =
+                execution_context.getSyncObject(available_index).sync_object.acquireNextSwapChainImage(_swap_chain,
                                                                                                        ImageAcquireTask::image_available_semaphore_name,
                                                                                                        timeout);
-            if (call_result == VK_TIMEOUT)
+            if (acquire_result.result == VK_TIMEOUT)
             {
                 PROFILE_SCOPE("SwapChainImageSelector::tryAcquireImage - sleep");
 
-                std::this_thread::sleep_for(wait_time);
+                // std::this_thread::sleep_for(wait_time);
             }
         }
-        switch (call_result)
+        switch (acquire_result.result)
         {
             case VK_ERROR_OUT_OF_DATE_KHR:
             case VK_SUBOPTIMAL_KHR:
@@ -248,7 +250,7 @@ namespace
             default:
                 throw std::runtime_error("Failed to query swap chain image");
         }
-        return image_index;
+        return acquire_result.image_index;
     }
 
 }

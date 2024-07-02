@@ -188,7 +188,12 @@ namespace RenderEngine
         }
         auto renderers = _renderers | std::views::transform([](const auto& ptr) { return ptr.get(); });
         auto& logical_device = _device.getLogicalDevice();
+#pragma warning(push)
+#pragma warning(disable : 4996) // No warning, it's gonna be deleted
+        // TODO delete this function call and getSwapChain
         auto [lock, swap_chain] = _swap_chain->getSwapChain();
+#pragma warning(pop)
+
         if (_swap_chain_image_index == std::nullopt)
         {
             uint32_t image_index = 0;
@@ -233,7 +238,7 @@ namespace RenderEngine
             presentInfo.pSwapchains = swapChains;
 
             presentInfo.pImageIndices = &*_swap_chain_image_index;
-            _present_context->queuePresent(std::move(presentInfo), {});
+            _present_context->queuePresent(std::move(presentInfo), {}, *_swap_chain);
             _swap_chain_image_index = std::nullopt;
             _presented_frame_counter++;
         }

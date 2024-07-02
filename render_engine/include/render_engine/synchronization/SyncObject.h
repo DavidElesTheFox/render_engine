@@ -129,8 +129,7 @@ namespace RenderEngine
         uint64_t getSemaphoreValue(const std::string& name) const;
         uint64_t getSemaphoreRealValue(const std::string& name) const;
 
-        std::pair<VkResult, uint32_t> acquireNextSwapChainImage(LogicalDevice& logical_device,
-                                                                SwapChain& swap_chain,
+        SwapChain::ImageAcquireResult acquireNextSwapChainImage(SwapChain& swap_chain,
                                                                 const std::string& semaphore_name,
                                                                 std::optional<std::chrono::nanoseconds> timeout = std::nullopt) const;
 

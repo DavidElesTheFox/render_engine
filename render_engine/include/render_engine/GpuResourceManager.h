@@ -31,6 +31,8 @@ namespace RenderEngine
         VkDescriptorPool getDescriptorPool() { return _descriptor_pool; }
         LogicalDevice& getLogicalDevice() const { return _logical_device; }
         VkPhysicalDevice getPhysicalDevice() const { return _physical_device; }
+
+        // TODO: remove this function.
         uint32_t getBackBufferSize() const { return _back_buffer_size; }
     private:
         VkPhysicalDevice _physical_device{ VK_NULL_HANDLE };

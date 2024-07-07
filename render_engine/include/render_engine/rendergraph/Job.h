@@ -18,6 +18,7 @@ namespace RenderEngine
 
     namespace RenderGraph
     {
+        // TODO rename this file
         class ExecutionContext
         {
         public:
@@ -111,7 +112,20 @@ namespace RenderEngine
                     submit_tracker.second->clear();
                 }
             }
+
+            void setCurrentFrameNumber(uint64_t value)
+            {
+                _current_frame_number.store(value, std::memory_order_relaxed);
+            }
+
+            uint64_t getCurrentFrameNumber() const
+            {
+                return _current_frame_number.load(std::memory_order_relaxed);
+            }
         private:
+            void onPoolIndexSet(const PoolIndex& index);
+            void onPoolIndexReset(const PoolIndex& index);
+
             std::optional<PoolIndex> _pool_index{ std::nullopt };
             mutable std::shared_mutex _pool_index_mutex;
 
@@ -127,8 +141,7 @@ namespace RenderEngine
             mutable std::shared_mutex _submit_trackers_mutex;
             std::unordered_map<std::string, std::unique_ptr<QueueSubmitTracker>> _submit_trackers;
 
-            void onPoolIndexSet(const PoolIndex& index);
-            void onPoolIndexReset(const PoolIndex& index);
+            std::atomic_uint64_t _current_frame_number{ 0 };
         };
         /*
         class Job

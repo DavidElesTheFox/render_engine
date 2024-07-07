@@ -106,7 +106,7 @@ namespace RenderEngine
             current_process->execution_context.setDrawCallRecorded(false);
             current_process->execution_context.clearSubmitTrackersPool();
         }
-
+        current_process->execution_context.setCurrentFrameNumber(_render_call_count);
         current_process->calling_token = current_process->executor.run(current_process->task_flow);
 
 

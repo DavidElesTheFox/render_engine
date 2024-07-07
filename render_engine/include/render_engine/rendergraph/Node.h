@@ -185,9 +185,15 @@ namespace RenderEngine::RenderGraph
         void accept(GraphVisitor& visitor) final;
         bool isActive() const final { return true; }
     private:
+        [[nodiscard]]
+        bool waitAndUpdateFrameNumber(uint64_t frame_number, const std::chrono::milliseconds& timeout);
+
         SwapChain& _swap_chain;
         std::shared_ptr<CommandContext> _command_context;
 
+        std::mutex _frame_continuity_mutex;
+        std::condition_variable _frame_continuity_condition;
+        uint64_t _current_frame_number{ 0 };
     };
 
     class CpuNode final : public Node

@@ -65,6 +65,6 @@ namespace RenderEngine
         std::unique_ptr<TransferEngine> _transfer_engine;
         std::vector<std::unique_ptr<RenderingProcess>> _rendering_processes;
         std::vector<std::unique_ptr<SyncObject>> _sync_objects;
-        uint32_t _render_call_count{ 0 };
+        uint64_t _render_call_count{ 0 };
     };
 }

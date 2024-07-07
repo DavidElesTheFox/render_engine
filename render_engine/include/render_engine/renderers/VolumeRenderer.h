@@ -17,11 +17,13 @@ namespace RenderEngine
         static constexpr uint32_t kRendererId = 4u;
 
         VolumeRenderer(IRenderEngine& render_engine,
-                       RenderTarget render_target);
+                       RenderTarget render_target,
+                       bool use_internal_command_buffers);
         ~VolumeRenderer() override = default;
         void onFrameBegin(uint32_t image_index) override;
         void addVolumeObject(const VolumetricObjectInstance* mesh_instance);
         void draw(uint32_t swap_chain_image_index) override;
+        void draw(VkCommandBuffer command_buffer, uint32_t swap_chain_image_index) override;
         SyncOperations getSyncOperations(uint32_t image_index) final;
     private:
         struct MeshBuffers
@@ -67,9 +69,9 @@ namespace RenderEngine
         void drawWithTechnique(const std::string& subpass_name,
                                Technique& technique,
                                const std::vector<const VolumetricObjectInstance*>& meshes,
-                               FrameData& frame_data,
+                               VkCommandBuffer command_buffer,
                                uint32_t swap_chain_image_index);
-        void renderMeshGroup(MeshGroup& mesh_group, uint32_t swap_chain_image_index, FrameData& frame_data, bool calculate_distance_field);
+        void renderMeshGroup(MeshGroup& mesh_group, uint32_t swap_chain_image_index, VkCommandBuffer command_buffer, bool calculate_distance_field);
         void startDistanceFieldTask(MeshGroup& mesh_group, uint32_t swap_chain_image_index);
         void cleanupDistanceFieldTasks(MeshGroup& mesh_group);
 

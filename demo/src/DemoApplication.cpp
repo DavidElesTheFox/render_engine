@@ -98,7 +98,7 @@ void DemoApplication::initializeRenderers()
                                             .changeLoadOperation(VK_ATTACHMENT_LOAD_OP_LOAD)
                                             .changeInitialLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
                                     }
-                                    return std::make_unique<UIRenderer>(dynamic_cast<Window&>(window), render_target, back_buffer_count);
+                                    return std::make_unique<UIRenderer>(dynamic_cast<Window&>(window), render_target, back_buffer_count, true);
                                 });
     renderers->registerRenderer(ForwardRenderer::kRendererId,
                                 [](IWindow& window, RenderTarget render_target, uint32_t, AbstractRenderer*, bool last_renderer) -> std::unique_ptr<AbstractRenderer>
@@ -107,7 +107,7 @@ void DemoApplication::initializeRenderers()
                                     {
                                         render_target = render_target.clone().changeFinalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
                                     }
-                                    return std::make_unique<ForwardRenderer>(window.getRenderEngine(), render_target);
+                                    return std::make_unique<ForwardRenderer>(window.getRenderEngine(), render_target, true);
                                 });
     renderers->registerRenderer(ImageStreamRenderer::kRendererId,
                                 [](IWindow& window, auto render_target, uint32_t back_buffer_count, AbstractRenderer*, bool last_renderer) -> std::unique_ptr<AbstractRenderer>
@@ -117,7 +117,7 @@ void DemoApplication::initializeRenderers()
                                     {
                                         render_target = render_target.clone().changeFinalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
                                     }
-                                    return std::make_unique<ImageStreamRenderer>(window.getRenderEngine(), window.getTunnel()->getOriginWindow().getImageStream(), render_target, back_buffer_count);
+                                    return std::make_unique<ImageStreamRenderer>(window.getRenderEngine(), window.getTunnel()->getOriginWindow().getImageStream(), render_target, back_buffer_count, true);
 
                                 });
 

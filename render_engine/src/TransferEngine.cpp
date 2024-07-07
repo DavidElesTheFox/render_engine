@@ -10,8 +10,8 @@ namespace RenderEngine
                                   std::function<void(VkCommandBuffer)> record_transfer_command,
                                   QueueSubmitTracker* queue_submit_tracker)
     {
-
-        VkCommandBuffer command_buffer = _transfer_context->createCommandBuffer();
+        // TODO add thread_info to the interface. 0 should be replaced ot the 'id' of the current thread.
+        VkCommandBuffer command_buffer = _transfer_context->createCommandBuffer(0);
 
         VkCommandBufferSubmitInfo command_buffer_info{};
         command_buffer_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;

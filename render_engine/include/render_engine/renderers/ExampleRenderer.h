@@ -40,6 +40,12 @@ namespace RenderEngine
         {
             draw(_frame_buffers[swap_chain_image_index], getFrameData(swap_chain_image_index));
         }
+        void draw(VkCommandBuffer, uint32_t) final
+        {
+            // TODO: Remove this class.
+            throw std::runtime_error("Not compatible renderer");
+        }
+
         std::vector<VkCommandBuffer> getCommandBuffers(uint32_t image_index) override final
         {
             return { getFrameData(image_index).command_buffer };

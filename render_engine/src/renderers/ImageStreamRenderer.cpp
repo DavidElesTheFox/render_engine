@@ -165,7 +165,8 @@ namespace RenderEngine
     ImageStreamRenderer::ImageStreamRenderer(IRenderEngine& render_engine,
                                              ImageStream& image_stream,
                                              RenderTarget render_target,
-                                             uint32_t back_buffer_size)
+                                             uint32_t back_buffer_size,
+                                             bool use_internal_command_buffers)
         try : SingleColorOutputRenderer(render_engine)
         , _image_stream(image_stream)
         , _image_cache(image_stream.getImageDescription().width,
@@ -205,7 +206,10 @@ namespace RenderEngine
         {
             throw std::runtime_error("failed to create render pass!");
         }
-        initializeRendererOutput(render_target, render_pass, getRenderEngine().getGpuResourceManager().getBackBufferSize());
+        initializeRendererOutput(render_target,
+                                 render_pass,
+                                 getRenderEngine().getGpuResourceManager().getBackBufferSize(),
+                                 use_internal_command_buffers);
 
         for (uint32_t i = 0; i < back_buffer_size; ++i)
         {
@@ -294,6 +298,11 @@ namespace RenderEngine
 
     void ImageStreamRenderer::draw(uint32_t swap_chain_image_index)
     {
+        draw(getFrameData(swap_chain_image_index).command_buffer, swap_chain_image_index);
+    }
+
+    void ImageStreamRenderer::draw(VkCommandBuffer command_buffer, uint32_t swap_chain_image_index)
+    {
         static std::vector<uint8_t> image_data;
         image_data.clear();
         _image_stream >> image_data;
@@ -349,7 +358,6 @@ namespace RenderEngine
         if (_upload_data.contains(render_texture.get()))
         {
             _draw_call_recorded = true;
-            FrameData& frame_data = getFrameData(swap_chain_image_index);
 
             VkCommandBufferBeginInfo begin_info{};
             begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -367,17 +375,17 @@ namespace RenderEngine
             render_pass_info.clearValueCount = 1;
             render_pass_info.pClearValues = &clearColor;
 
-            if (getLogicalDevice()->vkBeginCommandBuffer(frame_data.command_buffer, &begin_info) != VK_SUCCESS)
+            if (getLogicalDevice()->vkBeginCommandBuffer(command_buffer, &begin_info) != VK_SUCCESS)
             {
                 throw std::runtime_error("failed to begin recording command buffer!");
             }
-            getLogicalDevice()->vkCmdBeginRenderPass(frame_data.command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
+            getLogicalDevice()->vkCmdBeginRenderPass(command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
 
-            auto renderer_marker = _performance_markers.createMarker(frame_data.command_buffer, "ImageStreamRenderer");
+            auto renderer_marker = _performance_markers.createMarker(command_buffer, "ImageStreamRenderer");
 
             auto& technique = _technique;
 
-            getLogicalDevice()->vkCmdBindPipeline(frame_data.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, technique->getPipeline());
+            getLogicalDevice()->vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, technique->getPipeline());
 
             VkViewport viewport{};
             viewport.x = 0.0f;
@@ -386,17 +394,17 @@ namespace RenderEngine
             viewport.height = (float)render_area.extent.height;
             viewport.minDepth = 0.0f;
             viewport.maxDepth = 1.0f;
-            getLogicalDevice()->vkCmdSetViewport(frame_data.command_buffer, 0, 1, &viewport);
+            getLogicalDevice()->vkCmdSetViewport(command_buffer, 0, 1, &viewport);
 
             VkRect2D scissor{};
             scissor.offset = { 0, 0 };
             scissor.extent = render_area.extent;
-            getLogicalDevice()->vkCmdSetScissor(frame_data.command_buffer, 0, 1, &scissor);
+            getLogicalDevice()->vkCmdSetScissor(command_buffer, 0, 1, &scissor);
             auto descriptor_sets = technique->collectDescriptorSets(swap_chain_image_index);
 
             if (descriptor_sets.empty() == false)
             {
-                getLogicalDevice()->vkCmdBindDescriptorSets(frame_data.command_buffer,
+                getLogicalDevice()->vkCmdBindDescriptorSets(command_buffer,
                                                             VK_PIPELINE_BIND_POINT_GRAPHICS,
                                                             technique->getPipelineLayout(),
                                                             0,
@@ -407,10 +415,10 @@ namespace RenderEngine
             }
 
             // Draw nothing just 3 'empty' vertexes trick is in the vertex shader
-            getLogicalDevice()->vkCmdDraw(frame_data.command_buffer, 3, 1, 0, 0);
-            getLogicalDevice()->vkCmdEndRenderPass(frame_data.command_buffer);
+            getLogicalDevice()->vkCmdDraw(command_buffer, 3, 1, 0, 0);
+            getLogicalDevice()->vkCmdEndRenderPass(command_buffer);
 
-            if (getLogicalDevice()->vkEndCommandBuffer(frame_data.command_buffer) != VK_SUCCESS)
+            if (getLogicalDevice()->vkEndCommandBuffer(command_buffer) != VK_SUCCESS)
             {
                 throw std::runtime_error("failed to record command buffer!");
             }

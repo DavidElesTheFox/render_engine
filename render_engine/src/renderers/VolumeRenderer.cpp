@@ -100,7 +100,9 @@ namespace RenderEngine
         }
     }
 
-    VolumeRenderer::VolumeRenderer(IRenderEngine& render_engine, RenderTarget render_target)
+    VolumeRenderer::VolumeRenderer(IRenderEngine& render_engine,
+                                   RenderTarget render_target,
+                                   bool use_internal_command_buffers)
         try : SingleColorOutputRenderer(render_engine)
         , _render_target(render_target)
 
@@ -230,6 +232,7 @@ namespace RenderEngine
         initializeRendererOutput(render_target,
                                  render_pass,
                                  back_buffer_size,
+                                 use_internal_command_buffers,
                                  render_pass_attachments);
 
 
@@ -327,12 +330,14 @@ namespace RenderEngine
 
     void VolumeRenderer::draw(uint32_t swap_chain_image_index)
     {
-        FrameData& frame_data = getFrameData(swap_chain_image_index);
-
+        draw(getFrameData(swap_chain_image_index).command_buffer, swap_chain_image_index);
+    }
+    void VolumeRenderer::draw(VkCommandBuffer command_buffer, uint32_t swap_chain_image_index)
+    {
         VkCommandBufferBeginInfo begin_info{};
         begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-        if (getLogicalDevice()->vkBeginCommandBuffer(frame_data.command_buffer, &begin_info) != VK_SUCCESS)
+        if (getLogicalDevice()->vkBeginCommandBuffer(command_buffer, &begin_info) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to begin recording command buffer!");
         }
@@ -359,32 +364,32 @@ namespace RenderEngine
                                                      .setImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
                                                      .setPipelineStage(VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT)
                                                      .setAccessFlag(VK_ACCESS_2_SHADER_SAMPLED_READ_BIT));
-            resource_state_machine.commitChanges(frame_data.command_buffer);
+            resource_state_machine.commitChanges(command_buffer);
         }
-        getLogicalDevice()->vkCmdBeginRenderPass(frame_data.command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
+        getLogicalDevice()->vkCmdBeginRenderPass(command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
 
         for (auto& mesh_group : _meshes)
         {
             constexpr bool calculate_distance_field = false;
-            renderMeshGroup(mesh_group, swap_chain_image_index, frame_data, calculate_distance_field);
+            renderMeshGroup(mesh_group, swap_chain_image_index, command_buffer, calculate_distance_field);
         }
         for (auto& mesh_group : _meshes_with_distance_field)
         {
             constexpr bool calculate_distance_field = true;
-            renderMeshGroup(mesh_group, swap_chain_image_index, frame_data, calculate_distance_field);
+            renderMeshGroup(mesh_group, swap_chain_image_index, command_buffer, calculate_distance_field);
         }
 
 
-        getLogicalDevice()->vkCmdEndRenderPass(frame_data.command_buffer);
+        getLogicalDevice()->vkCmdEndRenderPass(command_buffer);
 
-        if (getLogicalDevice()->vkEndCommandBuffer(frame_data.command_buffer) != VK_SUCCESS)
+        if (getLogicalDevice()->vkEndCommandBuffer(command_buffer) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to record command buffer!");
         }
 
 
     }
-    void VolumeRenderer::renderMeshGroup(MeshGroup& mesh_group, uint32_t swap_chain_image_index, FrameData& frame_data, bool calculate_distance_field)
+    void VolumeRenderer::renderMeshGroup(MeshGroup& mesh_group, uint32_t swap_chain_image_index, VkCommandBuffer command_buffer, bool calculate_distance_field)
     {
         if (calculate_distance_field)
         {
@@ -394,21 +399,21 @@ namespace RenderEngine
         drawWithTechnique("VolumeRenderer - front_face",
                           *mesh_group.technique_data.front_face_technique,
                           mesh_group.meshes,
-                          frame_data,
+                          command_buffer,
                           swap_chain_image_index);
-        getLogicalDevice()->vkCmdNextSubpass(frame_data.command_buffer, VK_SUBPASS_CONTENTS_INLINE);
+        getLogicalDevice()->vkCmdNextSubpass(command_buffer, VK_SUBPASS_CONTENTS_INLINE);
 
         drawWithTechnique("VolumeRenderer - back_face",
                           *mesh_group.technique_data.back_face_technique,
                           mesh_group.meshes,
-                          frame_data,
+                          command_buffer,
                           swap_chain_image_index);
-        getLogicalDevice()->vkCmdNextSubpass(frame_data.command_buffer, VK_SUBPASS_CONTENTS_INLINE);
+        getLogicalDevice()->vkCmdNextSubpass(command_buffer, VK_SUBPASS_CONTENTS_INLINE);
 
         drawWithTechnique("VolumeRenderer - volume_render",
                           *mesh_group.technique_data.volume_technique,
                           mesh_group.meshes,
-                          frame_data,
+                          command_buffer,
                           swap_chain_image_index);
 
     }
@@ -452,14 +457,14 @@ namespace RenderEngine
     void VolumeRenderer::drawWithTechnique(const std::string& subpass_name,
                                            Technique& technique,
                                            const std::vector<const VolumetricObjectInstance*>& meshes,
-                                           FrameData& frame_data,
+                                           VkCommandBuffer command_buffer,
                                            uint32_t swap_chain_image_index)
     {
-        auto marker = _performance_markers.createMarker(frame_data.command_buffer, subpass_name);
+        auto marker = _performance_markers.createMarker(command_buffer, subpass_name);
 
 
-        MaterialInstance::UpdateContext material_update_context = technique.onFrameBegin(swap_chain_image_index, frame_data.command_buffer);
-        getLogicalDevice()->vkCmdBindPipeline(frame_data.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, technique.getPipeline());
+        MaterialInstance::UpdateContext material_update_context = technique.onFrameBegin(swap_chain_image_index, command_buffer);
+        getLogicalDevice()->vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, technique.getPipeline());
         auto render_area = getRenderArea();
 
         VkViewport viewport{};
@@ -469,17 +474,17 @@ namespace RenderEngine
         viewport.height = (float)render_area.extent.height;
         viewport.minDepth = 0.0f;
         viewport.maxDepth = 1.0f;
-        getLogicalDevice()->vkCmdSetViewport(frame_data.command_buffer, 0, 1, &viewport);
+        getLogicalDevice()->vkCmdSetViewport(command_buffer, 0, 1, &viewport);
 
         VkRect2D scissor{};
         scissor.offset = { 0, 0 };
         scissor.extent = render_area.extent;
-        getLogicalDevice()->vkCmdSetScissor(frame_data.command_buffer, 0, 1, &scissor);
+        getLogicalDevice()->vkCmdSetScissor(command_buffer, 0, 1, &scissor);
         auto descriptor_sets = technique.collectDescriptorSets(swap_chain_image_index);
 
         if (descriptor_sets.empty() == false)
         {
-            getLogicalDevice()->vkCmdBindDescriptorSets(frame_data.command_buffer,
+            getLogicalDevice()->vkCmdBindDescriptorSets(command_buffer,
                                                         VK_PIPELINE_BIND_POINT_GRAPHICS,
                                                         technique.getPipelineLayout(),
                                                         0,
@@ -496,10 +501,10 @@ namespace RenderEngine
             // TODO: These draw calls can be done with only one binding. Same for Forward Renderer
             VkBuffer vertexBuffers[] = { mesh_buffers.vertex_buffer->getBuffer() };
             VkDeviceSize offsets[] = { 0 };
-            getLogicalDevice()->vkCmdBindVertexBuffers(frame_data.command_buffer, 0, 1, vertexBuffers, offsets);
-            getLogicalDevice()->vkCmdBindIndexBuffer(frame_data.command_buffer, mesh_buffers.index_buffer->getBuffer(), 0, VK_INDEX_TYPE_UINT16);
+            getLogicalDevice()->vkCmdBindVertexBuffers(command_buffer, 0, 1, vertexBuffers, offsets);
+            getLogicalDevice()->vkCmdBindIndexBuffer(command_buffer, mesh_buffers.index_buffer->getBuffer(), 0, VK_INDEX_TYPE_UINT16);
 
-            getLogicalDevice()->vkCmdDrawIndexed(frame_data.command_buffer, static_cast<uint32_t>(mesh_buffers.index_buffer->getDeviceSize() / sizeof(uint16_t)), 1, 0, 0, 0);
+            getLogicalDevice()->vkCmdDrawIndexed(command_buffer, static_cast<uint32_t>(mesh_buffers.index_buffer->getDeviceSize() / sizeof(uint16_t)), 1, 0, 0, 0);
         }
         marker.finish();
     }

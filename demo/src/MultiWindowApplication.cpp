@@ -122,7 +122,7 @@ void MultiWindowApplication::initEngine()
                                             .changeLoadOperation(VK_ATTACHMENT_LOAD_OP_LOAD)
                                             .changeInitialLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
                                     }
-                                    return std::make_unique<UIRenderer>(static_cast<Window&>(window), render_target, back_buffer_count);
+                                    return std::make_unique<UIRenderer>(static_cast<Window&>(window), render_target, back_buffer_count, true);
                                 });
 
     renderers->registerRenderer(ExampleRenderer::kRendererId,
@@ -141,7 +141,7 @@ void MultiWindowApplication::initEngine()
                                     {
                                         render_target = render_target.clone().changeFinalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
                                     }
-                                    return std::make_unique<ImageStreamRenderer>(window.getRenderEngine(), *_image_stream, render_target, back_buffer_count);
+                                    return std::make_unique<ImageStreamRenderer>(window.getRenderEngine(), *_image_stream, render_target, back_buffer_count, true);
                                 });
     constexpr bool enable_multiple_device_selection = kPrimaryDeviceIndex != kSecondaryDeviceIndex;
     DeviceSelector device_selector(enable_multiple_device_selection);

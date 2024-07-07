@@ -84,7 +84,7 @@ void OffScreenTestApplication::initializeRenderers()
                                     {
                                         render_target = render_target.clone().changeFinalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
                                     }
-                                    return std::make_unique<ForwardRenderer>(window.getRenderEngine(), render_target);
+                                    return std::make_unique<ForwardRenderer>(window.getRenderEngine(), render_target, true);
                                 });
 
     DeviceSelector device_selector;

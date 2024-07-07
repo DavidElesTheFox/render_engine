@@ -36,6 +36,7 @@ namespace RenderEngine
         void initializeRendererOutput(RenderTarget& render_target,
                                       VkRenderPass render_pass,
                                       size_t back_buffer_size,
+                                      bool create_internal_command_buffers,
                                       const std::vector<AttachmentInfo>& render_pass_attachments = {});
         void destroyRenderOutput();
         LogicalDevice& getLogicalDevice() const { return _render_engine.getDevice().getLogicalDevice(); }

@@ -9,6 +9,7 @@
 #include <render_engine/TransferEngine.h>
 #include <render_engine/window/SwapChain.h>
 
+#include <map>
 #include <memory>
 #include <string>
 
@@ -90,8 +91,14 @@ namespace RenderEngine::RenderGraph
 
         bool isActive() const override { return true; }
     private:
+        using CommandBufferPerRenderTargetMap = std::map<uint32_t, VkCommandBuffer>;
+        VkCommandBuffer createOrGetCommandBuffer(const ExecutionContext::PoolIndex& pool_index);
+
         std::shared_ptr<CommandContext> _command_context;
         std::unique_ptr<AbstractRenderer> _renderer;
+
+        std::mutex _command_buffer_mutex;
+        std::map<uint32_t, CommandBufferPerRenderTargetMap> _command_buffers;
     };
 
     class TransferNode final : public Node

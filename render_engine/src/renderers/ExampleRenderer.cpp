@@ -558,7 +558,7 @@ namespace RenderEngine
     {
         for (uint32_t i = 0; i < _back_buffer.size(); ++i)
         {
-            VkCommandBuffer command_buffer = _render_engine.getCommandContext().createCommandBuffer(i);
+            VkCommandBuffer command_buffer = _render_engine.getCommandContext().createCommandBuffer(i, 0);
 
             _back_buffer[i].command_buffer = command_buffer;
         }

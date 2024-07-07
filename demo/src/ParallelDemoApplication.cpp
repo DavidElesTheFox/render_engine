@@ -99,6 +99,11 @@ namespace
         {
             PROFILE_THREAD(g_thread_name.c_str());
             PROFILE_SCOPE();
+            /*
+            * When we are here we know that the process is finished. It means that the draw calls were issued on Host.
+            * But in order to use the semaphore we need to wait until it has no more ongoing work on the GPU.
+            * It means we need to wait until the execution is finished on the GPU:
+            */
             execution_context.findSubmitTracker(_image_user_node_name).wait();
 
             std::optional<rg::ExecutionContext::PoolIndex> pool_index = _swap_chain_image_selector.getNextImage(execution_context);
@@ -240,14 +245,16 @@ void ParallelDemoApplication::createRenderEngine()
 
         auto forward_renderer = std::make_unique<RenderEngine::ForwardRenderer>(render_engine,
                                                                                 base_render_target.clone()
-                                                                                .changeFinalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL));
+                                                                                .changeFinalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL),
+                                                                                false);
         _forward_renderer = forward_renderer.get();
 
         auto ui_renderer = std::make_unique<RenderEngine::UIRenderer>(_window_setup->getUiWindow(),
                                                                       base_render_target.clone()
                                                                       .changeInitialLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
                                                                       .changeLoadOperation(VK_ATTACHMENT_LOAD_OP_LOAD),
-                                                                      3);
+                                                                      3,
+                                                                      false);
         _ui_renderer = ui_renderer.get();
         auto image_acquire_task_ptr = std::make_unique<ImageAcquireTask>(_window_setup->getUiWindow(),
                                                                          _window_setup->getUiWindow().getDevice().getLogicalDevice(),

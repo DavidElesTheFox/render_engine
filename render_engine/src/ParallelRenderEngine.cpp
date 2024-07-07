@@ -93,6 +93,7 @@ namespace RenderEngine
         {
             return;
         }
+        // TODO: Actually here we could continue one of the available processes.
         auto& current_process = _rendering_processes[_render_call_count % _rendering_processes.size()];
 
         if (current_process->calling_token.valid())

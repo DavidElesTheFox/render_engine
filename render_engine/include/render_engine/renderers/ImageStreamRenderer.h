@@ -15,14 +15,17 @@ namespace RenderEngine
         ImageStreamRenderer(IRenderEngine& render_engine,
                             ImageStream& image_stream,
                             RenderTarget render_target,
-                            uint32_t back_buffer_size);
+                            uint32_t back_buffer_size,
+                            bool use_internal_command_buffers);
         ~ImageStreamRenderer()
         {
             destroy();
         };
 
-        void onFrameBegin(uint32_t frame_number) override final;
-        void draw(uint32_t swap_chain_image_index) override final;
+        void onFrameBegin(uint32_t frame_number) final;
+        void draw(uint32_t swap_chain_image_index) final;
+        void draw(VkCommandBuffer command_buffer, uint32_t swap_chain_image_index) final;
+
         SyncOperations getSyncOperations(uint32_t image_index) final;
     private:
         struct UploadData

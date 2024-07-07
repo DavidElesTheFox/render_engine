@@ -49,8 +49,9 @@ namespace RenderEngine
                                                            QueueSubmitTracker* submit_tracker)
     {
         PROFILE_SCOPE();
-        auto src_command_buffer = src->createCommandBuffer();
-        auto dst_command_buffer = dst->createCommandBuffer();
+        // TODO: Figuring out wheather a default tray should be introduced, or bring here down the thread information.
+        auto src_command_buffer = src->createCommandBuffer(0);
+        auto dst_command_buffer = dst->createCommandBuffer(0);
 
         assert(*src->getLogicalDevice() == *dst->getLogicalDevice());
         assert(dst->isPipelineStageSupported(new_state.pipeline_stage));
@@ -286,8 +287,9 @@ namespace RenderEngine
                                        "BarrierFinished",
                                        resource.getResourceState().pipeline_stage,
                                        1);
+        // TODO: Figuring out wheather a default tray should be introduced, or bring here down the thread information.
 
-        auto command_buffer = src.createCommandBuffer();
+        auto command_buffer = src.createCommandBuffer(0);
         VkCommandBufferBeginInfo begin_info{};
         begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;

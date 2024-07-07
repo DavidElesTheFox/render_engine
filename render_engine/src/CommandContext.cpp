@@ -113,10 +113,10 @@ namespace RenderEngine
 
 #pragma region SingleShotCommandContext
 
-    class SingleShotCommandContext::ThreadData
+    class SingleShotCommandContext::Tray
     {
     public:
-        ThreadData(LogicalDevice& logical_device, uint32_t queue_family_index)
+        Tray(LogicalDevice& logical_device, uint32_t queue_family_index)
             : _logical_device(logical_device)
         {
             {
@@ -130,7 +130,7 @@ namespace RenderEngine
                 }
             }
         }
-        ~ThreadData()
+        ~Tray()
         {
             if (_transient_command_pool != VK_NULL_HANDLE)
             {
@@ -138,11 +138,11 @@ namespace RenderEngine
             }
         }
 
-        ThreadData(const ThreadData&) = delete;
-        ThreadData(ThreadData&&) = delete;
+        Tray(const Tray&) = delete;
+        Tray(Tray&&) = delete;
 
-        ThreadData& operator=(const ThreadData&) = delete;
-        ThreadData& operator=(ThreadData&&) = delete;
+        Tray& operator=(const Tray&) = delete;
+        Tray& operator=(Tray&&) = delete;
 
         VkCommandBuffer createSingleShotCommandBuffer()
         {
@@ -180,14 +180,13 @@ namespace RenderEngine
 
 
 
-    VkCommandBuffer SingleShotCommandContext::createCommandBuffer()
+    VkCommandBuffer SingleShotCommandContext::createCommandBuffer(uint32_t tray_index)
     {
-        std::lock_guard lock{ _thread_data_mutex };
-        auto thread_id = std::this_thread::get_id();
-        auto it = _thread_data.find(thread_id);
-        if (it == _thread_data.end())
+        std::lock_guard lock{ _trays_mutex };
+        auto it = _trays.find(tray_index);
+        if (it == _trays.end())
         {
-            it = _thread_data.insert({ thread_id, std::make_unique<ThreadData>(getLogicalDevice(), getQueueFamilyIndex()) }).first;
+            it = _trays.insert({ tray_index, std::make_unique<Tray>(getLogicalDevice(), getQueueFamilyIndex()) }).first;
         }
         return it->second->createSingleShotCommandBuffer();
     }
@@ -196,13 +195,13 @@ namespace RenderEngine
 
 #pragma region CommandContext
 
-    class CommandContext::ThreadData
+    class CommandContext::Tray
     {
     public:
-        ThreadData(LogicalDevice& logical_device, uint32_t back_buffer_size, uint32_t queue_family_index)
+        Tray(LogicalDevice& logical_device, uint32_t num_of_pools, uint32_t queue_family_index)
             : _logical_device(logical_device)
         {
-            for (uint32_t i = 0; i < back_buffer_size; ++i)
+            for (uint32_t i = 0; i < num_of_pools; ++i)
             {
                 VkCommandPool pool{ VK_NULL_HANDLE };
                 VkCommandPoolCreateInfo pool_info{};
@@ -213,7 +212,7 @@ namespace RenderEngine
                 {
                     throw std::runtime_error("failed to create command pool!");
                 }
-                _command_pools_per_frame.emplace_back(pool);
+                _command_pools.emplace_back(pool);
             }
             {
                 VkCommandPoolCreateInfo pool_info{};
@@ -226,9 +225,9 @@ namespace RenderEngine
                 }
             }
         }
-        ~ThreadData()
+        ~Tray()
         {
-            for (VkCommandPool pool : _command_pools_per_frame)
+            for (VkCommandPool pool : _command_pools)
             {
                 _logical_device->vkDestroyCommandPool(*_logical_device, pool, nullptr);
             }
@@ -238,22 +237,22 @@ namespace RenderEngine
             }
         }
 
-        ThreadData(const ThreadData&) = delete;
-        ThreadData(ThreadData&&) = delete;
+        Tray(const Tray&) = delete;
+        Tray(Tray&&) = delete;
 
-        ThreadData& operator=(const ThreadData&) = delete;
-        ThreadData& operator=(ThreadData&&) = delete;
+        Tray& operator=(const Tray&) = delete;
+        Tray& operator=(Tray&&) = delete;
 
-        VkCommandPool getCommandPool(uint32_t render_target_image_index)
+        VkCommandPool getCommandPool(uint32_t pool_index)
         {
-            return _command_pools_per_frame[render_target_image_index];
+            return _command_pools[pool_index];
         }
-        std::vector<VkCommandBuffer> createCommandBuffers(uint32_t count, uint32_t render_target_image_index)
+        std::vector<VkCommandBuffer> createCommandBuffers(uint32_t count, uint32_t pool_index)
         {
             std::vector<VkCommandBuffer> command_buffers(count, VK_NULL_HANDLE);
             VkCommandBufferAllocateInfo allocInfo{};
             allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-            allocInfo.commandPool = getCommandPool(render_target_image_index);
+            allocInfo.commandPool = getCommandPool(pool_index);
             allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
             allocInfo.commandBufferCount = static_cast<uint32_t>(command_buffers.size());
 
@@ -283,7 +282,7 @@ namespace RenderEngine
         }
     private:
         LogicalDevice& _logical_device;
-        std::vector<VkCommandPool> _command_pools_per_frame;
+        std::vector<VkCommandPool> _command_pools;
         VkCommandPool _transient_command_pool{ VK_NULL_HANDLE };
 
     };
@@ -292,31 +291,30 @@ namespace RenderEngine
                                    uint32_t queue_family_index,
                                    DeviceLookup::QueueFamilyInfo queue_family_info,
                                    RefObj<QueueLoadBalancer> queue_load_balancer,
-                                   uint32_t back_buffer_size,
+                                   uint32_t num_of_pools_per_tray,
                                    CreationToken)
         : AbstractCommandContext(logical_device, queue_family_index, std::move(queue_family_info), std::move(queue_load_balancer))
-        , _back_buffer_size(back_buffer_size)
+        , _num_of_pools_per_tray(num_of_pools_per_tray)
     {}
     CommandContext::~CommandContext() = default;
 
 
-    VkCommandBuffer CommandContext::createCommandBuffer(uint32_t render_target_image_index)
+    VkCommandBuffer CommandContext::createCommandBuffer(uint32_t tray_index, uint32_t pool_index)
     {
-        return createCommandBuffers(1, render_target_image_index).front();
+        return createCommandBuffers(1, tray_index, pool_index).front();
     }
 
-    std::vector<VkCommandBuffer> CommandContext::createCommandBuffers(uint32_t count, uint32_t render_target_image_index)
+    std::vector<VkCommandBuffer> CommandContext::createCommandBuffers(uint32_t count, uint32_t tray_index, uint32_t pool_index)
     {
-        std::lock_guard lock{ _thread_data_mutex };
-        auto thread_id = std::this_thread::get_id();
-        auto it = _thread_data.find(thread_id);
-        if (it == _thread_data.end())
+        std::lock_guard lock{ _trays_mutex };
+        auto it = _trays.find(tray_index);
+        if (it == _trays.end())
         {
-            it = _thread_data.insert({ thread_id, std::make_unique<ThreadData>(getLogicalDevice(),
-                                                                               _back_buffer_size,
+            it = _trays.insert({ tray_index, std::make_unique<Tray>(getLogicalDevice(),
+                                                                               _num_of_pools_per_tray,
                                                                                getQueueFamilyIndex()) }).first;
         }
-        return it->second->createCommandBuffers(count, render_target_image_index);
+        return it->second->createCommandBuffers(count, pool_index);
     }
 
 #pragma endregion

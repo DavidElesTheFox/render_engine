@@ -35,11 +35,16 @@ namespace RenderEngine
 
         UIRenderer(Window& window,
                    RenderTarget render_target,
-                   uint32_t back_buffer_size);
+                   uint32_t back_buffer_size,
+                   bool use_internal_command_buffers);
         void onFrameBegin(uint32_t) override final {}
         void draw(uint32_t swap_chain_image_index) override final
         {
-            draw(getFrameBuffer(swap_chain_image_index), getFrameData(swap_chain_image_index));
+            draw(getFrameBuffer(swap_chain_image_index), getFrameData(swap_chain_image_index).command_buffer);
+        }
+        void draw(VkCommandBuffer command_buffer, uint32_t swap_chain_image_index) final
+        {
+            draw(getFrameBuffer(swap_chain_image_index), command_buffer);
         }
 
         void setOnGui(std::function<void()> on_gui) { _on_gui = on_gui; }
@@ -57,7 +62,7 @@ namespace RenderEngine
 
         std::vector<AttachmentInfo> reinitializeAttachments(const RenderTarget&) override final { return {}; }
 
-        void draw(const VkFramebuffer& frame_buffer, FrameData& frame_data);
+        void draw(const VkFramebuffer& frame_buffer, VkCommandBuffer command_buffer);
         void loadVulkanPrototypes();
 
 

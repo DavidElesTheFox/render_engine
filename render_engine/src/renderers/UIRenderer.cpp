@@ -188,7 +188,8 @@ namespace RenderEngine
 
     UIRenderer::UIRenderer(Window& window,
                            RenderTarget render_target,
-                           uint32_t back_buffer_size)
+                           uint32_t back_buffer_size,
+                           bool use_internal_command_buffers)
         : SingleColorOutputRenderer(window.getRenderEngine())
         , _imgui_queue(window.getRenderEngine().getCommandContext().getQueue())
     {
@@ -211,7 +212,10 @@ namespace RenderEngine
         try
         {
             auto render_pass = createRenderPass(render_target, logical_device);
-            initializeRendererOutput(render_target, render_pass, back_buffer_size);
+            initializeRendererOutput(render_target,
+                                     render_pass,
+                                     back_buffer_size,
+                                     use_internal_command_buffers);
             _descriptor_pool = createDescriptorPool(logical_device);
 
             ImGui_ImplVulkan_InitInfo init_info = {};
@@ -268,7 +272,7 @@ namespace RenderEngine
         getLogicalDevice()->vkDestroyDescriptorPool(*getLogicalDevice(), _descriptor_pool, nullptr);
     }
 
-    void UIRenderer::draw(const VkFramebuffer& frame_buffer, FrameData& frame_data)
+    void UIRenderer::draw(const VkFramebuffer& frame_buffer, VkCommandBuffer command_buffer)
     {
         PROFILE_SCOPE();
         std::lock_guard access_lock{ getGlobals().access_mutex };
@@ -298,12 +302,12 @@ namespace RenderEngine
         VkCommandBufferBeginInfo begin_info{};
         begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-        if (getLogicalDevice()->vkBeginCommandBuffer(frame_data.command_buffer, &begin_info) != VK_SUCCESS)
+        if (getLogicalDevice()->vkBeginCommandBuffer(command_buffer, &begin_info) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to begin recording command buffer!");
         }
 
-        auto renderer_marker = _performance_markers.createMarker(frame_data.command_buffer, "UIRenderer");
+        auto renderer_marker = _performance_markers.createMarker(command_buffer, "UIRenderer");
 
         VkRenderPassBeginInfo render_pass_info{};
         render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -315,16 +319,16 @@ namespace RenderEngine
         render_pass_info.clearValueCount = 1;
         render_pass_info.pClearValues = &clearColor;
 
-        getLogicalDevice()->vkCmdBeginRenderPass(frame_data.command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
+        getLogicalDevice()->vkCmdBeginRenderPass(command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
         if (focused)
         {
             _on_gui();
             ImGui::Render();
-            ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), frame_data.command_buffer);
+            ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), command_buffer);
         }
-        getLogicalDevice()->vkCmdEndRenderPass(frame_data.command_buffer);
+        getLogicalDevice()->vkCmdEndRenderPass(command_buffer);
 
-        if (getLogicalDevice()->vkEndCommandBuffer(frame_data.command_buffer) != VK_SUCCESS)
+        if (getLogicalDevice()->vkEndCommandBuffer(command_buffer) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to record command buffer!");
         }

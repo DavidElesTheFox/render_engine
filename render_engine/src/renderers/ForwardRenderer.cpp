@@ -21,7 +21,8 @@
 namespace RenderEngine
 {
     ForwardRenderer::ForwardRenderer(IRenderEngine& render_engine,
-                                     RenderTarget render_target)
+                                     RenderTarget render_target,
+                                     bool use_internal_command_buffers)
         try : SingleColorOutputRenderer(render_engine)
     {
 
@@ -58,7 +59,10 @@ namespace RenderEngine
         {
             throw std::runtime_error("failed to create render pass!");
         }
-        initializeRendererOutput(render_target, render_pass, getRenderEngine().getGpuResourceManager().getBackBufferSize());
+        initializeRendererOutput(render_target,
+                                 render_pass,
+                                 getRenderEngine().getGpuResourceManager().getBackBufferSize(),
+                                 use_internal_command_buffers);
     }
     catch (const std::exception&)
     {
@@ -120,21 +124,19 @@ namespace RenderEngine
             _meshes.push_back(std::move(mesh_group));
         }
     }
-
-    void ForwardRenderer::draw(uint32_t swap_chain_image_index)
+    void ForwardRenderer::draw(VkCommandBuffer command_buffer, uint32_t swap_chain_image_index)
     {
         PROFILE_SCOPE();
-        FrameData& frame_data = getFrameData(swap_chain_image_index);
 
         VkCommandBufferBeginInfo begin_info{};
         begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-        if (getLogicalDevice()->vkBeginCommandBuffer(frame_data.command_buffer, &begin_info) != VK_SUCCESS)
+        if (getLogicalDevice()->vkBeginCommandBuffer(command_buffer, &begin_info) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to begin recording command buffer!");
         }
 
-        auto renderer_marker = _performance_markers.createMarker(frame_data.command_buffer,
+        auto renderer_marker = _performance_markers.createMarker(command_buffer,
                                                                  "ForwardRenderer");
         auto render_area = getRenderArea();
         VkRenderPassBeginInfo render_pass_info{};
@@ -147,15 +149,15 @@ namespace RenderEngine
         render_pass_info.clearValueCount = 1;
         render_pass_info.pClearValues = &clearColor;
 
-        getLogicalDevice()->vkCmdBeginRenderPass(frame_data.command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
+        getLogicalDevice()->vkCmdBeginRenderPass(command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
         for (auto& mesh_group : _meshes)
         {
-            auto technique_marker = _performance_markers.createMarker(frame_data.command_buffer,
+            auto technique_marker = _performance_markers.createMarker(command_buffer,
                                                                       mesh_group.technique->getMaterialInstance().getMaterial().getName());
 
-            MaterialInstance::UpdateContext material_update_context = mesh_group.technique->onFrameBegin(swap_chain_image_index, frame_data.command_buffer);
+            MaterialInstance::UpdateContext material_update_context = mesh_group.technique->onFrameBegin(swap_chain_image_index, command_buffer);
 
-            getLogicalDevice()->vkCmdBindPipeline(frame_data.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_group.technique->getPipeline());
+            getLogicalDevice()->vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_group.technique->getPipeline());
 
             VkViewport viewport{};
             viewport.x = 0.0f;
@@ -164,17 +166,17 @@ namespace RenderEngine
             viewport.height = (float)render_area.extent.height;
             viewport.minDepth = 0.0f;
             viewport.maxDepth = 1.0f;
-            getLogicalDevice()->vkCmdSetViewport(frame_data.command_buffer, 0, 1, &viewport);
+            getLogicalDevice()->vkCmdSetViewport(command_buffer, 0, 1, &viewport);
 
             VkRect2D scissor{};
             scissor.offset = { 0, 0 };
             scissor.extent = render_area.extent;
-            getLogicalDevice()->vkCmdSetScissor(frame_data.command_buffer, 0, 1, &scissor);
+            getLogicalDevice()->vkCmdSetScissor(command_buffer, 0, 1, &scissor);
             auto descriptor_sets = mesh_group.technique->collectDescriptorSets(swap_chain_image_index);
 
             if (descriptor_sets.empty() == false)
             {
-                getLogicalDevice()->vkCmdBindDescriptorSets(frame_data.command_buffer,
+                getLogicalDevice()->vkCmdBindDescriptorSets(command_buffer,
                                                             VK_PIPELINE_BIND_POINT_GRAPHICS,
                                                             mesh_group.technique->getPipelineLayout(),
                                                             0,
@@ -191,20 +193,25 @@ namespace RenderEngine
 
                 VkBuffer vertexBuffers[] = { mesh_buffers.vertex_buffer->getBuffer() };
                 VkDeviceSize offsets[] = { 0 };
-                getLogicalDevice()->vkCmdBindVertexBuffers(frame_data.command_buffer, 0, 1, vertexBuffers, offsets);
-                getLogicalDevice()->vkCmdBindIndexBuffer(frame_data.command_buffer, mesh_buffers.index_buffer->getBuffer(), 0, VK_INDEX_TYPE_UINT16);
+                getLogicalDevice()->vkCmdBindVertexBuffers(command_buffer, 0, 1, vertexBuffers, offsets);
+                getLogicalDevice()->vkCmdBindIndexBuffer(command_buffer, mesh_buffers.index_buffer->getBuffer(), 0, VK_INDEX_TYPE_UINT16);
 
 
-                getLogicalDevice()->vkCmdDrawIndexed(frame_data.command_buffer, static_cast<uint32_t>(mesh_buffers.index_buffer->getDeviceSize() / sizeof(uint16_t)), 1, 0, 0, 0);
+                getLogicalDevice()->vkCmdDrawIndexed(command_buffer, static_cast<uint32_t>(mesh_buffers.index_buffer->getDeviceSize() / sizeof(uint16_t)), 1, 0, 0, 0);
             }
             technique_marker.finish();
         }
-        getLogicalDevice()->vkCmdEndRenderPass(frame_data.command_buffer);
+        getLogicalDevice()->vkCmdEndRenderPass(command_buffer);
 
-        if (getLogicalDevice()->vkEndCommandBuffer(frame_data.command_buffer) != VK_SUCCESS)
+        if (getLogicalDevice()->vkEndCommandBuffer(command_buffer) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to record command buffer!");
         }
+    }
+
+    void ForwardRenderer::draw(uint32_t swap_chain_image_index)
+    {
+        draw(getFrameData(swap_chain_image_index).command_buffer, swap_chain_image_index);
     }
 
     void ForwardRenderer::onFrameBegin(uint32_t frame_number)

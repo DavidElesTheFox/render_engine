@@ -17,6 +17,7 @@ namespace RenderEngine
     void SingleColorOutputRenderer::initializeRendererOutput(RenderTarget& render_target,
                                                              VkRenderPass render_pass,
                                                              size_t back_buffer_size,
+                                                             bool create_internal_command_buffers,
                                                              const std::vector<AttachmentInfo>& render_pass_attachments)
     {
         _render_pass = render_pass;
@@ -25,7 +26,10 @@ namespace RenderEngine
         _render_area.offset = { 0, 0 };
         _render_area.extent = render_target.getExtent();
         createFrameBuffers(render_target, render_pass_attachments);
-        createCommandBuffer();
+        if (create_internal_command_buffers)
+        {
+            createCommandBuffer();
+        }
         initializeRenderTargetCommandContext(render_target);
 
     }
@@ -101,7 +105,7 @@ namespace RenderEngine
 
         for (uint32_t i = 0; i < _back_buffer.size(); ++i)
         {
-            VkCommandBuffer command_buffer = _render_engine.getCommandContext().createCommandBuffer(i);
+            VkCommandBuffer command_buffer = _render_engine.getCommandContext().createCommandBuffer(i, 0);
 
             _back_buffer[i].command_buffer = command_buffer;
         }

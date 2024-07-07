@@ -6,6 +6,7 @@
 #include <render_engine/LogicalDevice.h>
 namespace RenderEngine
 {
+    // TODO: remove it
     class CommandPoolFactory
     {
     public:

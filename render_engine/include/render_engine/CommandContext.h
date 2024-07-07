@@ -98,20 +98,20 @@ namespace RenderEngine
         SingleShotCommandContext& operator=(const SingleShotCommandContext&) = delete;
 
         ~SingleShotCommandContext() override;
-        VkCommandBuffer createCommandBuffer();
+        VkCommandBuffer createCommandBuffer(uint32_t tray_index);
 
 
         std::weak_ptr<SingleShotCommandContext> getWeakReference() { return shared_from_this(); }
 
     private:
-        class ThreadData;
+        class Tray;
 
         using std::enable_shared_from_this<SingleShotCommandContext>::shared_from_this;
         using std::enable_shared_from_this<SingleShotCommandContext>::weak_from_this;
 
 
-        std::unordered_map<std::thread::id, std::unique_ptr<ThreadData>> _thread_data;
-        mutable std::mutex _thread_data_mutex;
+        std::unordered_map<uint32_t, std::unique_ptr<Tray>> _trays;
+        mutable std::mutex _trays_mutex;
     };
 
     class CommandContext : public AbstractCommandContext
@@ -123,20 +123,20 @@ namespace RenderEngine
                                                       uint32_t queue_family_index,
                                                       DeviceLookup::QueueFamilyInfo queue_family_info,
                                                       RefObj<QueueLoadBalancer> queue_load_balancer,
-                                                      uint32_t back_buffer_size)
+                                                      uint32_t num_of_pool_per_tray)
         {
             return std::make_shared<CommandContext>(logical_device,
                                                     queue_family_index,
                                                     std::move(queue_family_info),
                                                     std::move(queue_load_balancer),
-                                                    back_buffer_size,
+                                                    num_of_pool_per_tray,
                                                     CreationToken{});
         }
         CommandContext(LogicalDevice& logical_device,
                        uint32_t queue_family_index,
                        DeviceLookup::QueueFamilyInfo queue_family_info,
                        RefObj<QueueLoadBalancer> queue_load_balancer,
-                       uint32_t back_buffer_size,
+                       uint32_t num_of_pools_per_tray,
                        CreationToken);
 
         CommandContext(CommandContext&&) noexcept = delete;
@@ -146,17 +146,16 @@ namespace RenderEngine
         CommandContext& operator=(const CommandContext&) = delete;
 
         ~CommandContext() override;
-        VkCommandBuffer createCommandBuffer(uint32_t render_target_image_index);
-        std::vector<VkCommandBuffer> createCommandBuffers(uint32_t count, uint32_t render_target_image_index);
+        VkCommandBuffer createCommandBuffer(uint32_t tray_index, uint32_t pool_index);
+        std::vector<VkCommandBuffer> createCommandBuffers(uint32_t count, uint32_t tray_index, uint32_t pool_index);
 
 
     private:
-        class ThreadData;
+        class Tray;
 
-        uint32_t _back_buffer_size{ 0 };
-
-        std::unordered_map<std::thread::id, std::unique_ptr<ThreadData>> _thread_data;
-        mutable std::mutex _thread_data_mutex;
+        uint32_t _num_of_pools_per_tray{ 0 };
+        std::unordered_map<uint32_t, std::unique_ptr<Tray>> _trays;
+        mutable std::mutex _trays_mutex;
     };
 
 

@@ -18,12 +18,13 @@ namespace RenderEngine
                                                std::shared_ptr<SingleShotCommandContext>&& transfer_context,
                                                std::shared_ptr<CommandContext>&& render_context,
                                                std::shared_ptr<CommandContext>&& present_context,
-                                               uint32_t back_buffer_count)
+                                               Description description)
         : _device(device)
         , _render_context(std::move(render_context))
         , _present_context(std::move(present_context))
         , _transfer_context(std::move(transfer_context))
-        , _gpu_resource_manager(std::make_unique<GpuResourceManager>(device.getPhysicalDevice(), device.getLogicalDevice(), back_buffer_count, kMaxNumOfResources))
+        , _description(std::move(description))
+        , _gpu_resource_manager(std::make_unique<GpuResourceManager>(device.getPhysicalDevice(), device.getLogicalDevice(), _description.backbuffer_count, kMaxNumOfResources))
         , _transfer_engine(std::make_unique<TransferEngine>(_transfer_context))
     {}
 
@@ -39,15 +40,13 @@ namespace RenderEngine
         }
         TaskflowBuilder task_flow_builder;
 
-        const uint32_t back_buffer_size = _gpu_resource_manager->getBackBufferSize();
-        uint32_t thread_count = back_buffer_size;
-        _rendering_processes.reserve(thread_count);
+        _rendering_processes.reserve(_description.thread_count);
         _skeleton = std::move(render_graph);
 
         _sync_objects.clear();
 
         std::vector<SyncObject*> non_const_sync_objects;
-        for (uint32_t i = 0; i < thread_count; ++i)
+        for (uint32_t i = 0; i < _description.thread_count; ++i)
         {
             std::unique_ptr<SyncObject> sync_object = std::make_unique<SyncObject>(_device.getLogicalDevice(), std::format("ExecutionContext-{:d}", i));
             for (const std::variant<RenderGraph::TimelineSemaphore, RenderGraph::BinarySemaphore>& semaphore_definition : _skeleton->getSemaphoreDefinitions())
@@ -61,7 +60,7 @@ namespace RenderEngine
             _sync_objects.push_back(std::move(sync_object));
         }
 
-        for (uint32_t i = 0; i < thread_count; ++i)
+        for (uint32_t i = 0; i < _description.thread_count; ++i)
         {
             auto rendering_process = std::make_unique<RenderingProcess>(non_const_sync_objects);
 

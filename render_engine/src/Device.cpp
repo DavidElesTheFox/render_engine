@@ -240,7 +240,9 @@ namespace RenderEngine
         _staging_area->destroy();
     }
 
-    std::unique_ptr<Window> Device::createParallelWindow(std::string_view name, uint32_t back_buffer_size)
+    std::unique_ptr<Window> Device::createParallelWindow(std::string_view name,
+                                                         uint32_t backbuffer_count,
+                                                         uint32_t thread_count)
     {
         constexpr auto width = 1024;
         constexpr auto height = 764;
@@ -268,18 +270,18 @@ namespace RenderEngine
                                                                                 this,
                                                                                 _queue_family_graphics,
                                                                                 _queue_family_present,
-                                                                                back_buffer_size,
+                                                                                backbuffer_count,
                                                                                 true });
-            std::unique_ptr<IRenderEngine> render_engine = createParallelRenderEngine(back_buffer_size);
+            std::unique_ptr<IRenderEngine> render_engine = createParallelRenderEngine(backbuffer_count, thread_count);
             auto command_context = CommandContext::create(_logical_device,
                                                           _queue_family_present,
                                                           _device_info.queue_families.at(_queue_family_present),
                                                           *_queue_balancers.at(_queue_family_present),
-                                                          back_buffer_size);
+                                                          backbuffer_count);
             return std::make_unique<Window>(*this, std::move(render_engine),
                                             window,
-                                            std::move(swap_chain)
-                                            , std::move(command_context));
+                                            std::move(swap_chain),
+                                            std::move(command_context));
         }
         catch (const std::runtime_error&)
         {
@@ -372,8 +374,14 @@ namespace RenderEngine
                                                                      back_buffer_size),
                                               back_buffer_size);
     }
-    std::unique_ptr<ParallelRenderEngine> Device::createParallelRenderEngine(uint32_t back_buffer_size)
+    std::unique_ptr<ParallelRenderEngine> Device::createParallelRenderEngine(uint32_t backbuffer_count,
+                                                                             uint32_t thread_count)
     {
+        ParallelRenderEngine::Description render_engine_description
+        {
+            .backbuffer_count = backbuffer_count,
+            .thread_count = thread_count
+        };
         return std::make_unique<ParallelRenderEngine>(*this,
                                                       SingleShotCommandContext::create(_logical_device,
                                                                                        _queue_family_transfer,
@@ -383,13 +391,13 @@ namespace RenderEngine
                                                                              _queue_family_graphics,
                                                                              _device_info.queue_families.at(_queue_family_graphics),
                                                                              *_queue_balancers.at(_queue_family_graphics),
-                                                                             back_buffer_size),
+                                                                             render_engine_description.backbuffer_count),
                                                       CommandContext::create(_logical_device,
                                                                              _queue_family_present,
                                                                              _device_info.queue_families.at(_queue_family_present),
                                                                              *_queue_balancers.at(_queue_family_present),
-                                                                             back_buffer_size),
-                                                      back_buffer_size);
+                                                                             render_engine_description.backbuffer_count),
+                                                      std::move(render_engine_description));
     }
 
     std::unique_ptr<TransferEngine> Device::createTransferEngine()

@@ -11,7 +11,9 @@ SingleWindowSetup::SingleWindowSetup(std::vector<uint32_t> renderer_ids, bool us
     renderer_ids.push_back(UIRenderer::kRendererId);
     if (use_parallel_engine)
     {
-        _window = RenderContext::context().getDevice(0).createParallelWindow("Demo window Paralell Engine", this->getBackbufferCount());
+        _window = RenderContext::context().getDevice(0).createParallelWindow("Demo window Parallel Engine",
+                                                                             getBackbufferCount(),
+                                                                             getThreadCount());
     }
     else
     {

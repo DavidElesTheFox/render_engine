@@ -188,12 +188,12 @@ namespace RenderEngine::RenderGraph
                                                      pool_index.sync_object_index,
                                                      std::this_thread::get_id());
 
-        constexpr auto timeout = 1s;
+        constexpr auto timeout = 10s;
         if (waitAndUpdateFrameNumber(execution_context.getCurrentFrameNumber(), timeout) == false)
         {
             throw std::runtime_error("Frame continuity issue, can't wait for the frame");
         }
-        _frame_continuity_condition.notify_one();
+        _frame_continuity_condition.notify_all();
 
         auto sync_object_holder = execution_context.getSyncObject(pool_index.sync_object_index);
         const auto& in_operations = sync_object_holder.sync_object.getOperationsGroup(getName());
@@ -229,12 +229,16 @@ namespace RenderEngine::RenderGraph
             return true;
         }
 
-        const bool success = _frame_continuity_condition.wait_for(lock, timeout, [=] { return _current_frame_number == frame_number; });
-        if (success)
+        _frame_continuity_condition.wait_for(lock, timeout, [=] { return _current_frame_number == frame_number; });
+        if (_current_frame_number == frame_number)
         {
             _current_frame_number++;
+            return true;
         }
-        return success;
+        else
+        {
+            return false;
+        }
     }
 
     void CpuNode::execute(ExecutionContext& execution_context, QueueSubmitTracker*)

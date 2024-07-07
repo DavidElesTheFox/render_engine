@@ -19,11 +19,17 @@ namespace RenderEngine
     {
     public:
 
+        struct Description
+        {
+            uint32_t backbuffer_count{ 0 };
+            uint32_t thread_count{ 0 };
+        };
+
         ParallelRenderEngine(Device& device,
                              std::shared_ptr<SingleShotCommandContext>&& transfer_context,
                              std::shared_ptr<CommandContext>&& render_context,
                              std::shared_ptr<CommandContext>&& present_context,
-                             uint32_t back_buffer_count);
+                             Description description);
         ~ParallelRenderEngine() override = default;
         RenderGraph::RenderGraphBuilder createRenderGraphBuilder(std::string graph_name);
         void setRenderGraph(std::unique_ptr<RenderGraph::Graph> render_graph);
@@ -59,6 +65,7 @@ namespace RenderEngine
         std::shared_ptr<CommandContext> _render_context;
         std::shared_ptr<CommandContext> _present_context;
         std::shared_ptr<SingleShotCommandContext> _transfer_context;
+        Description _description;
 
         std::unique_ptr<RenderGraph::Graph> _skeleton;
         std::unique_ptr<GpuResourceManager> _gpu_resource_manager;

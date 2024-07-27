@@ -13,7 +13,7 @@ SingleWindowSetup::SingleWindowSetup(std::vector<uint32_t> renderer_ids, bool us
     {
         _window = RenderContext::context().getDevice(0).createParallelWindow("Demo window Parallel Engine",
                                                                              getBackbufferCount(),
-                                                                             getThreadCount());
+                                                                             getParallelFrameCount());
     }
     else
     {

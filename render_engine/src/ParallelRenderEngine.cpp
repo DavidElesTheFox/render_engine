@@ -26,6 +26,7 @@ namespace RenderEngine
         , _description(std::move(description))
         , _gpu_resource_manager(std::make_unique<GpuResourceManager>(device.getPhysicalDevice(), device.getLogicalDevice(), _description.backbuffer_count, kMaxNumOfResources))
         , _transfer_engine(std::make_unique<TransferEngine>(_transfer_context))
+        , _task_flow_executor()
     {}
 
     RenderGraphBuilder ParallelRenderEngine::createRenderGraphBuilder(std::string graph_name)
@@ -40,13 +41,13 @@ namespace RenderEngine
         }
         TaskflowBuilder task_flow_builder;
 
-        _rendering_processes.reserve(_description.thread_count);
+        _rendering_processes.reserve(_description.parallel_frame_count);
         _skeleton = std::move(render_graph);
 
-        _sync_objects.clear();
 
-        std::vector<SyncObject*> non_const_sync_objects;
-        for (uint32_t i = 0; i < _description.thread_count; ++i)
+        std::vector<std::unique_ptr<SyncObject>> sync_objects;
+        std::vector<SyncObject*> sync_object_references;
+        for (uint32_t i = 0; i < _description.parallel_frame_count; ++i)
         {
             std::unique_ptr<SyncObject> sync_object = std::make_unique<SyncObject>(_device.getLogicalDevice(), std::format("ExecutionContext-{:d}", i));
             for (const std::variant<RenderGraph::TimelineSemaphore, RenderGraph::BinarySemaphore>& semaphore_definition : _skeleton->getSemaphoreDefinitions())
@@ -56,19 +57,20 @@ namespace RenderEngine
                     [&](const RenderGraph::BinarySemaphore& semaphore) { sync_object->createSemaphore(semaphore.getName()); }),
                     semaphore_definition);
             }
-            non_const_sync_objects.push_back(sync_object.get());
-            _sync_objects.push_back(std::move(sync_object));
+            sync_object_references.push_back(sync_object.get());
+            sync_objects.push_back(std::move(sync_object));
         }
 
-        for (uint32_t i = 0; i < _description.thread_count; ++i)
+        for (uint32_t i = 0; i < _description.parallel_frame_count; ++i)
         {
-            auto rendering_process = std::make_unique<RenderingProcess>(non_const_sync_objects);
+            auto rendering_process = std::make_unique<RenderingProcess>(std::move(sync_objects[i]));
+            sync_objects[i] = nullptr;
 
 
             rendering_process->task_flow = task_flow_builder.createTaskflow(*_skeleton,
                                                                             rendering_process->execution_context,
                                                                             _device.getLogicalDevice(),
-                                                                            non_const_sync_objects[i]);
+                                                                            sync_object_references[i]);
             _rendering_processes.push_back(std::move(rendering_process));
         }
     }
@@ -106,8 +108,7 @@ namespace RenderEngine
             current_process->execution_context.clearSubmitTrackersPool();
         }
         current_process->execution_context.setCurrentFrameNumber(_render_call_count);
-        current_process->calling_token = current_process->executor.run(current_process->task_flow);
-
+        current_process->calling_token = _task_flow_executor.run(current_process->task_flow);
 
         auto& debugger = RenderContext::context().getDebugger();
         debugger.print(Debug::Topics::Synchronization{}, "Synchronization Log @{:d}: \n{:s}\n",

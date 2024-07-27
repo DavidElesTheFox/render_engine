@@ -105,7 +105,11 @@ namespace
             * It means we need to wait until the execution is finished on the GPU:
             */
             execution_context.findSubmitTracker(_image_user_node_name).wait();
+            // Issue is here with intel gpu :
 
+            // Frame i is rendered by execution context j (j = i % parallel_frame_count)
+            // Then sync_object index will be choosen by available sync objects (no host operation): k
+            // When k is not equal to i then there is no guarantee that on the gpu there is no pending operation.
             std::optional<rg::ExecutionContext::PoolIndex> pool_index = _swap_chain_image_selector.getNextImage(execution_context);
 
             if (pool_index == std::nullopt)
@@ -144,7 +148,9 @@ namespace
         PROFILE_SCOPE();
         auto sync_object_holder = execution_context.getAllSyncObject();
 
-        const uint32_t sync_object_index = chooseSyncObjectIndex(sync_object_holder.sync_objects);
+        //const uint32_t sync_object_index = chooseSyncObjectIndex(sync_object_holder.sync_objects);
+        // So it turned out we don't need to see all the sync objects. Move sync object into ExecutionContext.
+        const uint32_t sync_object_index = execution_context.getCurrentFrameNumber() % 3;
 
         std::optional<uint32_t> image_index = tryAcquireImage(execution_context,
                                                               sync_object_index);

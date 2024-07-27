@@ -242,7 +242,7 @@ namespace RenderEngine
 
     std::unique_ptr<Window> Device::createParallelWindow(std::string_view name,
                                                          uint32_t backbuffer_count,
-                                                         uint32_t thread_count)
+                                                         uint32_t parallel_frame_count)
     {
         constexpr auto width = 1024;
         constexpr auto height = 764;
@@ -272,7 +272,7 @@ namespace RenderEngine
                                                                                 _queue_family_present,
                                                                                 backbuffer_count,
                                                                                 true });
-            std::unique_ptr<IRenderEngine> render_engine = createParallelRenderEngine(backbuffer_count, thread_count);
+            std::unique_ptr<IRenderEngine> render_engine = createParallelRenderEngine(backbuffer_count, parallel_frame_count);
             auto command_context = CommandContext::create(_logical_device,
                                                           _queue_family_present,
                                                           _device_info.queue_families.at(_queue_family_present),
@@ -375,12 +375,12 @@ namespace RenderEngine
                                               back_buffer_size);
     }
     std::unique_ptr<ParallelRenderEngine> Device::createParallelRenderEngine(uint32_t backbuffer_count,
-                                                                             uint32_t thread_count)
+                                                                             uint32_t parallel_frame_count)
     {
         ParallelRenderEngine::Description render_engine_description
         {
             .backbuffer_count = backbuffer_count,
-            .thread_count = thread_count
+            .parallel_frame_count = parallel_frame_count
         };
         return std::make_unique<ParallelRenderEngine>(*this,
                                                       SingleShotCommandContext::create(_logical_device,

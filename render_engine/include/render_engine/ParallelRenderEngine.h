@@ -21,8 +21,13 @@ namespace RenderEngine
 
         struct Description
         {
+            // TODO: Add constructor and ensure that parallel_frame_count <= backbuffer_count.
+        /*
+         * The problem : Having 20 threads with 1 frame buffer.If the 2nd frame is finished first we cannot wait here
+         * because if we are waiting here then there will be no available swap chain image for the 1st frame
+         */
             uint32_t backbuffer_count{ 0 };
-            uint32_t thread_count{ 0 };
+            uint32_t parallel_frame_count{ 0 };
         };
 
         ParallelRenderEngine(Device& device,
@@ -46,8 +51,8 @@ namespace RenderEngine
     private:
         struct RenderingProcess
         {
-            RenderingProcess(std::vector<SyncObject*> sync_objects)
-                : execution_context(std::move(sync_objects))
+            RenderingProcess(std::unique_ptr<SyncObject*> sync_object)
+                : execution_context(std::move(sync_object))
             {}
 
             RenderingProcess(RenderingProcess&& o) noexcept = delete;
@@ -58,7 +63,6 @@ namespace RenderEngine
 
             RenderGraph::ExecutionContext execution_context;
             tf::Taskflow task_flow;
-            tf::Executor executor;
             tf::Future<void> calling_token;
         };
         Device& _device;
@@ -71,7 +75,9 @@ namespace RenderEngine
         std::unique_ptr<GpuResourceManager> _gpu_resource_manager;
         std::unique_ptr<TransferEngine> _transfer_engine;
         std::vector<std::unique_ptr<RenderingProcess>> _rendering_processes;
-        std::vector<std::unique_ptr<SyncObject>> _sync_objects;
         uint64_t _render_call_count{ 0 };
+
+        tf::Executor _task_flow_executor;
+
     };
 }

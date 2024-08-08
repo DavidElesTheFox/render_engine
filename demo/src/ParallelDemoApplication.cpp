@@ -71,8 +71,7 @@ namespace
 
         uint32_t chooseSyncObjectIndex(const std::vector<const RenderEngine::SyncObject*>& sync_objects);
 
-        std::optional<uint32_t> tryAcquireImage(rg::ExecutionContext& execution_context,
-                                                uint32_t available_index) const;
+        std::optional<uint32_t> tryAcquireImage(rg::ExecutionContext& execution_context) const;
 
         mutable std::shared_mutex _occupied_indexes_mutex;
         RenderEngine::IndexSet<uint32_t> _occupied_sync_object_indexes; /**< On the CPU the draw calls are recording right now*/
@@ -146,14 +145,8 @@ namespace
     std::optional<rg::ExecutionContext::PoolIndex> SwapChainImageSelector::getNextImage(rg::ExecutionContext& execution_context)
     {
         PROFILE_SCOPE();
-        auto sync_object_holder = execution_context.getAllSyncObject();
 
-        //const uint32_t sync_object_index = chooseSyncObjectIndex(sync_object_holder.sync_objects);
-        // So it turned out we don't need to see all the sync objects. Move sync object into ExecutionContext.
-        const uint32_t sync_object_index = execution_context.getCurrentFrameNumber() % 3;
-
-        std::optional<uint32_t> image_index = tryAcquireImage(execution_context,
-                                                              sync_object_index);
+        std::optional<uint32_t> image_index = tryAcquireImage(execution_context);
 
         if (image_index == std::nullopt)
         {
@@ -164,10 +157,9 @@ namespace
         RenderEngine::RenderContext::context().getDebugger().print(RenderEngine::Debug::Topics::RenderGraphExecution{},
                                                                    "Image Acquire: Image index {:d} (Using synchronization object: {:d}) [thread: {}]",
                                                                    *image_index,
-                                                                   sync_object_index,
                                                                    (std::stringstream{} << std::this_thread::get_id()).str());
 
-        return rg::ExecutionContext::PoolIndex{ .render_target_index = *image_index, .sync_object_index = sync_object_index };
+        return rg::ExecutionContext::PoolIndex{ .render_target_index = *image_index, .sync_object_index = 0 };
     }
     uint32_t SwapChainImageSelector::chooseSyncObjectIndex(const std::vector<const RenderEngine::SyncObject*>& sync_objects)
     {
@@ -188,7 +180,7 @@ namespace
         _occupied_sync_object_indexes.insert(available_index);
         return available_index;
     }
-    std::optional<uint32_t> SwapChainImageSelector::tryAcquireImage(rg::ExecutionContext& execution_context, uint32_t available_index) const
+    std::optional<uint32_t> SwapChainImageSelector::tryAcquireImage(rg::ExecutionContext& execution_context) const
     {
         PROFILE_SCOPE();
         using namespace std::chrono_literals;
@@ -212,7 +204,7 @@ namespace
             PROFILE_SCOPE("SwapChainImageSelector::tryAcquireImage - probe");
             const uint64_t timeout_ns = timeout.count();
             acquire_result = _swap_chain.acquireNextImage(timeout_ns,
-                                                          execution_context.getSyncObject(available_index).sync_object.getPrimitives().getSemaphore(ImageAcquireTask::image_available_semaphore_name),
+                                                          execution_context.getSyncObject().getPrimitives().getSemaphore(ImageAcquireTask::image_available_semaphore_name),
                                                           VK_NULL_HANDLE);
             if (acquire_result.result == VK_TIMEOUT)
             {

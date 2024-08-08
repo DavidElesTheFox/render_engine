@@ -45,34 +45,31 @@ namespace RenderEngine
         _skeleton = std::move(render_graph);
 
 
-        std::vector<std::unique_ptr<SyncObject>> sync_objects;
-        std::vector<SyncObject*> sync_object_references;
         for (uint32_t i = 0; i < _description.parallel_frame_count; ++i)
         {
-            std::unique_ptr<SyncObject> sync_object = std::make_unique<SyncObject>(_device.getLogicalDevice(), std::format("ExecutionContext-{:d}", i));
-            for (const std::variant<RenderGraph::TimelineSemaphore, RenderGraph::BinarySemaphore>& semaphore_definition : _skeleton->getSemaphoreDefinitions())
-            {
-                std::visit(overloaded(
-                    [&](const RenderGraph::TimelineSemaphore& semaphore) { sync_object->createTimelineSemaphore(semaphore.getName(), semaphore.getInitialValue(), semaphore.getValueRange()); },
-                    [&](const RenderGraph::BinarySemaphore& semaphore) { sync_object->createSemaphore(semaphore.getName()); }),
-                    semaphore_definition);
-            }
-            sync_object_references.push_back(sync_object.get());
-            sync_objects.push_back(std::move(sync_object));
-        }
-
-        for (uint32_t i = 0; i < _description.parallel_frame_count; ++i)
-        {
-            auto rendering_process = std::make_unique<RenderingProcess>(std::move(sync_objects[i]));
-            sync_objects[i] = nullptr;
-
+            auto sync_object = createSyncObjectFromGraph(*_skeleton, std::format("ExecutionContext-{:d}", i));
+            SyncObject* non_const_sync_object = sync_object.get();
+            auto rendering_process = std::make_unique<RenderingProcess>(std::move(sync_object));
 
             rendering_process->task_flow = task_flow_builder.createTaskflow(*_skeleton,
                                                                             rendering_process->execution_context,
                                                                             _device.getLogicalDevice(),
-                                                                            sync_object_references[i]);
+                                                                            non_const_sync_object);
             _rendering_processes.push_back(std::move(rendering_process));
         }
+    }
+
+    std::unique_ptr<SyncObject> ParallelRenderEngine::createSyncObjectFromGraph(const RenderGraph::Graph& graph, std::string name) const
+    {
+        std::unique_ptr<SyncObject> sync_object = std::make_unique<SyncObject>(_device.getLogicalDevice(), name);
+        for (const std::variant<RenderGraph::TimelineSemaphore, RenderGraph::BinarySemaphore>& semaphore_definition : graph.getSemaphoreDefinitions())
+        {
+            std::visit(overloaded(
+                [&](const RenderGraph::TimelineSemaphore& semaphore) { sync_object->createTimelineSemaphore(semaphore.getName(), semaphore.getInitialValue(), semaphore.getValueRange()); },
+                [&](const RenderGraph::BinarySemaphore& semaphore) { sync_object->createSemaphore(semaphore.getName()); }),
+                semaphore_definition);
+        }
+        return sync_object;
     }
 
     void ParallelRenderEngine::waitIdle()

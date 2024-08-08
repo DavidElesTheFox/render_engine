@@ -51,7 +51,7 @@ namespace RenderEngine
     private:
         struct RenderingProcess
         {
-            RenderingProcess(std::unique_ptr<SyncObject*> sync_object)
+            RenderingProcess(std::unique_ptr<SyncObject> sync_object)
                 : execution_context(std::move(sync_object))
             {}
 
@@ -65,6 +65,9 @@ namespace RenderEngine
             tf::Taskflow task_flow;
             tf::Future<void> calling_token;
         };
+
+        std::unique_ptr<SyncObject> createSyncObjectFromGraph(const RenderGraph::Graph& graph, std::string name) const;
+
         Device& _device;
         std::shared_ptr<CommandContext> _render_context;
         std::shared_ptr<CommandContext> _present_context;

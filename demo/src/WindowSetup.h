@@ -20,7 +20,7 @@ public:
     RenderEngine::Window& getUiWindow() override { return *_window; };
     void update() override { _window->update(); }
     uint32_t getBackbufferCount() const override { return 3; }
-    uint32_t getParallelFrameCount() const { return 3; }
+    uint32_t getParallelFrameCount() const { return 1; }
 private:
     std::unique_ptr<RenderEngine::Window> _window;
 };

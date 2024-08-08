@@ -33,9 +33,8 @@ namespace RenderEngine
                 std::function<void(const PoolIndex&)> on_pool_index_clear;
             };
 
-            explicit ExecutionContext(std::vector<SyncObject*> sync_objects)
-                : _sync_objects(std::move(sync_objects))
-                , _const_sync_objects(_sync_objects | views::to<std::vector<const SyncObject*>>())
+            explicit ExecutionContext(std::unique_ptr<SyncObject> sync_object)
+                : _sync_object(std::move(sync_object))
             {}
 
             ExecutionContext(const ExecutionContext&) noexcept = delete;
@@ -51,41 +50,16 @@ namespace RenderEngine
 
             bool isDrawCallRecorded() const { return _draw_call_recorded.load(std::memory_order_relaxed); }
             void setDrawCallRecorded(bool v) { _draw_call_recorded.store(v, std::memory_order_relaxed); }
-            auto getSyncObject(uint32_t render_target_index) const
+            const SyncObject& getSyncObject() const
             {
-                PROFILE_SCOPE();
-                struct Result
-                {
-                    Result(const SyncObject& sync_object, std::shared_lock<std::shared_mutex>&& lock)
-                        : lock(std::move(lock))
-                        , sync_object(sync_object)
-                    {}
-                    std::shared_lock<std::shared_mutex> lock;
-                    const SyncObject& sync_object;
-                };
-                auto lock = std::shared_lock{ _sync_object_access_mutex };
-                return Result{ *_sync_objects[render_target_index], std::shared_lock{ _sync_object_access_mutex } };
-            }
-            auto getAllSyncObject() const
-            {
-                PROFILE_SCOPE();
-                struct Result
-                {
-                    Result(const std::vector<const SyncObject*>& sync_objects, std::shared_lock<std::shared_mutex>&& lock)
-                        : sync_objects(sync_objects)
-                        , lock(std::move(lock))
-                    {}
-                    const std::vector<const SyncObject*>& sync_objects;
-                    std::shared_lock<std::shared_mutex> lock;
-                };
-                return Result{ _const_sync_objects, std::shared_lock{_sync_object_access_mutex} };
+                return *_sync_object;
             }
 
-            void stepTimelineSemaphore(uint32_t render_target_index, const std::string& name)
+            void stepTimelineSemaphore(const std::string& name)
             {
                 PROFILE_SCOPE();
                 std::unique_lock lock{ _sync_object_access_mutex };
-                _sync_objects[render_target_index]->stepTimeline(name);
+                _sync_object->stepTimeline(name);
             }
 
             void addEvents(Events events);
@@ -132,8 +106,7 @@ namespace RenderEngine
             std::atomic_bool _draw_call_recorded{ false };
 
             mutable std::shared_mutex _sync_object_access_mutex;
-            std::vector<SyncObject*> _sync_objects;
-            std::vector<const SyncObject*> _const_sync_objects;
+            std::unique_ptr<SyncObject> _sync_object;
 
             mutable std::shared_mutex _event_mutex;
             std::vector<Events> _events;

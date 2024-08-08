@@ -349,5 +349,4 @@ namespace RenderEngine::RenderGraph
         }
         _semaphore_definitions.insert({ semaphore.getName(), std::move(semaphore) });
     }
-
 }

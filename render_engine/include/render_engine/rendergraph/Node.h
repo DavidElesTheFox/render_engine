@@ -9,6 +9,7 @@
 #include <render_engine/TransferEngine.h>
 #include <render_engine/window/SwapChain.h>
 
+#include <deque>
 #include <map>
 #include <memory>
 #include <string>
@@ -37,24 +38,14 @@ namespace RenderEngine::RenderGraph
         }
 
         virtual void execute(ExecutionContext&, QueueSubmitTracker*) = 0;
-        virtual void registerExectionContext(ExecutionContext&) = 0;
+        virtual void registerExecutionContext(ExecutionContext&) = 0;
 
         virtual void accept(GraphVisitor&) = 0;
 
         virtual bool isActive() const = 0;
 
-        bool isUsesTracking() const
-        {
-            return _uses_tracking.load(std::memory_order_relaxed);
-        }
-
-        void setUsesTracking(bool value)
-        {
-            _uses_tracking = value;
-        }
     private:
         std::string _name;
-        std::atomic_bool _uses_tracking{ false };
     };
 
     class NullNode final : public Node
@@ -66,7 +57,7 @@ namespace RenderEngine::RenderGraph
         void accept(GraphVisitor&) override {}
 
         void execute(ExecutionContext&, QueueSubmitTracker*) override {}
-        void registerExectionContext(ExecutionContext&) override {};
+        void registerExecutionContext(ExecutionContext&) override {};
 
         bool isActive() const override { return true; }
     };
@@ -80,14 +71,12 @@ namespace RenderEngine::RenderGraph
             : Node(std::move(name))
             , _command_context(command_context)
             , _renderer(std::move(renderer))
-        {
-            setUsesTracking(true);
-        }
+        {}
         ~RenderNode() override = default;
 
         void accept(GraphVisitor& visitor) override;
         void execute(ExecutionContext& execution_context, QueueSubmitTracker* queue_tracker) override;
-        void registerExectionContext(ExecutionContext&) override {};
+        void registerExecutionContext(ExecutionContext&) override {};
 
         bool isActive() const override { return true; }
     private:
@@ -114,7 +103,7 @@ namespace RenderEngine::RenderGraph
         DataTransferScheduler& getScheduler() { return _scheduler; }
 
         void execute(ExecutionContext& execution_context, QueueSubmitTracker* queue_tracker) override;
-        void registerExectionContext(ExecutionContext&) override {};
+        void registerExecutionContext(ExecutionContext&) override {};
 
         void accept(GraphVisitor& visitor) override;
         bool isActive() const override;
@@ -133,7 +122,7 @@ namespace RenderEngine::RenderGraph
         ~DeviceSynchronizeNode() override = default;
 
         void execute(ExecutionContext& execution_context, QueueSubmitTracker* queue_tracker) override;
-        void registerExectionContext(ExecutionContext&) override {};
+        void registerExecutionContext(ExecutionContext&) override {};
 
         void accept(GraphVisitor& visitor) override;
         bool isActive() const override;
@@ -161,7 +150,7 @@ namespace RenderEngine::RenderGraph
 
         ~ComputeNode() override = default;
         void execute(ExecutionContext& execution_context, QueueSubmitTracker* queue_tracker) override;
-        void registerExectionContext(ExecutionContext& execution_context) override { _compute_task->registerExectionContext(execution_context); };
+        void registerExecutionContext(ExecutionContext& execution_context) override { _compute_task->registerExectionContext(execution_context); };
         bool isActive() const override { return _compute_task->isActive(); }
 
         void accept(GraphVisitor& visitor) override;
@@ -180,7 +169,7 @@ namespace RenderEngine::RenderGraph
             , _command_context(command_context)
         {}
         void execute(ExecutionContext& execution_context, QueueSubmitTracker* queue_tracker) override;
-        void registerExectionContext(ExecutionContext&) override {};
+        void registerExecutionContext(ExecutionContext&) override {};
 
         void accept(GraphVisitor& visitor) final;
         bool isActive() const final { return true; }
@@ -196,7 +185,7 @@ namespace RenderEngine::RenderGraph
         uint64_t _current_frame_number{ 0 };
     };
 
-    class CpuNode final : public Node
+    class CpuNode : public Node
     {
     public:
         class ICpuTask
@@ -205,18 +194,28 @@ namespace RenderEngine::RenderGraph
             virtual ~ICpuTask() = default;
             virtual void run(ExecutionContext& execution_context) = 0;
             virtual bool isActive() const = 0;
-            virtual void registerExectionContext(ExecutionContext&) = 0;
+            virtual void registerExecutionContext(ExecutionContext&) = 0;
         };
         CpuNode(std::string name, std::unique_ptr<ICpuTask> cpu_task)
             : Node(std::move(name))
             , _cpu_task(std::move(cpu_task))
         {}
-        void execute(ExecutionContext& execution_context, QueueSubmitTracker* queue_tracker) override;
-        void registerExectionContext(ExecutionContext& execution_context) override { _cpu_task->registerExectionContext(execution_context); };
+        ~CpuNode() override = default;
+        void execute(ExecutionContext& execution_context, QueueSubmitTracker* queue_tracker) final;
+        void registerExecutionContext(ExecutionContext& execution_context) final { _cpu_task->registerExecutionContext(execution_context); };
 
         void accept(GraphVisitor& visitor) final;
         bool isActive() const final { return _cpu_task->isActive(); }
+    protected:
+        template<typename T>
+            requires std::derived_from<T, ICpuTask>
+        T& getTaskAs() { return static_cast<T&>(*_cpu_task); }
+
+        template<typename T>
+            requires std::derived_from<T, ICpuTask>
+        const T& getTaskAs() const { return static_cast<const T&>(*_cpu_task); }
     private:
         std::unique_ptr<ICpuTask> _cpu_task;
     };
+
 }

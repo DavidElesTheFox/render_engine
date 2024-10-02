@@ -16,11 +16,13 @@ namespace RenderEngine::RenderGraph
             VisitorForTaskCreation(Graph& graph,
                                    ExecutionContext& execution_context,
                                    LogicalDevice& logical_device,
-                                   SyncObject* sync_object)
+                                   SyncObject* sync_object,
+                                   SyncFeedbackService& feedback_service)
                 : GraphVisitor(graph)
                 , _logical_device(logical_device)
                 , _sync_object(sync_object)
                 , _execution_context(execution_context)
+                , _feedback_service(feedback_service)
 
             {}
 
@@ -135,6 +137,7 @@ namespace RenderEngine::RenderGraph
             LogicalDevice& _logical_device;
             SyncObject* _sync_object{ nullptr };
             ExecutionContext& _execution_context;
+            SyncFeedbackService& _feedback_service;
             tf::Taskflow _task_container;
             std::unordered_map<std::string, tf::Task> _task_map;
         };
@@ -180,13 +183,12 @@ namespace RenderEngine::RenderGraph
             RenderContext::context().getDebugger().print(Debug::Topics::RenderGraphBuilder{}, "Visit node: " + node->getName());
             collectSyncOperationForNode(node);
 
-            node->registerExectionContext(_execution_context);
+            node->registerExecutionContext(_execution_context);
             QueueSubmitTracker* submit_tracker = nullptr;
-            if (node->isUsesTracking())
             {
                 auto tracker = std::make_unique<QueueSubmitTracker>(_logical_device, node->getName());
                 submit_tracker = tracker.get();
-                _execution_context.addQueueSubmitTracker(node->getName(), std::move(tracker));
+                _feedback_service.registerTracker(_sync_object, node->getName(), std::move(tracker));
             }
 
             auto tf_task = _task_container.emplace([node, &execution_context_for_job = _execution_context, submit_tracker]
@@ -195,7 +197,6 @@ namespace RenderEngine::RenderGraph
                                                        {
                                                            return;
                                                        }
-                                                       // TODO implement tracking: Probably the parameter can go to a member of the node
                                                        node->execute(execution_context_for_job, submit_tracker);
                                                    });
             assert(_task_map.contains(node->getName()) == false);
@@ -207,9 +208,10 @@ namespace RenderEngine::RenderGraph
     tf::Taskflow TaskflowBuilder::createTaskflow(Graph& graph,
                                                  ExecutionContext& execution_context,
                                                  LogicalDevice& logical_device,
-                                                 SyncObject* sync_object)
+                                                 SyncObject* sync_object,
+                                                 SyncFeedbackService& feedback_service)
     {
-        VisitorForTaskCreation visitor(graph, execution_context, logical_device, sync_object);
+        VisitorForTaskCreation visitor(graph, execution_context, logical_device, sync_object, feedback_service);
         visitor.run();
         return visitor.clear();
     }

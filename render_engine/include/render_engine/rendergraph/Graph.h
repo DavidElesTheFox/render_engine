@@ -59,6 +59,7 @@ namespace RenderEngine::RenderGraph
 
         Node& addNode(std::unique_ptr<Node> node);
         Link& addEdge(std::unique_ptr<Link> edge);
+        Node& replaceNode(const Node* old_node, std::unique_ptr<Node> new_node);
 
         void removeNode(const Node* node);
         void removeEdge(const Node* from, const Node* to);
@@ -91,6 +92,7 @@ namespace RenderEngine::RenderGraph
 
             void addNode(std::unique_ptr<Node> node);
             void addEdge(std::unique_ptr<Link> link);
+            void replaceNode(const Node* old_node, std::unique_ptr<Node> new_node);
 
             void removeNode(const Node* node);
             void removeEdge(const Link* from);
@@ -114,6 +116,11 @@ namespace RenderEngine::RenderGraph
                 : _command(std::move(command))
                 , _object(object)
             {}
+            CommandWrapper(std::function<void(GraphRepresentation&, std::unique_ptr<T>&&, const T*)>&& command, std::unique_ptr<T> owned_object, const T* object)
+                : _command(std::move(command))
+                , _owned_object(std::move(owned_object))
+                , _object(object)
+            {}
             CommandWrapper(CommandWrapper&&) = default;
             CommandWrapper(const CommandWrapper&) = delete;
 
@@ -135,11 +142,11 @@ namespace RenderEngine::RenderGraph
 
         std::unordered_map<std::string, std::variant<TimelineSemaphore, BinarySemaphore>> _semaphore_definitions;
 
-        // TODO: Remove command pattern (not need to be threadsafe)
         std::vector<CommandWrapper<Node>> _add_node_commands;
         std::vector<CommandWrapper<Link>> _add_edge_commands;
         std::vector<CommandWrapper<Link>> _remove_edge_commands;
         std::vector<CommandWrapper<Node>> _remove_node_commands;
+        std::vector<CommandWrapper<Node>> _replace_node_commands;
 
         mutable std::mutex _staging_area_mutex;
         mutable std::shared_mutex _graph_mutex;

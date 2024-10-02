@@ -17,8 +17,9 @@ namespace RenderEngine
 {
     class ParallelRenderEngine : public IRenderEngine
     {
-    public:
+        static inline const auto kEndNodeTimeout = std::chrono::milliseconds{ 10000 };
 
+    public:
         struct Description
         {
             // TODO: Add constructor and ensure that parallel_frame_count <= backbuffer_count.
@@ -28,14 +29,17 @@ namespace RenderEngine
          */
             uint32_t backbuffer_count{ 0 };
             uint32_t parallel_frame_count{ 0 };
+            std::chrono::milliseconds _frame_timeout{ 1'000 };
         };
+
+        static inline const std::string kEndNodeName = "End";
 
         ParallelRenderEngine(Device& device,
                              std::shared_ptr<SingleShotCommandContext>&& transfer_context,
                              std::shared_ptr<CommandContext>&& render_context,
                              std::shared_ptr<CommandContext>&& present_context,
                              Description description);
-        ~ParallelRenderEngine() override = default;
+        ~ParallelRenderEngine() override;
         RenderGraph::RenderGraphBuilder createRenderGraphBuilder(std::string graph_name);
         void setRenderGraph(std::unique_ptr<RenderGraph::Graph> render_graph);
 
@@ -51,8 +55,10 @@ namespace RenderEngine
     private:
         struct RenderingProcess
         {
-            RenderingProcess(std::unique_ptr<SyncObject> sync_object)
-                : execution_context(std::move(sync_object))
+            RenderingProcess(std::vector<const SyncObject*> sync_object,
+                             SyncFeedbackService* feedback_service,
+                             uint32_t id)
+                : execution_context(std::move(sync_object), feedback_service, id)
             {}
 
             RenderingProcess(RenderingProcess&& o) noexcept = delete;
@@ -66,7 +72,11 @@ namespace RenderEngine
             tf::Future<void> calling_token;
         };
 
+        class SyncService;
+
         std::unique_ptr<SyncObject> createSyncObjectFromGraph(const RenderGraph::Graph& graph, std::string name) const;
+        uint32_t popAvailableBackbufferId();
+        void pushAvailableBackbufferId(uint32_t id);
 
         Device& _device;
         std::shared_ptr<CommandContext> _render_context;
@@ -77,8 +87,12 @@ namespace RenderEngine
         std::unique_ptr<RenderGraph::Graph> _skeleton;
         std::unique_ptr<GpuResourceManager> _gpu_resource_manager;
         std::unique_ptr<TransferEngine> _transfer_engine;
+        std::unique_ptr<SyncService> _sync_service;
         std::vector<std::unique_ptr<RenderingProcess>> _rendering_processes;
         uint64_t _render_call_count{ 0 };
+        mutable std::mutex _available_backbuffers_mutex;
+        std::condition_variable _available_backbuffers_condition;
+        std::deque<uint32_t> _available_backbuffers;
 
         tf::Executor _task_flow_executor;
 

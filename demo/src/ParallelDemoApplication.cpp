@@ -103,7 +103,8 @@ namespace
             * But in order to use the semaphore we need to wait until it has no more ongoing work on the GPU.
             * It means we need to wait until the execution is finished on the GPU:
             */
-            execution_context.findSubmitTracker(_image_user_node_name).wait();
+            auto sync_object_index = execution_context.getPoolIndex().sync_object_index;
+            execution_context.getSyncFeedbackService().get(&execution_context.getSyncObject(sync_object_index), _image_user_node_name)->wait();
             // Issue is here with intel gpu :
 
             // Frame i is rendered by execution context j (j = i % parallel_frame_count)
@@ -122,7 +123,7 @@ namespace
 
         }
 
-        void registerExectionContext(rg::ExecutionContext& execution_context) override
+        void registerExecutionContext(rg::ExecutionContext& execution_context) override
         {
             PROFILE_SCOPE();
             rg::ExecutionContext::Events events
@@ -155,11 +156,13 @@ namespace
 
 
         RenderEngine::RenderContext::context().getDebugger().print(RenderEngine::Debug::Topics::RenderGraphExecution{},
-                                                                   "Image Acquire: Image index {:d} (Using synchronization object: {:d}) [thread: {}]",
+                                                                   "Image Acquire: Image index {:d} frame: {:d} (Using synchronization object: {:d}) [thread: {}]",
                                                                    *image_index,
+                                                                   execution_context.getCurrentFrameNumber(),
+                                                                   execution_context.getPoolIndex().sync_object_index,
                                                                    (std::stringstream{} << std::this_thread::get_id()).str());
 
-        return rg::ExecutionContext::PoolIndex{ .render_target_index = *image_index, .sync_object_index = 0 };
+        return rg::ExecutionContext::PoolIndex{ .render_target_index = *image_index, .sync_object_index = execution_context.getPoolIndex().sync_object_index };
     }
     uint32_t SwapChainImageSelector::chooseSyncObjectIndex(const std::vector<const RenderEngine::SyncObject*>& sync_objects)
     {
@@ -204,7 +207,8 @@ namespace
             PROFILE_SCOPE("SwapChainImageSelector::tryAcquireImage - probe");
             const uint64_t timeout_ns = timeout.count();
             acquire_result = _swap_chain.acquireNextImage(timeout_ns,
-                                                          execution_context.getSyncObject().getPrimitives().getSemaphore(ImageAcquireTask::image_available_semaphore_name),
+                                                          execution_context.getSyncObject(execution_context.getPoolIndex().sync_object_index)
+                                                          .getPrimitives().getSemaphore(ImageAcquireTask::image_available_semaphore_name),
                                                           VK_NULL_HANDLE);
             if (acquire_result.result == VK_TIMEOUT)
             {
@@ -264,7 +268,7 @@ void ParallelDemoApplication::createRenderEngine()
         builder.addRenderNode("ForwardRenderer", std::move(forward_renderer));
         builder.addRenderNode("ImguiRenderer", std::move(ui_renderer));
         builder.addPresentNode("Present", _window_setup->getUiWindow().getSwapChain());
-        builder.addEmptyNode("End");
+        builder.addEmptyNode(RenderEngine::ParallelRenderEngine::kEndNodeName);
     }
 
 

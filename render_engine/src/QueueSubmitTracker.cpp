@@ -13,8 +13,11 @@ namespace RenderEngine
         {
             std::lock_guard lock{ _fence_mutex };
 
-            noLockingClear();
             for (auto fence : _fence_pool)
+            {
+                (*_logical_device)->vkDestroyFence(**_logical_device, fence, nullptr);
+            }
+            for (auto fence : _fences)
             {
                 (*_logical_device)->vkDestroyFence(**_logical_device, fence, nullptr);
             }
@@ -55,12 +58,6 @@ namespace RenderEngine
         }
         return result;
     }
-    void QueueSubmitTracker::waitAndClear()
-    {
-        std::lock_guard lock{ _fence_mutex };
-        noLockingWait();
-        noLockingClear();
-    }
     VkFence QueueSubmitTracker::createFence()
     {
         std::lock_guard lock{ _fence_mutex };
@@ -99,13 +96,6 @@ namespace RenderEngine
             throw std::runtime_error("Cannot wait for fences");
         }
     }
-    void QueueSubmitTracker::noLockingClear()
-    {
-        std::ranges::copy(_fences, std::back_inserter(_fence_pool));
-
-        _fences.clear();
-    }
-
     void QueueSubmitTracker::clear()
     {
         if (_fences.empty())

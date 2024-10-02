@@ -22,7 +22,7 @@ namespace RenderEngine::RenderGraph
     VkCommandBuffer RenderNode::createOrGetCommandBuffer(const ExecutionContext::PoolIndex& pool_index)
     {
         std::lock_guard lock(_command_buffer_mutex);
-        auto command_buffer_mapping = _command_buffers[pool_index.sync_object_index];
+        auto command_buffer_mapping = _command_buffers[pool_index.render_target_index];
         auto it = command_buffer_mapping.find(pool_index.render_target_index);
         if (it == command_buffer_mapping.end())
         {
@@ -40,33 +40,33 @@ namespace RenderEngine::RenderGraph
     {
         PROFILE_NODE();
 
-        continue here.
-            /*
-            * TODO: Introduce sync objects per back buffer. The only reason to wait here to be sure that the semaphores are not used by
-            * the previous call.
-            * With given 3 threads and 3 backbuffers all good. I.e. Each thread has its own syncObject the chance that is used is 0
-            * With given 1 thread and 3 backbuffers we are basically doesn't use any backbuffers because we are always waiting for to finish the previous call
-            *
-            * Having sync object per back buffer will result the issue where we were:
-            *  - Which sync object should be choosen when we are acquiring an image? We don't know yet which backbuffer will be used.
-            *  - Submition trackers are also independent from back buffer count.
-            *      Imagine the ImageAcquire wait code: We are rendered the 0, 1, 2 BackBuffers. We don't want to wait the last command, but the first
-            *
-            * Probably we need to link these things together into an object. Like RenderFeedback: Has a sync object and a submit tracker.
-            * First try to have per thread sync objects per back buffers and these feedbacks.
-            */
-            execution_context.findSubmitTracker(getName()).wait();
-
+        /*
+        * TODO: Introduce sync objects per back buffer. The only reason to wait here to be sure that the semaphores are not used by
+        * the previous call.
+        * With given 3 threads and 3 backbuffers all good. I.e. Each thread has its own syncObject the chance that is used is 0
+        * With given 1 thread and 3 backbuffers we are basically doesn't use any backbuffers because we are always waiting for to finish the previous call
+        *
+        * Having sync object per back buffer will result the issue where we were:
+        *  - Which sync object should be choosen when we are acquiring an image? We don't know yet which backbuffer will be used.
+        *  - Submition trackers are also independent from back buffer count.
+        *      Imagine the ImageAcquire wait code: We are rendered the 0, 1, 2 BackBuffers. We don't want to wait the last command, but the first
+        *
+        * Probably we need to link these things together into an object. Like RenderFeedback: Has a sync object and a submit tracker.
+        * First try to have per thread sync objects per back buffers and these feedbacks.
+        */
         const auto pool_index = execution_context.getPoolIndex();
+        auto& sync_object = execution_context.getSyncObject(pool_index.sync_object_index);
+
+        execution_context.getSyncFeedbackService().get(&sync_object, getName())->wait();
+
         RenderContext::context().getDebugger().print(Debug::Topics::RenderGraphExecution{},
-                                                     "Start rendering: {:s} render target: {:d} (sync index: {:d}) [thread:{}]",
+                                                     "Start rendering: {:s} frame: {:d}, render target: {:d} (sync index: {:d}) [thread:{}]",
                                                      getName(),
+                                                     execution_context.getCurrentFrameNumber(),
                                                      pool_index.render_target_index,
                                                      pool_index.sync_object_index,
                                                      std::this_thread::get_id());
-        auto& sync_object = execution_context.getSyncObject();
         const auto& in_operations = sync_object.getOperationsGroup(getName());
-        //_renderer->draw(pool_index.render_target_index);
         auto command_buffer = createOrGetCommandBuffer(pool_index);
         _renderer->draw(command_buffer, pool_index.render_target_index);
 
@@ -85,7 +85,7 @@ namespace RenderEngine::RenderGraph
         submit_info.commandBufferInfoCount = 1;
         submit_info.pCommandBufferInfos = &command_buffer_submit_info;
 
-        if (isUsesTracking() && queue_tracker != nullptr)
+        if (queue_tracker != nullptr)
         {
             queue_tracker->queueSubmit(std::move(submit_info),
                                        in_operations,
@@ -102,8 +102,9 @@ namespace RenderEngine::RenderGraph
         auto command_buffer_debug_str = [&] { return std::format("{:#018x}", reinterpret_cast<uintptr_t>(command_buffer)); };
 
         RenderContext::context().getDebugger().print(Debug::Topics::RenderGraphExecution{},
-                                                     "Rendering finished: {:s} render target: {:d} command buffers: ({:s}) (sync index: {:d}) [thread: {}]",
+                                                     "Rendering finished: {:s} frame: {:d}, render target: {:d} command buffers: ({:s}) (sync index: {:d}) [thread: {}]",
                                                      getName(),
+                                                     execution_context.getCurrentFrameNumber(),
                                                      pool_index.render_target_index,
                                                      command_buffer_debug_str(),
                                                      pool_index.sync_object_index,
@@ -116,7 +117,7 @@ namespace RenderEngine::RenderGraph
         PROFILE_NODE();
 
         const auto pool_index = execution_context.getPoolIndex();
-        auto& sync_object = execution_context.getSyncObject();
+        auto& sync_object = execution_context.getSyncObject(pool_index.sync_object_index);
         const auto& in_operations = sync_object.getOperationsGroup(getName());
         _scheduler.executeTasks(in_operations, _transfer_engine);
     }
@@ -132,7 +133,7 @@ namespace RenderEngine::RenderGraph
     void DeviceSynchronizeNode::execute(ExecutionContext& execution_context, QueueSubmitTracker*)
     {
         const auto pool_index = execution_context.getPoolIndex();
-        auto& sync_object = execution_context.getSyncObject();
+        auto& sync_object = execution_context.getSyncObject(pool_index.sync_object_index);
         const auto& in_operations = sync_object.getOperationsGroup(getName());
         _device->synchronizeStagingArea(in_operations);
     }
@@ -171,15 +172,16 @@ namespace RenderEngine::RenderGraph
 
         const auto pool_index = execution_context.getPoolIndex();
         RenderContext::context().getDebugger().print(Debug::Topics::RenderGraphExecution{},
-                                                     "Start presenting: {:s} render target: {:d} (sync index: {:d}) [thread: {}]",
+                                                     "Start presenting: {:s} frame: {:d}, render target: {:d} (sync index: {:d}) [thread: {}]",
                                                      getName(),
+                                                     execution_context.getCurrentFrameNumber(),
                                                      pool_index.render_target_index,
                                                      pool_index.sync_object_index,
                                                      std::this_thread::get_id());
 
 
 
-        auto& sync_object = execution_context.getSyncObject();
+        auto& sync_object = execution_context.getSyncObject(pool_index.sync_object_index);
         const auto& in_operations = sync_object.getOperationsGroup(getName());
         {
             PROFILE_SCOPE("PresentNode::execute - Accessing swap chain");
@@ -228,7 +230,7 @@ namespace RenderEngine::RenderGraph
         else
         {
             RenderContext::context().getDebugger().print(Debug::Topics::RenderGraphExecution{},
-                                                         "Frame can't present: {:d}", frame_number);
+                                                         "Frame can't present: {:d} expected: {:d}", frame_number, _current_frame_number);
             return false;
         }
     }
@@ -242,4 +244,6 @@ namespace RenderEngine::RenderGraph
     {
         visitor.visit(this);
     }
+
+
 }

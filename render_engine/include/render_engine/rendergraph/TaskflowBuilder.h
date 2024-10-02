@@ -3,6 +3,7 @@
 #include <render_engine/CommandContext.h>
 #include <render_engine/rendergraph/Graph.h>
 #include <render_engine/rendergraph/Job.h>
+#include <render_engine/synchronization/SyncFeedbackService.h>
 
 #include <memory>
 
@@ -21,6 +22,7 @@ namespace RenderEngine::RenderGraph
         tf::Taskflow createTaskflow(Graph& graph,
                                     ExecutionContext& execution_context,
                                     LogicalDevice& logical_device,
-                                    SyncObject* sync_object);
+                                    SyncObject* sync_object,
+                                    SyncFeedbackService& feedback_service);
     };
 }

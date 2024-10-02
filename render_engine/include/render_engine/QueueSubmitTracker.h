@@ -41,13 +41,11 @@ namespace RenderEngine
         }
 
         bool isComplete() const { return queryNumOfSuccess() == getNumOfFences(); }
-        void waitAndClear();
         void clear();
         const std::string& getName() const { return _name; }
     private:
         VkFence createFence();
         void noLockingWait() const;
-        void noLockingClear();
 
         void markFencesReady(const std::vector<VkFence>& fences) const;
 

@@ -81,7 +81,7 @@ set(RENDER_ENGINE_SYNCHRONIZATION_HEADERS
 	${RENDER_ENGINE_HEADER_LOCATION}/synchronization/ResourceStateMachine.h
     ${RENDER_ENGINE_HEADER_LOCATION}/synchronization/ResourceStates.h
     ${RENDER_ENGINE_HEADER_LOCATION}/synchronization/Topic.h
-
+    ${RENDER_ENGINE_HEADER_LOCATION}/synchronization/SyncFeedbackService.h
 	)
 source_group("src\\synchronization" FILES ${RENDER_ENGINE_SYNCHRONIZATION_SRC})
 source_group("include\\synchronization" FILES ${RENDER_ENGINE_SYNCHRONIZATION_HEADERS})

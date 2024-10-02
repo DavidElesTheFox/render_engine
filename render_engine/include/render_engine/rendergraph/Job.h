@@ -3,6 +3,7 @@
 #include <render_engine/containers/Views.h>
 #include <render_engine/debug/Profiler.h>
 #include <render_engine/QueueSubmitTracker.h>
+#include <render_engine/synchronization/SyncFeedbackService.h>
 #include <render_engine/synchronization/SyncObject.h>
 
 #include <functional>
@@ -33,8 +34,13 @@ namespace RenderEngine
                 std::function<void(const PoolIndex&)> on_pool_index_clear;
             };
 
-            explicit ExecutionContext(std::unique_ptr<SyncObject> sync_object)
-                : _sync_object(std::move(sync_object))
+            explicit ExecutionContext(std::vector<const SyncObject*> sync_objects,
+                                      SyncFeedbackService* sync_feedback_service,
+                                      uint32_t id)
+                : _pool_index{ PoolIndex{.render_target_index = id, .sync_object_index = id} }
+                , _sync_objects(std::move(sync_objects))
+                , _sync_feedback_service(sync_feedback_service)
+                , _id(id)
             {}
 
             ExecutionContext(const ExecutionContext&) noexcept = delete;
@@ -50,52 +56,30 @@ namespace RenderEngine
 
             bool isDrawCallRecorded() const { return _draw_call_recorded.load(std::memory_order_relaxed); }
             void setDrawCallRecorded(bool v) { _draw_call_recorded.store(v, std::memory_order_relaxed); }
-            const SyncObject& getSyncObject() const
+            const SyncObject& getSyncObject(uint32_t sync_object_index) const
             {
-                return *_sync_object;
+                return *_sync_objects[sync_object_index];
             }
 
-            void stepTimelineSemaphore(const std::string& name)
+            SyncFeedbackService& getSyncFeedbackService()
             {
-                PROFILE_SCOPE();
-                std::unique_lock lock{ _sync_object_access_mutex };
-                _sync_object->stepTimeline(name);
+                return *_sync_feedback_service;
             }
 
             void addEvents(Events events);
 
-            void addQueueSubmitTracker(const std::string& name, std::unique_ptr<QueueSubmitTracker> submit_tracker)
-            {
-                std::unique_lock lock(_submit_trackers_mutex);
-                _submit_trackers.insert({ name, std::move(submit_tracker) });
-            }
-
-            const QueueSubmitTracker& findSubmitTracker(const std::string& name) const
-            {
-                PROFILE_SCOPE();
-                std::shared_lock lock(_submit_trackers_mutex);
-                return *_submit_trackers.at(name);
-            }
-
-            void clearSubmitTrackersPool()
-            {
-                PROFILE_SCOPE();
-                std::unique_lock lock(_submit_trackers_mutex);
-                for (auto& submit_tracker : _submit_trackers)
-                {
-                    submit_tracker.second->clear();
-                }
-            }
 
             void setCurrentFrameNumber(uint64_t value)
             {
-                _current_frame_number.store(value, std::memory_order_relaxed);
+                _current_frame_number.store(value);
             }
 
             uint64_t getCurrentFrameNumber() const
             {
-                return _current_frame_number.load(std::memory_order_relaxed);
+                return _current_frame_number.load();
             }
+
+            uint32_t getId() const { return _id; }
         private:
             void onPoolIndexSet(const PoolIndex& index);
             void onPoolIndexReset(const PoolIndex& index);
@@ -105,16 +89,17 @@ namespace RenderEngine
 
             std::atomic_bool _draw_call_recorded{ false };
 
-            mutable std::shared_mutex _sync_object_access_mutex;
-            std::unique_ptr<SyncObject> _sync_object;
+            mutable std::shared_mutex _sync_objects_access_mutex;
+            std::vector<const SyncObject*> _sync_objects;
 
             mutable std::shared_mutex _event_mutex;
             std::vector<Events> _events;
 
-            mutable std::shared_mutex _submit_trackers_mutex;
-            std::unordered_map<std::string, std::unique_ptr<QueueSubmitTracker>> _submit_trackers;
+            SyncFeedbackService* _sync_feedback_service{ nullptr };
 
             std::atomic_uint64_t _current_frame_number{ 0 };
+
+            uint32_t _id{ 0 };
         };
         /*
         class Job

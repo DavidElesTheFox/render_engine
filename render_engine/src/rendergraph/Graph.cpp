@@ -43,6 +43,20 @@ namespace RenderEngine::RenderGraph
         out_edges[from_node].push_back(edge_list.back().get());
 
     }
+    void Graph::GraphRepresentation::replaceNode(const Node* old_node, std::unique_ptr<Node> new_node)
+    {
+        auto it = nodes.find(getNodeName(old_node));
+        if (it == nodes.end())
+        {
+            throw std::runtime_error(std::format("Old node not found '{:s}'", getNodeName(old_node)));
+        }
+        if (it->second->getName() != new_node->getName())
+        {
+            throw std::runtime_error(std::format("Node can be replaced, names are not matched. New name '{:s}' Old name '{:s}'", new_node->getName(), old_node->getName()));
+        }
+        it->second = std::move(new_node);
+
+    }
 
     void Graph::GraphRepresentation::removeNode(const Node* node)
     {
@@ -172,6 +186,20 @@ namespace RenderEngine::RenderGraph
         _add_node_commands.emplace_back(CommandWrapper<Node>{ std::move(callback), std::move(node) });
         return result;
     }
+
+    Node& Graph::replaceNode(const Node* old_node, std::unique_ptr<Node> new_node)
+    {
+        Node& result = *new_node;
+
+        std::lock_guard lock{ _staging_area_mutex };
+        auto callback = [](GraphRepresentation& graph, std::unique_ptr<Node>&& node_to_add, const Node* node_to_replace)
+            {
+                graph.replaceNode(node_to_replace, std::move(node_to_add));
+            };
+        _replace_node_commands.emplace_back(CommandWrapper<Node>{ std::move(callback), std::move(new_node), old_node });
+        return result;
+    }
+
 
     Link& Graph::addEdge(std::unique_ptr<Link> edge)
     {
@@ -318,6 +346,10 @@ namespace RenderEngine::RenderGraph
         {
             callback(_graph);
         }
+        for (auto& callback : _replace_node_commands)
+        {
+            callback(_graph);
+        }
         for (auto& callback : _remove_edge_commands)
         {
             callback(_graph);
@@ -330,6 +362,7 @@ namespace RenderEngine::RenderGraph
         _add_edge_commands.clear();
         _remove_node_commands.clear();
         _remove_edge_commands.clear();
+        _replace_node_commands.clear();
     }
 
     void Graph::registerSemaphore(BinarySemaphore semaphore)

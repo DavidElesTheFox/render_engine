@@ -40,24 +40,9 @@ namespace RenderEngine::RenderGraph
     {
         PROFILE_NODE();
 
-        /*
-        * TODO: Introduce sync objects per back buffer. The only reason to wait here to be sure that the semaphores are not used by
-        * the previous call.
-        * With given 3 threads and 3 backbuffers all good. I.e. Each thread has its own syncObject the chance that is used is 0
-        * With given 1 thread and 3 backbuffers we are basically doesn't use any backbuffers because we are always waiting for to finish the previous call
-        *
-        * Having sync object per back buffer will result the issue where we were:
-        *  - Which sync object should be choosen when we are acquiring an image? We don't know yet which backbuffer will be used.
-        *  - Submition trackers are also independent from back buffer count.
-        *      Imagine the ImageAcquire wait code: We are rendered the 0, 1, 2 BackBuffers. We don't want to wait the last command, but the first
-        *
-        * Probably we need to link these things together into an object. Like RenderFeedback: Has a sync object and a submit tracker.
-        * First try to have per thread sync objects per back buffers and these feedbacks.
-        */
+
         const auto pool_index = execution_context.getPoolIndex();
         auto& sync_object = execution_context.getSyncObject(pool_index.sync_object_index);
-
-        execution_context.getSyncFeedbackService().get(&sync_object, getName())->wait();
 
         RenderContext::context().getDebugger().print(Debug::Topics::RenderGraphExecution{},
                                                      "Start rendering: {:s} frame: {:d}, render target: {:d} (sync index: {:d}) [thread:{}]",

@@ -163,7 +163,7 @@ source_group("include\\window" FILES ${RENDER_ENGINE_WINDOW_HEADERS})
 set(RENDER_ENGINE_RENDERGRAPH_SRC
     src/rendergraph/Node.cpp
     src/rendergraph/Link.cpp
-    src/rendergraph/Job.cpp
+    src/rendergraph/ExecutionContext.cpp
     src/rendergraph/Graph.cpp
     src/rendergraph/GraphVisitor.cpp
     src/rendergraph/TaskflowBuilder.cpp
@@ -171,19 +171,30 @@ set(RENDER_ENGINE_RENDERGRAPH_SRC
 	)
 set(RENDER_ENGINE_RENDERGRAPH_HEADERS 
 	${RENDER_ENGINE_HEADER_LOCATION}/rendergraph/Node.h
-    ${RENDER_ENGINE_HEADER_LOCATION}/rendergraph/Job.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/rendergraph/ExecutionContext.h
     ${RENDER_ENGINE_HEADER_LOCATION}/rendergraph/Link.h
     ${RENDER_ENGINE_HEADER_LOCATION}/rendergraph/Graph.h
     ${RENDER_ENGINE_HEADER_LOCATION}/rendergraph/GraphVisitor.h
     ${RENDER_ENGINE_HEADER_LOCATION}/rendergraph/TaskflowBuilder.h
     ${RENDER_ENGINE_HEADER_LOCATION}/rendergraph/RenderGraphBuilder.h
     ${RENDER_ENGINE_HEADER_LOCATION}/rendergraph/DependentName.h
-    ${RENDER_ENGINE_HEADER_LOCATION}/rendergraph/Topic.h
-	)
+    ${RENDER_ENGINE_HEADER_LOCATION}/rendergraph/Topic.h    
+)
 
 source_group("src\\rendergraph" FILES ${RENDER_ENGINE_RENDERGRAPH_SRC})
 source_group("include\\rendergraph" FILES ${RENDER_ENGINE_RENDERGRAPH_HEADERS})
+########################
+# Rendergraph/cputasks #
+########################
 
+set(RENDER_ENGINE_RENDERGRAPH_CPUTASKS_SRC
+    src/rendergraph/cputasks/ImageAquireTask.cpp
+)
+set(RENDER_ENGINE_RENDERGRAPH_CPUTASKS_HEADERS
+    ${RENDER_ENGINE_HEADER_LOCATION}/rendergraph/cputasks/ImageAquireTask.h
+)
+source_group("src\\rendergraph\\cputasks" FILES ${RENDER_ENGINE_RENDERGRAPH_CPUTASKS_SRC})
+source_group("include\\rendergraph\\cputasks" FILES ${RENDER_ENGINE_RENDERGRAPH_CPUTASKS_HEADERS})
 #########
 # Debug #
 #########
@@ -273,8 +284,9 @@ set(RENDER_ENGINE_SRC
 	${RENDER_ENGINE_ROOT_SRC}
 	${RENDER_ENGINE_MEMORY_SRC}
     ${RENDER_ENGINE_RENDERGRAPH_SRC}
+    ${RENDER_ENGINE_RENDERGRAPH_CPUTASKS_SRC}
     ${RENDER_ENGINE_DEBUG_SRC}
- )
+)
 
 set(RENDER_ENGINE_HEADERS 
     ${RENDER_ENGINE_RENDERERS_HEADERS}
@@ -286,8 +298,10 @@ set(RENDER_ENGINE_HEADERS
     ${RENDER_ENGINE_SYNCHRONIZATION_HEADERS}
 	${RENDER_ENGINE_ROOT_HEADERS} 
     ${RENDER_ENGINE_RENDERGRAPH_HEADERS}
+    ${RENDER_ENGINE_RENDERGRAPH_CPUTASKS_HEADERS}
     ${RENDER_ENGINE_DEBUG_HEADERS}
-    ${RENDER_ENGINE_MEMORY_HEADERS})
+    ${RENDER_ENGINE_MEMORY_HEADERS} 
+)
 
 add_library(RenderEngine STATIC ${RENDER_ENGINE_SRC} ${RENDER_ENGINE_HEADERS})
 set_property(TARGET RenderEngine PROPERTY CXX_STANDARD 23)

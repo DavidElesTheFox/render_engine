@@ -191,7 +191,7 @@ namespace RenderEngine
                            uint32_t back_buffer_size,
                            bool use_internal_command_buffers)
         : SingleColorOutputRenderer(window.getRenderEngine())
-        , _imgui_queue(window.getRenderEngine().getCommandContext().getQueue())
+        , _imgui_queue(window.getRenderEngine().getCommandBufferContext().getQueue().getVulkanGuardedQueue())
     {
 
         _imgui_context_during_init = ImGui::GetCurrentContext();
@@ -222,7 +222,7 @@ namespace RenderEngine
             init_info.Instance = window.getDevice().getVulkanInstance();
             init_info.PhysicalDevice = window.getDevice().getPhysicalDevice();
             init_info.Device = *logical_device;
-            init_info.Queue = _imgui_queue.getQueue();
+            init_info.Queue = _imgui_queue.access();
             init_info.DescriptorPool = _descriptor_pool;
             init_info.MinImageCount = back_buffer_size;
             init_info.ImageCount = back_buffer_size;
@@ -237,12 +237,12 @@ namespace RenderEngine
                 SyncObject sync_object(logical_device, "UIRenderer-UploadSync");
 
                 // Using the render engine's transfer capability
-                window.getRenderEngine().getTransferEngine().transfer(sync_object.getOperationsGroup(SyncGroups::kInternal),
-                                                                      [](VkCommandBuffer command_buffer)
-                                                                      {
-                                                                          ImGui_ImplVulkan_CreateFontsTexture(command_buffer);
-                                                                      },
-                                                                      &submit_tracker);
+                window.getRenderEngine().getTransferEngineOnRenderQueue().transfer(sync_object.getOperationsGroup(SyncGroups::kInternal),
+                                                                                   [](VkCommandBuffer command_buffer)
+                                                                                   {
+                                                                                       ImGui_ImplVulkan_CreateFontsTexture(command_buffer);
+                                                                                   },
+                                                                                   &submit_tracker);
                 submit_tracker.wait();
 
             }

@@ -121,16 +121,16 @@ namespace RenderEngine
         _wait_semaphore_container.clear();
         _signal_semaphore_dependency.clear();
     }
-    SyncOperations SyncOperations::restrict(const AbstractCommandContext& context) const
+    SyncOperations SyncOperations::restrict(const VulkanQueue& queue) const
     {
         auto result = *this;
         std::erase_if(result._wait_semaphore_dependency, [&](auto& submit_info)
                       {
-                          return context.isPipelineStageSupported(submit_info.stageMask) == false;
+                          return queue.isPipelineStageSupported(submit_info.stageMask) == false;
                       });
         std::erase_if(result._signal_semaphore_dependency, [&](auto& submit_info)
                       {
-                          return context.isPipelineStageSupported(submit_info.stageMask) == false;
+                          return queue.isPipelineStageSupported(submit_info.stageMask) == false;
                       });
         return result;
     }

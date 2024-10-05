@@ -16,8 +16,8 @@ namespace RenderEngine
         virtual GpuResourceManager& getGpuResourceManager() = 0;
         virtual uint32_t getBackBufferSize() const = 0;
         virtual TransferEngine& getTransferEngine() = 0;
-        virtual CommandContext& getCommandContext() = 0;
-        virtual SingleShotCommandContext& getTransferCommandContext() = 0;
+        virtual TransferEngine& getTransferEngineOnRenderQueue() = 0;
+        virtual CommandBufferContext& getCommandBufferContext() = 0;
         virtual Device& getDevice() = 0;
     };
 }

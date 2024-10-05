@@ -21,24 +21,33 @@ namespace RenderEngine
 {
     class SyncOperations;
 
-
-
-    class AbstractCommandContext
+    class VulkanQueue
     {
     public:
-        virtual ~AbstractCommandContext() = default;
+        VulkanQueue(LogicalDevice* logical_device,
+                    uint32_t queue_family_index,
+                    uint32_t queue_count,
+                    DeviceLookup::QueueFamilyInfo queue_family_info);
+
+        VulkanQueue(VulkanQueue&& o) noexcept = delete;
+        VulkanQueue(const VulkanQueue& o) noexcept = delete;
+
+        VulkanQueue& operator=(VulkanQueue&& o) noexcept = delete;
+        VulkanQueue& operator=(const VulkanQueue& o) noexcept = delete;
+        QueueLoadBalancer& getLoadBalancer() { return _queue_load_balancer; }
+        virtual ~VulkanQueue() = default;
         uint32_t getQueueFamilyIndex() const { return _queue_family_index; }
         LogicalDevice& getLogicalDevice() { return *_logical_device; }
         LogicalDevice& getLogicalDevice() const { return *_logical_device; }
 
         bool isPipelineStageSupported(VkPipelineStageFlags2 pipeline_stage) const;
 
-        bool isCompatibleWith(AbstractCommandContext& o) const
+        bool isCompatibleWith(VulkanQueue& o) const
         {
             return o._queue_family_index == _queue_family_index;
         }
 
-        GuardedQueue getQueue();
+        GuardedQueue getVulkanGuardedQueue();
 
         void queueSubmit(VkSubmitInfo2&& submit_info,
                          const SyncOperations& sync_operations,
@@ -46,117 +55,111 @@ namespace RenderEngine
         void queuePresent(VkPresentInfoKHR&& present_info,
                           const SyncOperations& sync_operations,
                           SwapChain& swap_chain);
-    protected:
-        AbstractCommandContext(LogicalDevice& logical_device,
-                               uint32_t queue_family_index,
-                               DeviceLookup::QueueFamilyInfo queue_family_info,
-                               RefObj<QueueLoadBalancer> queue_load_balancer);
 
-        AbstractCommandContext(AbstractCommandContext&& o) noexcept = delete;
-        AbstractCommandContext(const AbstractCommandContext& o) noexcept = delete;
 
-        AbstractCommandContext& operator=(AbstractCommandContext&& o) noexcept = delete;
-        AbstractCommandContext& operator=(const AbstractCommandContext& o) noexcept = delete;
-        QueueLoadBalancer& getLoadBalancer() { return *_queue_load_balancer; }
     private:
 
         LogicalDevice* _logical_device{ nullptr };
         uint32_t _queue_family_index{ 0 };
         DeviceLookup::QueueFamilyInfo _queue_family_info;
 
-        RefObj<QueueLoadBalancer> _queue_load_balancer;
+        QueueLoadBalancer _queue_load_balancer;
 
     };
-
-    class SingleShotCommandContext : public std::enable_shared_from_this<SingleShotCommandContext>,
-        public AbstractCommandContext
+    class SingleShotCommandBufferFactory
     {
         struct CreationToken
         {};
     public:
-        static std::shared_ptr<SingleShotCommandContext> create(LogicalDevice& logical_device,
-                                                                uint32_t queue_family_index,
-                                                                DeviceLookup::QueueFamilyInfo queue_family_info,
-                                                                RefObj<QueueLoadBalancer> queue_load_balancer)
+        static std::shared_ptr<SingleShotCommandBufferFactory> create(RefObj<VulkanQueue> queue)
         {
-            return std::make_shared<SingleShotCommandContext>(logical_device,
-                                                              queue_family_index,
-                                                              std::move(queue_family_info),
-                                                              std::move(queue_load_balancer),
-                                                              CreationToken{});
+            return std::make_shared<SingleShotCommandBufferFactory>(std::move(queue),
+                                                                    CreationToken{});
         }
-        SingleShotCommandContext(LogicalDevice& logical_device,
-                                 uint32_t queue_family_index,
-                                 DeviceLookup::QueueFamilyInfo queue_family_info,
-                                 RefObj<QueueLoadBalancer> queue_load_balancer,
-                                 CreationToken);
+        SingleShotCommandBufferFactory(RefObj<VulkanQueue> queue, CreationToken);
 
-        SingleShotCommandContext(SingleShotCommandContext&&) noexcept = delete;
-        SingleShotCommandContext(const SingleShotCommandContext&) = delete;
+        SingleShotCommandBufferFactory(SingleShotCommandBufferFactory&&) noexcept = delete;
+        SingleShotCommandBufferFactory(const SingleShotCommandBufferFactory&) = delete;
 
-        SingleShotCommandContext& operator=(SingleShotCommandContext&&) noexcept = delete;
-        SingleShotCommandContext& operator=(const SingleShotCommandContext&) = delete;
+        SingleShotCommandBufferFactory& operator=(SingleShotCommandBufferFactory&&) noexcept = delete;
+        SingleShotCommandBufferFactory& operator=(const SingleShotCommandBufferFactory&) = delete;
 
-        ~SingleShotCommandContext() override;
+        ~SingleShotCommandBufferFactory();
+
         VkCommandBuffer createCommandBuffer(uint32_t tray_index);
 
-
-        std::weak_ptr<SingleShotCommandContext> getWeakReference() { return shared_from_this(); }
+        VulkanQueue& getQueue() { return *_vulkan_queue; }
+        const VulkanQueue& getQueue() const { return *_vulkan_queue; }
 
     private:
         class Tray;
 
-        using std::enable_shared_from_this<SingleShotCommandContext>::shared_from_this;
-        using std::enable_shared_from_this<SingleShotCommandContext>::weak_from_this;
-
-
+        RefObj<VulkanQueue> _vulkan_queue;
         std::unordered_map<uint32_t, std::unique_ptr<Tray>> _trays;
         mutable std::mutex _trays_mutex;
     };
 
-    class CommandContext : public AbstractCommandContext
+    class CommandBufferFactory
     {
         struct CreationToken
         {};
     public:
-        static std::shared_ptr<CommandContext> create(LogicalDevice& logical_device,
-                                                      uint32_t queue_family_index,
-                                                      DeviceLookup::QueueFamilyInfo queue_family_info,
-                                                      RefObj<QueueLoadBalancer> queue_load_balancer,
-                                                      uint32_t num_of_pool_per_tray)
+        static std::shared_ptr<CommandBufferFactory> create(RefObj<VulkanQueue> queue,
+                                                            uint32_t num_of_pool_per_tray)
         {
-            return std::make_shared<CommandContext>(logical_device,
-                                                    queue_family_index,
-                                                    std::move(queue_family_info),
-                                                    std::move(queue_load_balancer),
-                                                    num_of_pool_per_tray,
-                                                    CreationToken{});
+            return std::make_shared<CommandBufferFactory>(std::move(queue),
+                                                          num_of_pool_per_tray,
+                                                          CreationToken{});
         }
-        CommandContext(LogicalDevice& logical_device,
-                       uint32_t queue_family_index,
-                       DeviceLookup::QueueFamilyInfo queue_family_info,
-                       RefObj<QueueLoadBalancer> queue_load_balancer,
-                       uint32_t num_of_pools_per_tray,
-                       CreationToken);
+        CommandBufferFactory(RefObj<VulkanQueue> queue,
+                             uint32_t num_of_pools_per_tray,
+                             CreationToken);
 
-        CommandContext(CommandContext&&) noexcept = delete;
-        CommandContext(const CommandContext&) = delete;
+        CommandBufferFactory(CommandBufferFactory&&) noexcept = delete;
+        CommandBufferFactory(const CommandBufferFactory&) = delete;
 
-        CommandContext& operator=(CommandContext&&) noexcept = delete;
-        CommandContext& operator=(const CommandContext&) = delete;
+        CommandBufferFactory& operator=(CommandBufferFactory&&) noexcept = delete;
+        CommandBufferFactory& operator=(const CommandBufferFactory&) = delete;
 
-        ~CommandContext() override;
+        ~CommandBufferFactory();
         VkCommandBuffer createCommandBuffer(uint32_t tray_index, uint32_t pool_index);
         std::vector<VkCommandBuffer> createCommandBuffers(uint32_t count, uint32_t tray_index, uint32_t pool_index);
 
+        VulkanQueue& getQueue() { return *_vulkan_queue; }
+        const VulkanQueue& getQueue() const { return *_vulkan_queue; }
 
     private:
         class Tray;
 
+        RefObj<VulkanQueue> _vulkan_queue;
         uint32_t _num_of_pools_per_tray{ 0 };
         std::unordered_map<uint32_t, std::unique_ptr<Tray>> _trays;
         mutable std::mutex _trays_mutex;
     };
+    class CommandBufferContext
+    {
+    public:
+
+        CommandBufferContext(RefObj<VulkanQueue> queue,
+                             uint32_t num_of_pool_per_tray)
+            : _factory(CommandBufferFactory::create(queue, num_of_pool_per_tray))
+            , _single_shot_factory(SingleShotCommandBufferFactory::create(queue))
+        {}
+
+        const std::shared_ptr<CommandBufferFactory>& getFactory() const { return _factory; }
+        std::shared_ptr<CommandBufferFactory>& getFactory() { return _factory; }
+
+        const std::shared_ptr<SingleShotCommandBufferFactory>& getSingleShotFactory() const { return _single_shot_factory; }
+        std::shared_ptr<SingleShotCommandBufferFactory>& getSingleShotFactory() { return _single_shot_factory; }
+
+        VulkanQueue& getQueue() { return _factory->getQueue(); }
+        const VulkanQueue& getQueue() const { return _factory->getQueue(); }
+    private:
+        std::shared_ptr<CommandBufferFactory> _factory;
+        std::shared_ptr<SingleShotCommandBufferFactory> _single_shot_factory;
+    };
+
+
 
 
 }

@@ -66,10 +66,10 @@ namespace RenderEngine::RenderGraph
     {
     public:
         RenderNode(std::string name,
-                   std::shared_ptr<CommandContext> command_context,
+                   std::shared_ptr<CommandBufferFactory> command_buffer_factory,
                    std::unique_ptr<AbstractRenderer> renderer)
             : Node(std::move(name))
-            , _command_context(command_context)
+            , _command_buffer_factory(command_buffer_factory)
             , _renderer(std::move(renderer))
         {}
         ~RenderNode() override = default;
@@ -83,7 +83,7 @@ namespace RenderEngine::RenderGraph
         using CommandBufferPerRenderTargetMap = std::map<uint32_t, VkCommandBuffer>;
         VkCommandBuffer createOrGetCommandBuffer(const ExecutionContext::PoolIndex& pool_index);
 
-        std::shared_ptr<CommandContext> _command_context;
+        std::shared_ptr<CommandBufferFactory> _command_buffer_factory;
         std::unique_ptr<AbstractRenderer> _renderer;
 
         std::mutex _command_buffer_mutex;
@@ -93,7 +93,7 @@ namespace RenderEngine::RenderGraph
     class TransferNode final : public Node
     {
     public:
-        TransferNode(std::string name, TransferEngine&& transfer_engine)
+        TransferNode(std::string name, TransferEngine transfer_engine)
             : Node(std::move(name))
             , _transfer_engine(std::move(transfer_engine))
             , _scheduler()
@@ -163,10 +163,10 @@ namespace RenderEngine::RenderGraph
     public:
         PresentNode(std::string name,
                     SwapChain& swap_chain,
-                    std::shared_ptr<CommandContext> command_context)
+                    std::shared_ptr<CommandBufferFactory> command_buffer_factory)
             : Node(std::move(name))
             , _swap_chain(swap_chain)
-            , _command_context(command_context)
+            , _command_buffer_factory(command_buffer_factory)
         {}
         void execute(ExecutionContext& execution_context, QueueSubmitTracker* queue_tracker) override;
         void registerExecutionContext(ExecutionContext&) override {};
@@ -178,7 +178,7 @@ namespace RenderEngine::RenderGraph
         bool waitAndUpdateFrameNumber(uint64_t frame_number, const std::chrono::milliseconds& timeout);
 
         SwapChain& _swap_chain;
-        std::shared_ptr<CommandContext> _command_context;
+        std::shared_ptr<CommandBufferFactory> _command_buffer_factory;
 
         std::mutex _frame_continuity_mutex;
         std::condition_variable _frame_continuity_condition;

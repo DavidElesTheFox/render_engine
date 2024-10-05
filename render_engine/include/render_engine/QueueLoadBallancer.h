@@ -25,7 +25,7 @@ namespace RenderEngine
 
         void lock() { _lock.lock(); }
         void unlock() { _lock.unlock(); }
-        VkQueue getQueue()
+        VkQueue access()
         {
             assert(_lock.owns_lock());
             return _queue;

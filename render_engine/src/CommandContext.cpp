@@ -12,30 +12,34 @@
 namespace RenderEngine
 {
 
-#pragma region AbstractCommandContext
+#pragma region VulkanQueue
 
 
-    AbstractCommandContext::AbstractCommandContext(LogicalDevice& logical_device,
-                                                   uint32_t queue_family_index,
-                                                   DeviceLookup::QueueFamilyInfo queue_family_info,
-                                                   RefObj<QueueLoadBalancer> queue_load_balancer)
-        : _logical_device(&logical_device)
+    VulkanQueue::VulkanQueue(LogicalDevice* logical_device,
+                             uint32_t queue_family_index,
+                             uint32_t queue_count,
+                             DeviceLookup::QueueFamilyInfo queue_family_info)
+        : _logical_device(logical_device)
         , _queue_family_index(queue_family_index)
         , _queue_family_info(std::move(queue_family_info))
-        , _queue_load_balancer(std::move(queue_load_balancer))
+        , _queue_load_balancer(*logical_device, queue_family_index, queue_count)
     {
-
+        if (queue_family_info.queue_count != std::nullopt
+            && queue_family_info.queue_count < queue_count)
+        {
+            throw std::runtime_error(std::format("Requested queue count ({:d}) is bigger then the available ({:d})", queue_count, *queue_family_info.queue_count));
+        }
     }
 
-    void AbstractCommandContext::queueSubmit(VkSubmitInfo2&& submit_info,
-                                             const SyncOperations& sync_operations,
-                                             VkFence fence)
+    void VulkanQueue::queueSubmit(VkSubmitInfo2&& submit_info,
+                                  const SyncOperations& sync_operations,
+                                  VkFence fence)
     {
         PROFILE_SCOPE();
         sync_operations.fillInfo(submit_info);
 
-        auto queue = _queue_load_balancer->getQueue();
-        if ((*_logical_device)->vkQueueSubmit2(queue.getQueue(),
+        auto queue = _queue_load_balancer.getQueue();
+        if ((*_logical_device)->vkQueueSubmit2(queue.access(),
                                                1,
                                                &submit_info,
                                                fence) != VK_SUCCESS)
@@ -44,24 +48,24 @@ namespace RenderEngine
         }
     }
 
-    void AbstractCommandContext::queuePresent(VkPresentInfoKHR&& present_info,
-                                              const SyncOperations& sync_operations,
-                                              SwapChain& swap_chain)
+    void VulkanQueue::queuePresent(VkPresentInfoKHR&& present_info,
+                                   const SyncOperations& sync_operations,
+                                   SwapChain& swap_chain)
     {
         PROFILE_SCOPE();
 
         sync_operations.fillInfo(present_info);
 
-        auto queue = _queue_load_balancer->getQueue();
-        swap_chain.present(queue.getQueue(), std::move(present_info));
+        auto queue = _queue_load_balancer.getQueue();
+        swap_chain.present(queue.access(), std::move(present_info));
     }
 
-    GuardedQueue AbstractCommandContext::getQueue()
+    GuardedQueue VulkanQueue::getVulkanGuardedQueue()
     {
-        return _queue_load_balancer->getQueue();
+        return _queue_load_balancer.getQueue();
     }
 
-    bool AbstractCommandContext::isPipelineStageSupported(VkPipelineStageFlags2 pipeline_stage) const
+    bool VulkanQueue::isPipelineStageSupported(VkPipelineStageFlags2 pipeline_stage) const
     {
         switch (pipeline_stage)
         {
@@ -111,9 +115,9 @@ namespace RenderEngine
 
 #pragma endregion
 
-#pragma region SingleShotCommandContext
+#pragma region SingleShotCommandBufferFactory
 
-    class SingleShotCommandContext::Tray
+    class SingleShotCommandBufferFactory::Tray
     {
     public:
         Tray(LogicalDevice& logical_device, uint32_t queue_family_index)
@@ -166,36 +170,33 @@ namespace RenderEngine
 
     };
 
-    SingleShotCommandContext::~SingleShotCommandContext() = default;
+    SingleShotCommandBufferFactory::~SingleShotCommandBufferFactory() = default;
 
-    SingleShotCommandContext::SingleShotCommandContext(LogicalDevice& logical_device,
-                                                       uint32_t queue_family_index,
-                                                       DeviceLookup::QueueFamilyInfo queue_family_info,
-                                                       RefObj<QueueLoadBalancer> queue_load_balancer,
-                                                       CreationToken)
-        : AbstractCommandContext(logical_device, queue_family_index, std::move(queue_family_info), std::move(queue_load_balancer))
+    SingleShotCommandBufferFactory::SingleShotCommandBufferFactory(RefObj<VulkanQueue> queue,
+                                                                   CreationToken)
+        : _vulkan_queue(std::move(queue))
     {
 
     }
 
 
 
-    VkCommandBuffer SingleShotCommandContext::createCommandBuffer(uint32_t tray_index)
+    VkCommandBuffer SingleShotCommandBufferFactory::createCommandBuffer(uint32_t tray_index)
     {
         std::lock_guard lock{ _trays_mutex };
         auto it = _trays.find(tray_index);
         if (it == _trays.end())
         {
-            it = _trays.insert({ tray_index, std::make_unique<Tray>(getLogicalDevice(), getQueueFamilyIndex()) }).first;
+            it = _trays.insert({ tray_index, std::make_unique<Tray>(_vulkan_queue->getLogicalDevice(), _vulkan_queue->getQueueFamilyIndex()) }).first;
         }
         return it->second->createSingleShotCommandBuffer();
     }
 
 #pragma endregion
 
-#pragma region CommandContext
+#pragma region CommandBufferFactory
 
-    class CommandContext::Tray
+    class CommandBufferFactory::Tray
     {
     public:
         Tray(LogicalDevice& logical_device, uint32_t num_of_pools, uint32_t queue_family_index)
@@ -287,32 +288,29 @@ namespace RenderEngine
 
     };
 
-    CommandContext::CommandContext(LogicalDevice& logical_device,
-                                   uint32_t queue_family_index,
-                                   DeviceLookup::QueueFamilyInfo queue_family_info,
-                                   RefObj<QueueLoadBalancer> queue_load_balancer,
-                                   uint32_t num_of_pools_per_tray,
-                                   CreationToken)
-        : AbstractCommandContext(logical_device, queue_family_index, std::move(queue_family_info), std::move(queue_load_balancer))
+    CommandBufferFactory::CommandBufferFactory(RefObj<VulkanQueue> vulkan_queue,
+                                               uint32_t num_of_pools_per_tray,
+                                               CreationToken)
+        : _vulkan_queue(std::move(vulkan_queue))
         , _num_of_pools_per_tray(num_of_pools_per_tray)
     {}
-    CommandContext::~CommandContext() = default;
+    CommandBufferFactory::~CommandBufferFactory() = default;
 
 
-    VkCommandBuffer CommandContext::createCommandBuffer(uint32_t tray_index, uint32_t pool_index)
+    VkCommandBuffer CommandBufferFactory::createCommandBuffer(uint32_t tray_index, uint32_t pool_index)
     {
         return createCommandBuffers(1, tray_index, pool_index).front();
     }
 
-    std::vector<VkCommandBuffer> CommandContext::createCommandBuffers(uint32_t count, uint32_t tray_index, uint32_t pool_index)
+    std::vector<VkCommandBuffer> CommandBufferFactory::createCommandBuffers(uint32_t count, uint32_t tray_index, uint32_t pool_index)
     {
         std::lock_guard lock{ _trays_mutex };
         auto it = _trays.find(tray_index);
         if (it == _trays.end())
         {
-            it = _trays.insert({ tray_index, std::make_unique<Tray>(getLogicalDevice(),
-                                                                               _num_of_pools_per_tray,
-                                                                               getQueueFamilyIndex()) }).first;
+            it = _trays.insert({ tray_index, std::make_unique<Tray>(_vulkan_queue->getLogicalDevice(),
+                                                                    _num_of_pools_per_tray,
+                                                                    _vulkan_queue->getQueueFamilyIndex()) }).first;
         }
         return it->second->createCommandBuffers(count, pool_index);
     }

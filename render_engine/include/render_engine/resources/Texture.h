@@ -73,7 +73,7 @@ namespace RenderEngine
         CoherentBuffer& getStagingBuffer() { return _staging_buffer; }
         VkShaderStageFlags getShaderUsageFlag() const { return _shader_usage; }
 
-        void setInitialCommandContext(std::weak_ptr<SingleShotCommandContext> command_context);
+        void setInitialCommandContext(std::weak_ptr<SingleShotCommandBufferFactory> command_context);
     private:
         Texture(Image image,
                 VkPhysicalDevice physical_device,
@@ -243,7 +243,7 @@ namespace RenderEngine
                                         VkImageAspectFlags aspect,
                                         VkShaderStageFlags shader_usage,
                                         const SyncOperations& synchronization_primitive,
-                                        SingleShotCommandContext* dst_context,
+                                        std::shared_ptr<SingleShotCommandBufferFactory> dst_context,
                                         VkImageUsageFlagBits image_usage,
                                         TextureState final_state);
         [[nodiscard]]
@@ -251,7 +251,7 @@ namespace RenderEngine
                                                 VkImageAspectFlags aspect,
                                                 VkShaderStageFlags shader_usage,
                                                 const SyncOperations& synchronization_primitive,
-                                                SingleShotCommandContext* dst_context,
+                                                std::shared_ptr<SingleShotCommandBufferFactory> dst_context,
                                                 VkImageUsageFlagBits image_usage,
                                                 TextureState final_state);
         [[nodiscard]]
@@ -274,7 +274,7 @@ namespace RenderEngine
                                                VkImageAspectFlags aspect);
     private:
 
-        TransferEngine& _transfer_engine;
+        TransferEngine _transfer_engine;
         DataTransferScheduler& _data_transfer_scheduler;
         std::set<uint32_t> _compatible_queue_family_indexes;
         VkPhysicalDevice _physical_device{ VK_NULL_HANDLE };

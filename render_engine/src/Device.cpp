@@ -166,32 +166,56 @@ namespace RenderEngine
         _command_buffer = VK_NULL_HANDLE;
     }
 
-    Device::DataTransferContext::DataTransferContext(std::unique_ptr<TransferEngine> transfer_engine,
+    struct Device::DataTransferContext::Impl
+    {
+        Impl(TransferEngine transfer_engine,
+             std::set<uint32_t> queue_family_indexes,
+             VkPhysicalDevice physical_device,
+             LogicalDevice& logical_device)
+            : scheduler(std::make_unique<DataTransferScheduler>())
+            , transfer_engine(std::move(transfer_engine))
+            , texture_factory(std::make_unique<TextureFactory>(transfer_engine,
+                                                               *scheduler,
+                                                               std::move(queue_family_indexes),
+                                                               physical_device,
+                                                               logical_device))
+        {}
+
+        ~Impl()
+        {
+            scheduler.reset();
+            texture_factory.reset();
+        }
+        std::unique_ptr<DataTransferScheduler> scheduler;
+        TransferEngine transfer_engine;
+        std::unique_ptr<TextureFactory> texture_factory;
+    };
+
+
+
+    Device::DataTransferContext::DataTransferContext(TransferEngine transfer_engine,
                                                      std::set<uint32_t> queue_family_indexes,
                                                      VkPhysicalDevice physical_device,
                                                      LogicalDevice& logical_device)
-        : _scheduler(std::make_unique<DataTransferScheduler>())
-        , _transfer_engine(std::move(transfer_engine))
-        , _texture_factory(std::make_unique<TextureFactory>(*_transfer_engine,
-                                                            *_scheduler,
-                                                            std::move(queue_family_indexes),
-                                                            physical_device,
-                                                            logical_device))
-    {
-
-    }
+        : _impl(std::make_unique<Impl>(std::move(transfer_engine),
+                                       std::move(queue_family_indexes),
+                                       physical_device,
+                                       logical_device))
+    {}
     void Device::DataTransferContext::destroy()
     {
-        _scheduler.reset();
-        _transfer_engine.reset();
-        _texture_factory.reset();
+        _impl.reset();
     }
     void Device::DataTransferContext::synchronizeScheduler(SyncOperations sync_operations)
     {
-        _scheduler->executeTasks(sync_operations, *_transfer_engine);
+        _impl->scheduler->executeTasks(sync_operations, _impl->transfer_engine);
     }
 
     Device::DataTransferContext::~DataTransferContext() = default;
+
+    DataTransferScheduler& Device::DataTransferContext::getScheduler() { return *_impl->scheduler; }
+    const DataTransferScheduler& Device::DataTransferContext::getScheduler() const { return *_impl->scheduler; }
+    TextureFactory& Device::DataTransferContext::getTextureFactory() { return *_impl->texture_factory; }
 
     Device::Device(VkInstance instance,
                    VkPhysicalDevice physical_device,
@@ -215,16 +239,20 @@ namespace RenderEngine
         , _queue_family_transfer(queue_family_index_transfer)
         , _cuda_device(CudaCompute::CudaDevice::createDeviceForUUID(std::span{ &getDeviceUUID(physical_device).deviceUUID[0], VK_UUID_SIZE }, k_num_of_cuda_streams))
         , _device_info(std::move(device_info))
+        , _transfer_engine()
     {
         const std::set unique_set_of_queue_families = { _queue_family_graphics, _queue_family_present, _queue_family_transfer };
         for (uint32_t queue_family_index : unique_set_of_queue_families)
         {
-            _queue_balancers.emplace(queue_family_index,
-                                     std::make_unique<QueueLoadBalancer>(_logical_device,
-                                                                         queue_family_index,
-                                                                         *_device_info.queue_families[queue_family_index].queue_count));
+            _vulkan_queues.emplace(queue_family_index, std::make_unique<VulkanQueue>(&_logical_device,
+                                                                                     queue_family_index,
+                                                                                     *_device_info.queue_families[queue_family_index].queue_count,
+                                                                                     _device_info.queue_families[queue_family_index]));
         }
-        _staging_area = std::make_unique<DataTransferContext>(createTransferEngine(),
+        // TODO Can be optimized out when it is 0. 
+        const uint32_t num_of_trays = 1;
+        _transfer_engine = std::make_unique<TransferEngine>(CommandBufferContext(*_vulkan_queues[queue_family_index_transfer], num_of_trays));
+        _staging_area = std::make_unique<DataTransferContext>(*_transfer_engine,
                                                               std::set{ _queue_family_transfer, _queue_family_graphics },
                                                               _physical_device,
                                                               _logical_device);
@@ -273,15 +301,10 @@ namespace RenderEngine
                                                                                 backbuffer_count,
                                                                                 true });
             std::unique_ptr<IRenderEngine> render_engine = createParallelRenderEngine(backbuffer_count, parallel_frame_count);
-            auto command_context = CommandContext::create(_logical_device,
-                                                          _queue_family_present,
-                                                          _device_info.queue_families.at(_queue_family_present),
-                                                          *_queue_balancers.at(_queue_family_present),
-                                                          backbuffer_count);
             return std::make_unique<Window>(*this, std::move(render_engine),
                                             window,
                                             std::move(swap_chain),
-                                            std::move(command_context));
+                                            CommandBufferContext(*_vulkan_queues[_queue_family_present], backbuffer_count));
         }
         catch (const std::runtime_error&)
         {
@@ -321,15 +344,11 @@ namespace RenderEngine
                                                                                 _queue_family_present,
                                                                                 back_buffer_size });
             std::unique_ptr<RenderEngine> render_engine = createRenderEngine(back_buffer_size);
-            auto command_context = CommandContext::create(_logical_device,
-                                                          _queue_family_present,
-                                                          _device_info.queue_families.at(_queue_family_present),
-                                                          *_queue_balancers.at(_queue_family_present),
-                                                          back_buffer_size);
+
             return std::make_unique<Window>(*this, std::move(render_engine),
                                             window,
                                             std::move(swap_chain),
-                                            std::move(command_context));
+                                            CommandBufferContext(*_vulkan_queues[_queue_family_present], back_buffer_size));
         }
         catch (const std::runtime_error&)
         {
@@ -362,16 +381,16 @@ namespace RenderEngine
 
     std::unique_ptr<RenderEngine> Device::createRenderEngine(uint32_t back_buffer_size)
     {
+        /* TODO: Investigate: Currently each usecase uses different command pool(command buffer context).
+        * This can be shared when the context are shared in case of the same family is used.
+        * Transfer engine can use also a 0 count on the multi-shot factory and can be optimized out the usage/allocation.
+        */
+        CommandBufferContext render_context(*_vulkan_queues[_queue_family_graphics], back_buffer_size);
+        TransferEngine transfer_engine_on_render_queue(render_context);
         return std::make_unique<RenderEngine>(*this,
-                                              SingleShotCommandContext::create(_logical_device,
-                                                                               _queue_family_transfer,
-                                                                               _device_info.queue_families.at(_queue_family_transfer),
-                                                                               *_queue_balancers.at(_queue_family_transfer)),
-                                              CommandContext::create(_logical_device,
-                                                                     _queue_family_graphics,
-                                                                     _device_info.queue_families.at(_queue_family_graphics),
-                                                                     *_queue_balancers.at(_queue_family_graphics),
-                                                                     back_buffer_size),
+                                              render_context,
+                                              *_transfer_engine,
+                                              transfer_engine_on_render_queue,
                                               back_buffer_size);
     }
     std::unique_ptr<ParallelRenderEngine> Device::createParallelRenderEngine(uint32_t backbuffer_count,
@@ -382,31 +401,21 @@ namespace RenderEngine
             .backbuffer_count = backbuffer_count,
             .parallel_frame_count = parallel_frame_count
         };
+        /* TODO: Investigate: Currently each usecase uses different command pool(command buffer context).
+        * This can be shared when the context are shared in case of the same family is used.
+        * Transfer engine can use also a 0 count on the multi-shot factory and can be optimized out the usage/allocation.
+        */
+        CommandBufferContext render_context(*_vulkan_queues[_queue_family_graphics], backbuffer_count);
+        CommandBufferContext present_context(*_vulkan_queues[_queue_family_present], backbuffer_count);
+        TransferEngine transfer_engine_on_render_queue(render_context);
         return std::make_unique<ParallelRenderEngine>(*this,
-                                                      SingleShotCommandContext::create(_logical_device,
-                                                                                       _queue_family_transfer,
-                                                                                       _device_info.queue_families.at(_queue_family_transfer),
-                                                                                       *_queue_balancers.at(_queue_family_transfer)),
-                                                      CommandContext::create(_logical_device,
-                                                                             _queue_family_graphics,
-                                                                             _device_info.queue_families.at(_queue_family_graphics),
-                                                                             *_queue_balancers.at(_queue_family_graphics),
-                                                                             render_engine_description.backbuffer_count),
-                                                      CommandContext::create(_logical_device,
-                                                                             _queue_family_present,
-                                                                             _device_info.queue_families.at(_queue_family_present),
-                                                                             *_queue_balancers.at(_queue_family_present),
-                                                                             render_engine_description.backbuffer_count),
+                                                      render_context,
+                                                      present_context,
+                                                      *_transfer_engine,
+                                                      transfer_engine_on_render_queue,
                                                       std::move(render_engine_description));
     }
 
-    std::unique_ptr<TransferEngine> Device::createTransferEngine()
-    {
-        return std::make_unique<TransferEngine>(SingleShotCommandContext::create(_logical_device,
-                                                                                 _queue_family_transfer,
-                                                                                 _device_info.queue_families.at(_queue_family_transfer),
-                                                                                 *_queue_balancers.at(_queue_family_transfer)));
-    }
 
     void Device::waitIdle()
     {

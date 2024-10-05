@@ -331,7 +331,7 @@ namespace RenderEngine
 
                 getRenderEngine().getDevice().getDataTransferContext().getScheduler().upload(upload_texture.get(),
                                                                                              _image_cache,
-                                                                                             getRenderEngine().getTransferCommandContext(),
+                                                                                             getRenderEngine().getCommandBufferContext().getSingleShotFactory(),
                                                                                              upload_texture->getResourceState().clone()
                                                                                              .setPipelineStage(VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT)
                                                                                              .setAccessFlag(VK_ACCESS_2_SHADER_READ_BIT)
@@ -345,7 +345,7 @@ namespace RenderEngine
             {
                 getRenderEngine().getDevice().getDataTransferContext().getScheduler().upload(upload_texture.get(),
                                                                                              _image_cache,
-                                                                                             getRenderEngine().getTransferCommandContext(),
+                                                                                             getRenderEngine().getCommandBufferContext().getSingleShotFactory(),
                                                                                              upload_texture->getResourceState().clone()
                                                                                              .setPipelineStage(VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT)
                                                                                              .setAccessFlag(VK_ACCESS_2_SHADER_READ_BIT)

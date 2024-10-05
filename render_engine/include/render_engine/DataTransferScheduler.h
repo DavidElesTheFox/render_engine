@@ -28,22 +28,22 @@ namespace RenderEngine
         // TODO: Remove final parameter. RenderGraph should be control that dependency
         std::weak_ptr<UploadTask> upload(Texture* texture,
                                          Image image,
-                                         SingleShotCommandContext& dst_context,
+                                         std::shared_ptr<SingleShotCommandBufferFactory> dst_context,
                                          TextureState final_state,
                                          SyncOperations sync_operations = {});
         std::weak_ptr<UploadTask> upload(Buffer* buffer,
                                          std::vector<uint8_t> data,
-                                         SingleShotCommandContext& dst_context,
+                                         std::shared_ptr<SingleShotCommandBufferFactory> dst_context,
                                          BufferState final_state);
 
         std::weak_ptr<UploadTask> upload(Buffer* buffer,
                                          std::span<const uint8_t> data,
-                                         SingleShotCommandContext& dst_context,
+                                         std::shared_ptr<SingleShotCommandBufferFactory> dst_context,
                                          BufferState final_state);
         template<typename T>
         std::weak_ptr<UploadTask> upload(Buffer* buffer,
                                          std::span<T> data,
-                                         SingleShotCommandContext& dst_context,
+                                         std::shared_ptr<SingleShotCommandBufferFactory> dst_context,
                                          BufferState final_state)
         {
             return upload(buffer,

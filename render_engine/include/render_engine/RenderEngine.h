@@ -20,8 +20,9 @@ namespace RenderEngine
     public:
 
         RenderEngine(Device& device,
-                     std::shared_ptr<SingleShotCommandContext>&& single_shot_command_context,
-                     std::shared_ptr<CommandContext>&& command_context,
+                     CommandBufferContext command_buffer_context,
+                     TransferEngine transfer_engine,
+                     TransferEngine transfer_engine_on_render_queue,
                      uint32_t back_buffer_count);
 
         void onFrameBegin(const std::ranges::input_range auto& renderers, uint32_t image_index)
@@ -54,8 +55,8 @@ namespace RenderEngine
         GpuResourceManager& getGpuResourceManager() { return _gpu_resource_manager; }
         uint32_t getBackBufferSize() const { return _gpu_resource_manager.getBackBufferSize(); }
         TransferEngine& getTransferEngine() { return _transfer_engine; }
-        CommandContext& getCommandContext() { return *_command_context; }
-        SingleShotCommandContext& getTransferCommandContext();
+        TransferEngine& getTransferEngineOnRenderQueue() { return _transfer_engine_on_render_queue; }
+        CommandBufferContext& getCommandBufferContext() { return _command_buffer_context; }
         Device& getDevice() { return _device; }
     private:
         std::vector<VkCommandBufferSubmitInfo> executeDrawCalls(const std::ranges::input_range auto& renderers,
@@ -100,8 +101,8 @@ namespace RenderEngine
 
         Device& _device;
         GpuResourceManager _gpu_resource_manager;
-        // TODO make borrow_ptr
-        std::shared_ptr<CommandContext> _command_context;
+        CommandBufferContext _command_buffer_context;
         TransferEngine _transfer_engine;
+        TransferEngine _transfer_engine_on_render_queue;
     };
 }

@@ -34,21 +34,8 @@ namespace RenderEngine
 
     }
 
-    void SingleColorOutputRenderer::initializeRenderTargetCommandContext(RenderTarget& render_target)
-    {
-        for (uint32_t i = 0; i < render_target.getTexturesCount(); ++i)
-        {
-            if (render_target.getTextureView(i).getTexture().getResourceState().command_context.expired())
-            {
-                render_target.getTextureView(i).getTexture().setInitialCommandContext(_render_engine.getTransferCommandContext().getWeakReference());
-            }
-            else
-            {
-                assert(render_target.getTextureView(i).getTexture().getResourceState().command_context.lock()->isCompatibleWith(_render_engine.getCommandContext())
-                       && "The render target current context needs to be compatible with the current render engine command context");
-            }
-        }
-    }
+    void SingleColorOutputRenderer::initializeRenderTargetCommandContext(RenderTarget&)
+    {}
 
     void SingleColorOutputRenderer::destroyRenderOutput()
     {
@@ -105,7 +92,8 @@ namespace RenderEngine
 
         for (uint32_t i = 0; i < _back_buffer.size(); ++i)
         {
-            VkCommandBuffer command_buffer = _render_engine.getCommandContext().createCommandBuffer(i, 0);
+            // TODO: add thread information or remove function
+            VkCommandBuffer command_buffer = _render_engine.getCommandBufferContext().getFactory()->createCommandBuffer(i, 0);
 
             _back_buffer[i].command_buffer = command_buffer;
         }

@@ -47,17 +47,18 @@ namespace RenderEngine
     };
 
     ParallelRenderEngine::ParallelRenderEngine(Device& device,
-                                               std::shared_ptr<SingleShotCommandContext>&& transfer_context,
-                                               std::shared_ptr<CommandContext>&& render_context,
-                                               std::shared_ptr<CommandContext>&& present_context,
+                                               CommandBufferContext render_command_buffer_context,
+                                               CommandBufferContext present_command_buffer_context,
+                                               TransferEngine transfer_engine,
+                                               TransferEngine transfer_engine_on_render_queue,
                                                Description description)
         : _device(device)
-        , _render_context(std::move(render_context))
-        , _present_context(std::move(present_context))
-        , _transfer_context(std::move(transfer_context))
+        , _render_command_buffer_context(std::move(render_command_buffer_context))
+        , _present_command_buffer_context(std::move(present_command_buffer_context))
         , _description(std::move(description))
         , _gpu_resource_manager(std::make_unique<GpuResourceManager>(device.getPhysicalDevice(), device.getLogicalDevice(), _description.backbuffer_count, kMaxNumOfResources))
-        , _transfer_engine(std::make_unique<TransferEngine>(_transfer_context))
+        , _transfer_engine(std::move(transfer_engine))
+        , _transfer_engine_on_render_queue(std::move(transfer_engine_on_render_queue))
         , _sync_service(std::make_unique<SyncService>())
         , _available_backbuffers(_description.backbuffer_count)
         , _task_flow_executor(_description.parallel_frame_count)
@@ -69,7 +70,7 @@ namespace RenderEngine
 
     RenderGraphBuilder ParallelRenderEngine::createRenderGraphBuilder(std::string graph_name)
     {
-        return RenderGraphBuilder(std::move(graph_name), _render_context, _present_context, _transfer_context);
+        return RenderGraphBuilder(std::move(graph_name), _render_command_buffer_context, _present_command_buffer_context, _transfer_engine);
     }
     void ParallelRenderEngine::setRenderGraph(std::unique_ptr<RenderGraph::Graph> render_graph)
     {

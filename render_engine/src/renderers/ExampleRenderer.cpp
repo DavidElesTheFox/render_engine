@@ -397,7 +397,7 @@ namespace RenderEngine
 
             _render_engine.getDevice().getDataTransferContext().getScheduler().upload(_vertex_buffer.get(),
                                                                                       std::span(vertices),
-                                                                                      _render_engine.getTransferCommandContext(),
+                                                                                      _render_engine.getTransferEngine().getCommandBufferFactory(),
                                                                                       _vertex_buffer->getResourceState().clone());
         }
         {
@@ -405,7 +405,7 @@ namespace RenderEngine
             _index_buffer = _render_engine.getGpuResourceManager().createAttributeBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, size);
             _render_engine.getDevice().getDataTransferContext().getScheduler().upload(_index_buffer.get(),
                                                                                       std::span(indicies),
-                                                                                      _render_engine.getTransferCommandContext(),
+                                                                                      _render_engine.getTransferEngine().getCommandBufferFactory(),
                                                                                       _vertex_buffer->getResourceState().clone());
         }
 
@@ -558,7 +558,8 @@ namespace RenderEngine
     {
         for (uint32_t i = 0; i < _back_buffer.size(); ++i)
         {
-            VkCommandBuffer command_buffer = _render_engine.getCommandContext().createCommandBuffer(i, 0);
+            // TODO add threading information or remove function
+            VkCommandBuffer command_buffer = _render_engine.getCommandBufferContext().getFactory()->createCommandBuffer(i, 0);
 
             _back_buffer[i].command_buffer = command_buffer;
         }

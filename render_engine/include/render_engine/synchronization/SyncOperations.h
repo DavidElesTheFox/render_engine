@@ -61,7 +61,7 @@ namespace RenderEngine
             return result;
         }
 
-        SyncOperations restrict(const AbstractCommandContext& context) const;
+        SyncOperations restrict(const VulkanQueue& queue) const;
 
     private:
         void unionWith(const SyncOperations& o);

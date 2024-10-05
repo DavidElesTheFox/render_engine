@@ -69,12 +69,12 @@ namespace RenderEngine
 
 #pragma region Texture Upload/Download Commands
         std::function<void(VkCommandBuffer)> createTextureUnifiedUploadCommand(Texture& texture,
-                                                                               SingleShotCommandContext& dst_context,
+                                                                               VulkanQueue& dst_queue,
                                                                                TextureState final_state)
         {
             auto upload_command = [&](VkCommandBuffer command_buffer)
                 {
-                    ResourceStateMachine state_machine(dst_context.getLogicalDevice());
+                    ResourceStateMachine state_machine(dst_queue.getLogicalDevice());
                     state_machine.recordStateChange(&texture,
                                                     texture.getResourceState().clone()
                                                     .setPipelineStage(VK_PIPELINE_STAGE_2_TRANSFER_BIT)
@@ -100,11 +100,11 @@ namespace RenderEngine
                             .height = texture.getImage().getHeight(),
                             .depth = texture.getImage().getDepth()
                         };
-                        dst_context.getLogicalDevice()->vkCmdCopyBufferToImage(command_buffer,
-                                                                               texture.getStagingBuffer().getBuffer(),
-                                                                               texture.getVkImage(),
-                                                                               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                                                               1, &copy_region);
+                        dst_queue.getLogicalDevice()->vkCmdCopyBufferToImage(command_buffer,
+                                                                             texture.getStagingBuffer().getBuffer(),
+                                                                             texture.getVkImage(),
+                                                                             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                                                             1, &copy_region);
                     }
                     state_machine.recordStateChange(&texture,
                                                     texture.getResourceState().clone()
@@ -117,10 +117,10 @@ namespace RenderEngine
         }
 
         std::function<void(VkCommandBuffer)> createTextureNotUnifiedUploadCommand(Texture& texture,
-                                                                                  SingleShotCommandContext* src_context,
+                                                                                  VulkanQueue& src_queue,
                                                                                   bool initial_transfer)
         {
-            auto upload_command = [&texture, src_context, initial_transfer](VkCommandBuffer command_buffer)
+            auto upload_command = [&texture, &src_queue, initial_transfer](VkCommandBuffer command_buffer)
                 {
                     /*
                     * Image layout needs to be in dst optimal. When there is no queue ownership transformation
@@ -128,7 +128,7 @@ namespace RenderEngine
                     */
                     if (initial_transfer)
                     {
-                        ResourceStateMachine state_machine(src_context->getLogicalDevice());
+                        ResourceStateMachine state_machine(src_queue.getLogicalDevice());
                         state_machine.recordStateChange(&texture,
                                                         texture.getResourceState().clone()
                                                         .setPipelineStage(VK_PIPELINE_STAGE_2_TRANSFER_BIT)
@@ -154,11 +154,11 @@ namespace RenderEngine
                             .height = texture.getImage().getHeight(),
                             .depth = texture.getImage().getDepth()
                         };
-                        src_context->getLogicalDevice()->vkCmdCopyBufferToImage(command_buffer,
-                                                                                texture.getStagingBuffer().getBuffer(),
-                                                                                texture.getVkImage(),
-                                                                                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                                                                1, &copy_region);
+                        src_queue.getLogicalDevice()->vkCmdCopyBufferToImage(command_buffer,
+                                                                             texture.getStagingBuffer().getBuffer(),
+                                                                             texture.getVkImage(),
+                                                                             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                                                             1, &copy_region);
                     }
 
 
@@ -167,9 +167,9 @@ namespace RenderEngine
         }
 
         std::function<void(VkCommandBuffer)> createTextureNotUnifiedDownloadCommand(Texture& texture,
-                                                                                    SingleShotCommandContext& src_context)
+                                                                                    VulkanQueue& src_queue)
         {
-            auto download_command = [&texture, &src_context](VkCommandBuffer command_buffer)
+            auto download_command = [&texture, &src_queue](VkCommandBuffer command_buffer)
                 {
                     VkBufferImageCopy copy_region{};
                     copy_region.bufferOffset = 0;
@@ -187,23 +187,23 @@ namespace RenderEngine
                         .height = texture.getImage().getHeight(),
                         .depth = texture.getImage().getDepth()
                     };
-                    src_context.getLogicalDevice()->vkCmdCopyImageToBuffer(command_buffer,
-                                                                           texture.getVkImage(),
-                                                                           VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                                                                           texture.getStagingBuffer().getBuffer(),
-                                                                           1, &copy_region);
+                    src_queue.getLogicalDevice()->vkCmdCopyImageToBuffer(command_buffer,
+                                                                         texture.getVkImage(),
+                                                                         VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                                                                         texture.getStagingBuffer().getBuffer(),
+                                                                         1, &copy_region);
 
                 };
             return download_command;
         }
 
         std::function<void(VkCommandBuffer)> createTextureUnifiedDownloadCommand(Texture& texture,
-                                                                                 SingleShotCommandContext& src_context,
+                                                                                 VulkanQueue& src_queue,
                                                                                  TextureState final_state)
         {
             auto download_command = [&](VkCommandBuffer command_buffer)
                 {
-                    ResourceStateMachine state_machine(src_context.getLogicalDevice());
+                    ResourceStateMachine state_machine(src_queue.getLogicalDevice());
                     auto old_state = texture.getResourceState();
                     state_machine.recordStateChange(&texture,
                                                     texture.getResourceState().clone()
@@ -229,11 +229,11 @@ namespace RenderEngine
                             .height = texture.getImage().getHeight(),
                             .depth = texture.getImage().getDepth()
                         };
-                        src_context.getLogicalDevice()->vkCmdCopyImageToBuffer(command_buffer,
-                                                                               texture.getVkImage(),
-                                                                               VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                                                                               texture.getStagingBuffer().getBuffer(),
-                                                                               1, &copy_region);
+                        src_queue.getLogicalDevice()->vkCmdCopyImageToBuffer(command_buffer,
+                                                                             texture.getVkImage(),
+                                                                             VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                                                                             texture.getStagingBuffer().getBuffer(),
+                                                                             1, &copy_region);
                     }
 
                     state_machine.recordStateChange(&texture, old_state);
@@ -246,12 +246,12 @@ namespace RenderEngine
 #pragma region Buffer Upload Commands
         std::function<void(VkCommandBuffer)> createBufferUnifiedUploadCommand(Buffer& buffer,
                                                                               VkBuffer staging_buffer,
-                                                                              SingleShotCommandContext& src_context,
+                                                                              VulkanQueue& src_queue,
                                                                               BufferState final_buffer_state)
         {
-            auto upload_command = [&buffer, &src_context, final_buffer_state, staging_buffer](VkCommandBuffer command_buffer)
+            auto upload_command = [&buffer, &src_queue, final_buffer_state, staging_buffer](VkCommandBuffer command_buffer)
                 {
-                    ResourceStateMachine state_machine(src_context.getLogicalDevice());
+                    ResourceStateMachine state_machine(src_queue.getLogicalDevice());
                     state_machine.recordStateChange(&buffer,
                                                     buffer.getResourceState().clone()
                                                     .setPipelineStage(VK_PIPELINE_STAGE_2_TRANSFER_BIT)
@@ -259,11 +259,11 @@ namespace RenderEngine
                     state_machine.commitChanges(command_buffer);
                     VkBufferCopy copy_region{};
                     copy_region.size = buffer.getDeviceSize();
-                    src_context.getLogicalDevice()->vkCmdCopyBuffer(command_buffer,
-                                                                    staging_buffer,
-                                                                    buffer.getBuffer(),
-                                                                    1,
-                                                                    &copy_region);
+                    src_queue.getLogicalDevice()->vkCmdCopyBuffer(command_buffer,
+                                                                  staging_buffer,
+                                                                  buffer.getBuffer(),
+                                                                  1,
+                                                                  &copy_region);
                     state_machine.recordStateChange(&buffer,
                                                     buffer.getResourceState().clone()
                                                     .setPipelineStage(final_buffer_state.pipeline_stage)
@@ -275,17 +275,17 @@ namespace RenderEngine
 
         std::function<void(VkCommandBuffer)> createBufferNotUnifiedUploadCommand(Buffer& buffer,
                                                                                  VkBuffer staging_buffer,
-                                                                                 SingleShotCommandContext& dst_context)
+                                                                                 VulkanQueue& dst_queue)
         {
-            auto upload_command = [&buffer, staging_buffer, &dst_context](VkCommandBuffer command_buffer)
+            auto upload_command = [&buffer, staging_buffer, &dst_queue](VkCommandBuffer command_buffer)
                 {
                     VkBufferCopy copy_region{};
                     copy_region.size = buffer.getDeviceSize();
-                    dst_context.getLogicalDevice()->vkCmdCopyBuffer(command_buffer,
-                                                                    staging_buffer,
-                                                                    buffer.getBuffer(),
-                                                                    1,
-                                                                    &copy_region);
+                    dst_queue.getLogicalDevice()->vkCmdCopyBuffer(command_buffer,
+                                                                  staging_buffer,
+                                                                  buffer.getBuffer(),
+                                                                  1,
+                                                                  &copy_region);
                 };
             return upload_command;
         }
@@ -307,7 +307,7 @@ namespace RenderEngine
             std::function<void(VkCommandBuffer)> upload_command,
             QueueSubmitTracker* submit_tracker)
         {
-            SyncObject transfer_sync_object(transfer_engine.getTransferContext().getLogicalDevice(), "UnifiedQueueTransfer-" + id);
+            SyncObject transfer_sync_object(transfer_engine.getCommandBufferFactory()->getQueue().getLogicalDevice(), "UnifiedQueueTransfer-" + id);
             transfer_sync_object.createTimelineSemaphore(DataTransferScheduler::kDataTransferFinishSemaphoreName, 0, 2);
             transfer_sync_object.addSignalOperationToGroup(SyncGroups::kInternal,
                                                            DataTransferScheduler::kDataTransferFinishSemaphoreName,
@@ -329,8 +329,8 @@ namespace RenderEngine
             Texture& texture,
             SyncOperations sync_operations,
             TransferEngine& transfer_engine,
-            SingleShotCommandContext& src_context,
-            SingleShotCommandContext& dst_context,
+            SingleShotCommandBufferFactory& src_context,
+            std::shared_ptr<SingleShotCommandBufferFactory> dst_context,
             TextureState final_state,
             std::function<void(VkCommandBuffer)> upload_command,
             DataTransferType transfer_type,
@@ -340,7 +340,7 @@ namespace RenderEngine
             const bool is_initial_transfer = texture.getResourceState().command_context.expired();
 
 
-            SyncObject transfer_sync_object(src_context.getLogicalDevice(), "TextureNotUnifiedQueueTransfer-" + id);
+            SyncObject transfer_sync_object(src_context.getQueue().getLogicalDevice(), "TextureNotUnifiedQueueTransfer-" + id);
             transfer_sync_object.createTimelineSemaphore(DataTransferScheduler::kDataTransferFinishSemaphoreName, 0, 2);
             transfer_sync_object.addSignalOperationToGroup(SyncGroups::kInternal,
                                                            DataTransferScheduler::kDataTransferFinishSemaphoreName,
@@ -352,6 +352,7 @@ namespace RenderEngine
                                                          1);
             if (is_initial_transfer == false)
             {
+                auto texture_command_buffer_context = texture.getResourceState().command_context.lock();
                 VkImageLayout layout_for_copy = transfer_type == DataTransferType::Download
                     ? VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
                     : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
@@ -360,8 +361,8 @@ namespace RenderEngine
                                                                                                  .setPipelineStage(VK_PIPELINE_STAGE_2_TRANSFER_BIT)
                                                                                                  .setAccessFlag(0)
                                                                                                  .setImageLayout(layout_for_copy),
-                                                                                                 texture.getResourceState().command_context.lock().get(),
-                                                                                                 &transfer_engine.getTransferContext(),
+                                                                                                 texture_command_buffer_context.get(),
+                                                                                                 transfer_engine.getCommandBufferFactory(),
                                                                                                  sync_operations.extract(SyncOperations::ExtractWaitOperations),
                                                                                                  submit_tracker);
 
@@ -383,7 +384,7 @@ namespace RenderEngine
                 result.push_back(std::move(execution_barrier));
 
             }
-            assert(texture.getResourceState().getQueueFamilyIndex() == transfer_engine.getTransferContext().getQueueFamilyIndex());
+            assert(texture.getResourceState().getQueueFamilyIndex() == transfer_engine.getCommandBufferFactory()->getQueue().getQueueFamilyIndex());
 
             SyncObject sync_object_transfer_to_dst = ResourceStateMachine::transferOwnership(&texture,
                                                                                              texture.getResourceState().clone()
@@ -391,11 +392,11 @@ namespace RenderEngine
                                                                                              .setAccessFlag(0)
                                                                                              .setImageLayout(final_state.layout),
                                                                                              texture.getResourceState().command_context.lock().get(),
-                                                                                             &dst_context,
+                                                                                             dst_context,
                                                                                              sync_operations.extract(SyncOperations::ExtractSignalOperations)
                                                                                              .createUnionWith(transfer_sync_object.getOperationsGroup(SyncGroups::kExternal)),
                                                                                              submit_tracker);
-            assert(texture.getResourceState().getQueueFamilyIndex() == dst_context.getQueueFamilyIndex());
+            assert(texture.getResourceState().getQueueFamilyIndex() == dst_context->getQueue().getQueueFamilyIndex());
             result.push_back(std::move(sync_object_transfer_to_dst));
             result.push_back(std::move(transfer_sync_object));
             return result;
@@ -407,15 +408,15 @@ namespace RenderEngine
             Buffer& buffer,
             SyncOperations sync_operations,
             TransferEngine& transfer_engine,
-            SingleShotCommandContext& src_context,
-            SingleShotCommandContext& dst_context,
+            SingleShotCommandBufferFactory& src_context,
+            std::shared_ptr<SingleShotCommandBufferFactory> dst_context,
             BufferState final_buffer_state,
             std::function<void(VkCommandBuffer)> upload_command,
             QueueSubmitTracker* submit_tracker)
         {
             std::vector<SyncObject> result;
 
-            SyncObject transfer_sync_object(src_context.getLogicalDevice(), "BufferNotUnifiedQueueTransfer-" + id);
+            SyncObject transfer_sync_object(src_context.getQueue().getLogicalDevice(), "BufferNotUnifiedQueueTransfer-" + id);
             transfer_sync_object.createTimelineSemaphore(DataTransferScheduler::kDataTransferFinishSemaphoreName, 0, 2);
             transfer_sync_object.addSignalOperationToGroup(SyncGroups::kInternal,
                                                            DataTransferScheduler::kDataTransferFinishSemaphoreName,
@@ -434,7 +435,7 @@ namespace RenderEngine
                                                                                                  .setPipelineStage(VK_PIPELINE_STAGE_2_TRANSFER_BIT)
                                                                                                  .setAccessFlag(0),
                                                                                                  buffer.getResourceState().command_context.lock().get(),
-                                                                                                 &transfer_engine.getTransferContext(),
+                                                                                                 transfer_engine.getCommandBufferFactory(),
                                                                                                  sync_operations.extract(SyncOperations::ExtractWaitOperations),
                                                                                                  submit_tracker);
                 transfer_engine.transfer(sync_object_src_to_transfer.getOperationsGroup(SyncGroups::kExternal)
@@ -453,18 +454,19 @@ namespace RenderEngine
                                          submit_tracker);
                 result.push_back(std::move(execution_barrier));
             }
-            assert(buffer.getResourceState().getQueueFamilyIndex() == transfer_engine.getTransferContext().getQueueFamilyIndex());
+            assert(buffer.getResourceState().getQueueFamilyIndex() == transfer_engine.getCommandBufferFactory()->getQueue().getQueueFamilyIndex());
 
+            auto buffer_command_buffer_context = buffer.getResourceState().command_context.lock();
             SyncObject sync_object_transfer_to_dst = ResourceStateMachine::transferOwnership(&buffer,
                                                                                              buffer.getResourceState().clone()
                                                                                              .setPipelineStage(final_buffer_state.pipeline_stage)
                                                                                              .setAccessFlag(0),
-                                                                                             buffer.getResourceState().command_context.lock().get(),
-                                                                                             &dst_context,
+                                                                                             buffer_command_buffer_context.get(),
+                                                                                             dst_context,
                                                                                              sync_operations.extract(SyncOperations::ExtractSignalOperations)
                                                                                              .createUnionWith(transfer_sync_object.getOperationsGroup(SyncGroups::kExternal)),
                                                                                              submit_tracker);
-            assert(buffer.getResourceState().getQueueFamilyIndex() == dst_context.getQueueFamilyIndex());
+            assert(buffer.getResourceState().getQueueFamilyIndex() == dst_context->getQueue().getQueueFamilyIndex());
             result.push_back(std::move(sync_object_transfer_to_dst));
             result.push_back(std::move(transfer_sync_object));
             return result;
@@ -479,12 +481,12 @@ namespace RenderEngine
 
     std::weak_ptr<UploadTask> DataTransferScheduler::upload(Texture* texture,
                                                             Image image,
-                                                            SingleShotCommandContext& dst_context,
+                                                            std::shared_ptr<SingleShotCommandBufferFactory> dst_context,
                                                             TextureState final_state,
                                                             SyncOperations additional_sync_operations)
     {
         std::lock_guard lock{ _task_mutex };
-        auto task = [image_to_upload = std::move(image), &dst_context, texture, final_texture_state = std::move(final_state), additional_sync_operations]
+        auto task = [image_to_upload = std::move(image), dst_context, texture, final_texture_state = std::move(final_state), additional_sync_operations]
         (SyncOperations sync_operations, TransferEngine& transfer_engine, UploadTask::Storage&, QueueSubmitTracker& submit_tracker) -> std::vector<SyncObject>
             {
                 if (texture->isImageCompatible(image_to_upload) == false)
@@ -501,13 +503,13 @@ namespace RenderEngine
 
                 if (is_initial_transfer)
                 {
-                    texture->setInitialCommandContext(transfer_engine.getTransferContext().getWeakReference());
+                    texture->setInitialCommandContext(transfer_engine.getCommandBufferFactory());
                 }
 
-                auto* src_context = texture->getResourceState().command_context.lock().get();
+                auto src_context = texture->getResourceState().command_context.lock();
 
-                if (dst_context.getQueueFamilyIndex() != transfer_engine.getTransferContext().getQueueFamilyIndex()
-                    || src_context->getQueueFamilyIndex() != transfer_engine.getTransferContext().getQueueFamilyIndex())
+                if (dst_context->getQueue().getQueueFamilyIndex() != transfer_engine.getCommandBufferFactory()->getQueue().getQueueFamilyIndex()
+                    || src_context->getQueue().getQueueFamilyIndex() != transfer_engine.getCommandBufferFactory()->getQueue().getQueueFamilyIndex())
                 {
                     return textureNotUnifiedQueueTransfer(std::format("{:#018x}", reinterpret_cast<uintptr_t>(texture)),
                                                           *texture,
@@ -516,7 +518,7 @@ namespace RenderEngine
                                                           *src_context,
                                                           dst_context,
                                                           std::move(final_texture_state),
-                                                          createTextureNotUnifiedUploadCommand(*texture, src_context, is_initial_transfer),
+                                                          createTextureNotUnifiedUploadCommand(*texture, src_context->getQueue(), is_initial_transfer),
                                                           DataTransferType::Upload,
                                                           &submit_tracker);
                 }
@@ -525,25 +527,25 @@ namespace RenderEngine
                     SyncObject transfer_sync_object = unifiedQueueTransfer(std::format("{:#018x}", reinterpret_cast<uintptr_t>(texture)),
                                                                            sync_operations.createUnionWith(additional_sync_operations),
                                                                            transfer_engine,
-                                                                           createTextureUnifiedUploadCommand(*texture, dst_context, std::move(final_texture_state)),
+                                                                           createTextureUnifiedUploadCommand(*texture, dst_context->getQueue(), std::move(final_texture_state)),
                                                                            &submit_tracker);
                     std::vector<SyncObject> result;
                     result.push_back(std::move(transfer_sync_object));
                     return result;
                 }
             };
-        std::shared_ptr<UploadTask> result = std::make_shared<UploadTask>(dst_context.getLogicalDevice(), std::move(task), std::format("UploadTask-{:#18x}", reinterpret_cast<uintptr_t>(texture)));
+        std::shared_ptr<UploadTask> result = std::make_shared<UploadTask>(dst_context->getQueue().getLogicalDevice(), std::move(task), std::format("UploadTask-{:#18x}", reinterpret_cast<uintptr_t>(texture)));
         _textures_staging_area.uploads[texture] = result;
         return result;
     }
 
     std::weak_ptr<UploadTask> DataTransferScheduler::upload(Buffer* buffer,
                                                             std::vector<uint8_t> data,
-                                                            SingleShotCommandContext& dst_context,
+                                                            std::shared_ptr<SingleShotCommandBufferFactory> dst_context,
                                                             BufferState final_state)
     {
         std::lock_guard lock{ _task_mutex };
-        auto task = [data_to_upload = std::move(data), &dst_context, buffer, final_buffer_state = std::move(final_state)]
+        auto task = [data_to_upload = std::move(data), dst_context, buffer, final_buffer_state = std::move(final_state)]
         (SyncOperations sync_operations, TransferEngine& transfer_engine, UploadTask::Storage& task_storage, QueueSubmitTracker& submit_tracker) -> std::vector<SyncObject>
             {
                 auto& logical_device = buffer->getLogicalDevice();
@@ -567,12 +569,12 @@ namespace RenderEngine
                 const bool is_initial_transfer = buffer->getResourceState().command_context.expired();
                 if (is_initial_transfer)
                 {
-                    buffer->setInitialCommandContext(transfer_engine.getTransferContext().getWeakReference());
+                    buffer->setInitialCommandContext(transfer_engine.getCommandBufferFactory());
                 }
-                auto* src_context = buffer->getResourceState().command_context.lock().get();
+                auto src_context = buffer->getResourceState().command_context.lock();
                 std::vector<SyncObject> result;
-                if (dst_context.getQueueFamilyIndex() != transfer_engine.getTransferContext().getQueueFamilyIndex()
-                    || src_context->getQueueFamilyIndex() != transfer_engine.getTransferContext().getQueueFamilyIndex())
+                if (dst_context->getQueue().getQueueFamilyIndex() != transfer_engine.getCommandBufferFactory()->getQueue().getQueueFamilyIndex()
+                    || src_context->getQueue().getQueueFamilyIndex() != transfer_engine.getCommandBufferFactory()->getQueue().getQueueFamilyIndex())
                 {
                     result = bufferNotUnifiedQueueTransfer(std::format("{:#018x}", reinterpret_cast<uintptr_t>(buffer)),
                                                            *buffer,
@@ -583,7 +585,7 @@ namespace RenderEngine
                                                            final_buffer_state,
                                                            createBufferNotUnifiedUploadCommand(*buffer,
                                                                                                staging_buffer,
-                                                                                               dst_context),
+                                                                                               dst_context->getQueue()),
                                                            &submit_tracker);
                 }
                 else
@@ -593,7 +595,7 @@ namespace RenderEngine
                                                                            transfer_engine,
                                                                            createBufferUnifiedUploadCommand(*buffer,
                                                                                                             staging_buffer,
-                                                                                                            *src_context,
+                                                                                                            src_context->getQueue(),
                                                                                                             final_buffer_state),
                                                                            &submit_tracker);
                     result.push_back(std::move(transfer_sync_object));
@@ -602,7 +604,7 @@ namespace RenderEngine
                 return result;
 
             };
-        std::shared_ptr<UploadTask> result = std::make_shared<UploadTask>(dst_context.getLogicalDevice(),
+        std::shared_ptr<UploadTask> result = std::make_shared<UploadTask>(dst_context->getQueue().getLogicalDevice(),
                                                                           std::move(task),
                                                                           std::format("UploadTask-{:#18x}", reinterpret_cast<uintptr_t>(buffer)));
         _buffers_staging_area.uploads[buffer] = result;
@@ -619,16 +621,16 @@ namespace RenderEngine
         (SyncOperations sync_operations, TransferEngine& transfer_engine, QueueSubmitTracker& submit_tracker) -> std::vector<SyncObject>
             {
                 auto src_context = texture->getResourceState().command_context.lock();
-                if (src_context->getQueueFamilyIndex() != transfer_engine.getTransferContext().getQueueFamilyIndex())
+                if (src_context->getQueue().getQueueFamilyIndex() != transfer_engine.getCommandBufferFactory()->getQueue().getQueueFamilyIndex())
                 {
                     return textureNotUnifiedQueueTransfer(std::format("{:#018x}", reinterpret_cast<uintptr_t>(texture)),
                                                           *texture,
                                                           sync_operations.createUnionWith(additional_sync_operations),
                                                           transfer_engine,
                                                           *src_context,
-                                                          *src_context,
+                                                          src_context,
                                                           texture->getResourceState().clone(),
-                                                          createTextureNotUnifiedDownloadCommand(*texture, *src_context),
+                                                          createTextureNotUnifiedDownloadCommand(*texture, src_context->getQueue()),
                                                           DataTransferType::Download,
                                                           &submit_tracker);
                 }
@@ -638,7 +640,7 @@ namespace RenderEngine
                                                                            sync_operations.createUnionWith(additional_sync_operations),
                                                                            transfer_engine,
                                                                            createTextureUnifiedDownloadCommand(*texture,
-                                                                                                               *src_context,
+                                                                                                               src_context->getQueue(),
                                                                                                                texture->getResourceState().clone()),
                                                                            &submit_tracker);
                     std::vector<SyncObject> result;
@@ -648,7 +650,7 @@ namespace RenderEngine
             };
         std::shared_ptr<DownloadTask> result = std::make_shared<DownloadTask>(std::move(task),
                                                                               texture,
-                                                                              texture->getResourceState().command_context.lock()->getLogicalDevice(),
+                                                                              texture->getResourceState().command_context.lock()->getQueue().getLogicalDevice(),
                                                                               std::format("{:#018x}", reinterpret_cast<uintptr_t>(texture)));
         _textures_staging_area.downloads[texture] = result;
         return result;
@@ -699,7 +701,10 @@ namespace RenderEngine
             + _textures_staging_area.uploads.size()
             + _textures_staging_area.downloads.size() > 0;
     }
-    std::weak_ptr<UploadTask> DataTransferScheduler::upload(Buffer* buffer, std::span<const uint8_t> data, SingleShotCommandContext& dst_context, BufferState final_state)
+    std::weak_ptr<UploadTask> DataTransferScheduler::upload(Buffer* buffer,
+                                                            std::span<const uint8_t> data,
+                                                            std::shared_ptr<SingleShotCommandBufferFactory> dst_context,
+                                                            BufferState final_state)
     {
         return upload(buffer,
                       std::vector(data.begin(), data.end()),

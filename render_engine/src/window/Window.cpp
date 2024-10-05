@@ -33,7 +33,7 @@ namespace RenderEngine
                    std::unique_ptr<IRenderEngine>&& render_engine,
                    GLFWwindow* window,
                    std::unique_ptr<SwapChain> swap_chain,
-                   std::shared_ptr<CommandContext>&& present_context)
+                   CommandBufferContext&& present_context)
         try : _device(device)
         , _render_engine(std::move(render_engine))
         , _window(window)
@@ -238,7 +238,7 @@ namespace RenderEngine
             presentInfo.pSwapchains = swapChains;
 
             presentInfo.pImageIndices = &*_swap_chain_image_index;
-            _present_context->queuePresent(std::move(presentInfo), {}, *_swap_chain);
+            _present_context.getQueue().queuePresent(std::move(presentInfo), {}, *_swap_chain);
             _swap_chain_image_index = std::nullopt;
             _presented_frame_counter++;
         }

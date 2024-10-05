@@ -27,7 +27,7 @@ namespace RenderEngine
 
         void queueSubmit(VkSubmitInfo2&& submit_info,
                          const SyncOperations& sync_operations,
-                         AbstractCommandContext& command_context);
+                         VulkanQueue& queue);
 
         void wait() const;
 

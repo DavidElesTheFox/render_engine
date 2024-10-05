@@ -35,9 +35,9 @@ namespace RenderEngine
             using GeneralGpuLinkBuilder = GpuLinkBuilder<OP_FLAG_SIGNAL>;
 
             explicit RenderGraphBuilder(std::string name,
-                                        std::weak_ptr<CommandContext> render_context,
-                                        std::weak_ptr<CommandContext> present_context,
-                                        std::weak_ptr<SingleShotCommandContext> transfer_context);
+                                        CommandBufferContext render_context,
+                                        CommandBufferContext present_context,
+                                        TransferEngine transfer_engine);
 
             ~RenderGraphBuilder() = default;
 
@@ -65,9 +65,9 @@ namespace RenderEngine
         private:
 
             std::unique_ptr<RenderGraph::Graph> _graph;
-            std::weak_ptr<CommandContext> _render_context;
-            std::weak_ptr<CommandContext> _present_context;
-            std::weak_ptr<SingleShotCommandContext> _transfer_context;
+            CommandBufferContext _render_context;
+            CommandBufferContext _present_context;
+            TransferEngine _transfer_engine;
 
         };
 

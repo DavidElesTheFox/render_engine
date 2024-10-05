@@ -26,7 +26,7 @@ namespace RenderEngine::RenderGraph
         auto it = command_buffer_mapping.find(pool_index.render_target_index);
         if (it == command_buffer_mapping.end())
         {
-            auto command_buffer = _command_context->createCommandBuffer(pool_index.sync_object_index, pool_index.render_target_index);
+            auto command_buffer = _command_buffer_factory->createCommandBuffer(pool_index.sync_object_index, pool_index.render_target_index);
             it = command_buffer_mapping.insert({ pool_index.render_target_index, command_buffer }).first;
         }
         return it->second;
@@ -70,17 +70,18 @@ namespace RenderEngine::RenderGraph
         submit_info.commandBufferInfoCount = 1;
         submit_info.pCommandBufferInfos = &command_buffer_submit_info;
 
+        // TODO: Implement an inactive tracker (i.e. nullobject pattern) and add it to the VulkanQueue::submit as parameter (DI)
         if (queue_tracker != nullptr)
         {
             queue_tracker->queueSubmit(std::move(submit_info),
                                        in_operations,
-                                       *_command_context);
+                                       _command_buffer_factory->getQueue());
         }
         else
         {
-            _command_context->queueSubmit(std::move(submit_info),
-                                          in_operations,
-                                          VK_NULL_HANDLE);
+            _command_buffer_factory->getQueue().queueSubmit(std::move(submit_info),
+                                                            in_operations,
+                                                            VK_NULL_HANDLE);
         }
         execution_context.setDrawCallRecorded(true);
 
@@ -175,7 +176,7 @@ namespace RenderEngine::RenderGraph
             present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 
             present_info.pImageIndices = &pool_index.render_target_index;
-            _command_context->queuePresent(std::move(present_info), in_operations, _swap_chain);
+            _command_buffer_factory->getQueue().queuePresent(std::move(present_info), in_operations, _swap_chain);
             RenderContext::context().getDebugger().print(Debug::Topics::RenderGraphExecution{},
                                                          "Presenting finished: {:s} render target: {:d} (sync index: {:d}) [thread: {}]",
                                                          getName(),

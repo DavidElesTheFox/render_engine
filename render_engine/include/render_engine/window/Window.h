@@ -32,7 +32,7 @@ namespace RenderEngine
                std::unique_ptr<IRenderEngine>&& render_engine,
                GLFWwindow* window,
                std::unique_ptr<SwapChain> swap_chain,
-               std::shared_ptr<CommandContext>&& present_context);
+               CommandBufferContext&& present_context);
         ~Window();
 
         void update() override final;
@@ -84,7 +84,7 @@ namespace RenderEngine
         std::unique_ptr<IRenderEngine> _render_engine;
         GLFWwindow* _window{ nullptr };
         std::unique_ptr<SwapChain> _swap_chain;
-        std::shared_ptr<CommandContext> _present_context;
+        CommandBufferContext _present_context;
 
         std::vector<FrameData> _back_buffer;
 

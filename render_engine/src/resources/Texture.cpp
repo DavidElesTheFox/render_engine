@@ -133,7 +133,7 @@ namespace RenderEngine
         _logical_device->vkGetImageMemoryRequirements(*_logical_device, _texture, &_memory_requirements);
     }
 
-    void Texture::setInitialCommandContext(std::weak_ptr<SingleShotCommandContext> command_context)
+    void Texture::setInitialCommandContext(std::weak_ptr<SingleShotCommandBufferFactory> command_context)
     {
         if (_texture_state.command_context.expired() == false)
         {
@@ -284,7 +284,7 @@ namespace RenderEngine
                                                     VkImageAspectFlags aspect,
                                                     VkShaderStageFlags shader_usage,
                                                     const SyncOperations& sync_operations,
-                                                    SingleShotCommandContext* dst_context,
+                                                    std::shared_ptr<SingleShotCommandBufferFactory> dst_context,
                                                     VkImageUsageFlagBits image_usage,
                                                     TextureState final_state)
     {
@@ -298,7 +298,7 @@ namespace RenderEngine
             support_external_usage) };
         _data_transfer_scheduler.upload(result.get(),
                                         std::move(image),
-                                        *dst_context,
+                                        dst_context,
                                         final_state,
                                         sync_operations);
         return result;
@@ -308,7 +308,7 @@ namespace RenderEngine
                                                             VkImageAspectFlags aspect,
                                                             VkShaderStageFlags shader_usage,
                                                             const SyncOperations& sync_operations,
-                                                            SingleShotCommandContext* dst_context,
+                                                            std::shared_ptr<SingleShotCommandBufferFactory> dst_context,
                                                             VkImageUsageFlagBits image_usage,
                                                             TextureState final_state)
     {
@@ -322,7 +322,7 @@ namespace RenderEngine
             support_external_usage) };
         _data_transfer_scheduler.upload(result.get(),
                                         std::move(image),
-                                        *dst_context,
+                                        dst_context,
                                         final_state,
                                         sync_operations);
         return result;

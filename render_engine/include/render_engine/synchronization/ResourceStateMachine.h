@@ -25,27 +25,27 @@ namespace RenderEngine
         [[nodiscard]]
         static SyncObject transferOwnership(Texture* texture,
                                             TextureState new_state,
-                                            SingleShotCommandContext* src,
-                                            SingleShotCommandContext* dst,
+                                            SingleShotCommandBufferFactory* src,
+                                            std::shared_ptr<SingleShotCommandBufferFactory> dst,
                                             const SyncOperations& sync_operations,
                                             QueueSubmitTracker* submit_tracker = nullptr);
 
         [[nodiscard]]
         static SyncObject transferOwnership(Buffer* buffer,
                                             BufferState new_state,
-                                            SingleShotCommandContext* src,
-                                            SingleShotCommandContext* dst,
+                                            SingleShotCommandBufferFactory* src,
+                                            std::shared_ptr<SingleShotCommandBufferFactory> dst,
                                             const SyncOperations& sync_operations,
                                             QueueSubmitTracker* submit_tracker = nullptr);
 
         [[nodiscard]]
         static SyncObject barrier(Texture& texture,
-                                  SingleShotCommandContext& src,
+                                  SingleShotCommandBufferFactory& src,
                                   const SyncOperations& sync_operations,
                                   QueueSubmitTracker* submit_tracker = nullptr);
         [[nodiscard]]
         static SyncObject barrier(Buffer* buffer,
-                                  SingleShotCommandContext* src,
+                                  SingleShotCommandBufferFactory* src,
                                   const SyncOperations& sync_operations,
                                   QueueSubmitTracker* submit_tracker = nullptr);
         explicit ResourceStateMachine(LogicalDevice& logical_device)
@@ -62,13 +62,13 @@ namespace RenderEngine
         [[nodiscard]]
         static SyncObject transferOwnershipImpl(ResourceStateHolder auto* texture,
                                                 ResourceState auto new_state,
-                                                SingleShotCommandContext* src,
-                                                SingleShotCommandContext* dst,
+                                                SingleShotCommandBufferFactory* src,
+                                                std::shared_ptr<SingleShotCommandBufferFactory> dst,
                                                 const SyncOperations& sync_operations,
                                                 QueueSubmitTracker* submit_tracker);
 
         static void ownershipTransformRelease(VkCommandBuffer src_command_buffer,
-                                              SingleShotCommandContext* command_context,
+                                              SingleShotCommandBufferFactory* command_context,
                                               ResourceStateHolder auto* texture,
                                               const ResourceState auto& transition_state,
                                               const SyncObject& transformation_sync_object,
@@ -76,7 +76,7 @@ namespace RenderEngine
                                               QueueSubmitTracker* submit_tracker);
 
         static void ownershipTransformAcquire(VkCommandBuffer dst_command_buffer,
-                                              SingleShotCommandContext* command_context,
+                                              SingleShotCommandBufferFactory* command_context,
                                               ResourceStateHolder auto* texture,
                                               const ResourceState auto& transition_state,
                                               const SyncObject& transformation_sync_object,
@@ -85,7 +85,7 @@ namespace RenderEngine
                                               QueueSubmitTracker* submit_tracker);
 
         static SyncObject barrierImpl(ResourceStateHolder auto& resource,
-                                      SingleShotCommandContext& src,
+                                      SingleShotCommandBufferFactory& src,
                                       const SyncOperations& sync_operations,
                                       QueueSubmitTracker* submit_tracker);
 

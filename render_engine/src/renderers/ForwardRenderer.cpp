@@ -91,7 +91,7 @@ namespace RenderEngine
                                                                                         vertex_buffer.size());
                 getRenderEngine().getDevice().getDataTransferContext().getScheduler().upload(mesh_buffers.vertex_buffer.get(),
                                                                                              std::span(vertex_buffer),
-                                                                                             getRenderEngine().getTransferCommandContext(),
+                                                                                             getRenderEngine().getTransferEngine().getCommandBufferFactory(),
                                                                                              mesh_buffers.vertex_buffer->getResourceState().clone());
 
             }
@@ -101,7 +101,7 @@ namespace RenderEngine
                                                                                        geometry.indexes.size() * sizeof(int16_t));
                 getRenderEngine().getDevice().getDataTransferContext().getScheduler().upload(mesh_buffers.index_buffer.get(),
                                                                                              std::span(geometry.indexes),
-                                                                                             getRenderEngine().getTransferCommandContext(),
+                                                                                             getRenderEngine().getTransferEngine().getCommandBufferFactory(),
                                                                                              mesh_buffers.index_buffer->getResourceState().clone());
             }
             _mesh_buffers[mesh] = std::move(mesh_buffers);

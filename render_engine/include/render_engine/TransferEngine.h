@@ -8,19 +8,20 @@
 #include <functional>
 namespace RenderEngine
 {
+    // TODO: Transfer engine is copyable so far, probably it needs to be changed when batch upload is implemented.
     class TransferEngine
     {
     public:
 
-        explicit TransferEngine(std::shared_ptr<SingleShotCommandContext> transfer_context);
+        explicit TransferEngine(CommandBufferContext transfer_context);
 
         void transfer(const SyncOperations& sync_operations,
                       std::function<void(VkCommandBuffer)> record_transfer_command,
                       QueueSubmitTracker* queue_submit_tracker);
 
-        const SingleShotCommandContext& getTransferContext() const { return *_transfer_context; }
-        SingleShotCommandContext& getTransferContext() { return *_transfer_context; }
+        const std::shared_ptr<SingleShotCommandBufferFactory>& getCommandBufferFactory() const { return _transfer_context.getSingleShotFactory(); }
+        std::shared_ptr<SingleShotCommandBufferFactory>& getCommandBufferFactory() { return _transfer_context.getSingleShotFactory(); }
     private:
-        std::shared_ptr<SingleShotCommandContext> _transfer_context;
+        CommandBufferContext _transfer_context;
     };
 }

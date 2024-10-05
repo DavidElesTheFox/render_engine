@@ -35,9 +35,10 @@ namespace RenderEngine
         static inline const std::string kEndNodeName = "End";
 
         ParallelRenderEngine(Device& device,
-                             std::shared_ptr<SingleShotCommandContext>&& transfer_context,
-                             std::shared_ptr<CommandContext>&& render_context,
-                             std::shared_ptr<CommandContext>&& present_context,
+                             CommandBufferContext render_command_buffer_context,
+                             CommandBufferContext present_command_buffer_context,
+                             TransferEngine transfer_engine,
+                             TransferEngine transfer_engine_on_render_queue,
                              Description description);
         ~ParallelRenderEngine() override;
         RenderGraph::RenderGraphBuilder createRenderGraphBuilder(std::string graph_name);
@@ -47,9 +48,9 @@ namespace RenderEngine
 
         GpuResourceManager& getGpuResourceManager() override { return *_gpu_resource_manager; }
         uint32_t getBackBufferSize() const override { return _gpu_resource_manager->getBackBufferSize(); }
-        TransferEngine& getTransferEngine() override { return *_transfer_engine; }
-        CommandContext& getCommandContext() override { return *_render_context; }
-        SingleShotCommandContext& getTransferCommandContext() override { return *_transfer_context; }
+        TransferEngine& getTransferEngine() override { return _transfer_engine; }
+        TransferEngine& getTransferEngineOnRenderQueue() override { return _transfer_engine_on_render_queue; }
+        CommandBufferContext& getCommandBufferContext() override { return _render_command_buffer_context; }
         Device& getDevice() override { return _device; }
         void waitIdle();
     private:
@@ -79,14 +80,14 @@ namespace RenderEngine
         void pushAvailableBackbufferId(uint32_t id);
 
         Device& _device;
-        std::shared_ptr<CommandContext> _render_context;
-        std::shared_ptr<CommandContext> _present_context;
-        std::shared_ptr<SingleShotCommandContext> _transfer_context;
+        CommandBufferContext _render_command_buffer_context;
+        CommandBufferContext _present_command_buffer_context;
         Description _description;
 
         std::unique_ptr<RenderGraph::Graph> _skeleton;
         std::unique_ptr<GpuResourceManager> _gpu_resource_manager;
-        std::unique_ptr<TransferEngine> _transfer_engine;
+        TransferEngine _transfer_engine;
+        TransferEngine _transfer_engine_on_render_queue;
         std::unique_ptr<SyncService> _sync_service;
         std::vector<std::unique_ptr<RenderingProcess>> _rendering_processes;
         uint64_t _render_call_count{ 0 };

@@ -2,7 +2,7 @@
 
 namespace RenderEngine
 {
-    TransferEngine::TransferEngine(std::shared_ptr<SingleShotCommandContext> transfer_context)
+    TransferEngine::TransferEngine(CommandBufferContext transfer_context)
         : _transfer_context(std::move(transfer_context))
     {}
 
@@ -11,7 +11,7 @@ namespace RenderEngine
                                   QueueSubmitTracker* queue_submit_tracker)
     {
         // TODO add thread_info to the interface. 0 should be replaced ot the 'id' of the current thread.
-        VkCommandBuffer command_buffer = _transfer_context->createCommandBuffer(0);
+        VkCommandBuffer command_buffer = _transfer_context.getSingleShotFactory()->createCommandBuffer(0);
 
         VkCommandBufferSubmitInfo command_buffer_info{};
         command_buffer_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
@@ -21,11 +21,11 @@ namespace RenderEngine
         begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
-        _transfer_context->getLogicalDevice()->vkBeginCommandBuffer(command_buffer, &begin_info);
+        _transfer_context.getQueue().getLogicalDevice()->vkBeginCommandBuffer(command_buffer, &begin_info);
 
         record_transfer_command(command_buffer);
 
-        _transfer_context->getLogicalDevice()->vkEndCommandBuffer(command_buffer);
+        _transfer_context.getQueue().getLogicalDevice()->vkEndCommandBuffer(command_buffer);
 
         VkSubmitInfo2 submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
@@ -33,11 +33,11 @@ namespace RenderEngine
         submitInfo.pCommandBufferInfos = &command_buffer_info;
         if (queue_submit_tracker != nullptr)
         {
-            queue_submit_tracker->queueSubmit(std::move(submitInfo), sync_operations, *_transfer_context);
+            queue_submit_tracker->queueSubmit(std::move(submitInfo), sync_operations, _transfer_context.getQueue());
         }
         else
         {
-            _transfer_context->queueSubmit(std::move(submitInfo), sync_operations, VK_NULL_HANDLE);
+            _transfer_context.getQueue().queueSubmit(std::move(submitInfo), sync_operations, VK_NULL_HANDLE);
         }
     }
 }

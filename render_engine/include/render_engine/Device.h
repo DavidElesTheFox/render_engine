@@ -2,9 +2,9 @@
 
 #include <volk.h>
 
+#include <render_engine/CommandContext.h>
 #include <render_engine/DeviceLookup.h>
 #include <render_engine/LogicalDevice.h>
-#include <render_engine/QueueLoadBallancer.h>
 
 #include <memory>
 #include <set>
@@ -24,8 +24,8 @@ namespace RenderEngine
     class RenderEngine;
     class ParallelRenderEngine;
     class OffScreenWindow;
-    class TransferEngine;
     class TextureFactory;
+    class TransferEngine;
     class DataTransferScheduler;
     class LogicalDevice;
     class SyncOperations;
@@ -79,21 +79,21 @@ namespace RenderEngine
         class DataTransferContext
         {
         public:
-            DataTransferContext(std::unique_ptr<TransferEngine> transfer_engine,
+            DataTransferContext(TransferEngine transfer_engine,
                                 std::set<uint32_t> queue_family_indexes,
                                 VkPhysicalDevice physical_device,
                                 LogicalDevice& logical_device);
 
             ~DataTransferContext();
-            DataTransferScheduler& getScheduler() { return *_scheduler; }
-            const DataTransferScheduler& getScheduler() const { return *_scheduler; }
-            TextureFactory& getTextureFactory() { return *_texture_factory; }
+            DataTransferScheduler& getScheduler();
+            const DataTransferScheduler& getScheduler() const;
+            TextureFactory& getTextureFactory();
             void synchronizeScheduler(SyncOperations sync_operations);
             void destroy();
         private:
-            std::unique_ptr<DataTransferScheduler> _scheduler;
-            std::unique_ptr<TransferEngine> _transfer_engine;
-            std::unique_ptr<TextureFactory> _texture_factory;
+            struct Impl;
+            std::unique_ptr<Impl> _impl;
+
         };
         Device(VkInstance instance,
                VkPhysicalDevice physical_device,
@@ -118,7 +118,6 @@ namespace RenderEngine
         std::unique_ptr<RenderEngine> createRenderEngine(uint32_t back_buffer_size);
         std::unique_ptr<ParallelRenderEngine> createParallelRenderEngine(uint32_t backbuffer_count,
                                                                          uint32_t parallel_frame_count);
-        std::unique_ptr<TransferEngine> createTransferEngine();
 
         LogicalDevice& getLogicalDevice() { return _logical_device; }
         VkPhysicalDevice getPhysicalDevice() { return _physical_device; }
@@ -146,6 +145,7 @@ namespace RenderEngine
         std::unique_ptr<CudaCompute::CudaDevice> _cuda_device;
         DeviceLookup::DeviceInfo _device_info;
         std::unique_ptr<DataTransferContext> _staging_area;
-        std::unordered_map<uint32_t, std::unique_ptr<QueueLoadBalancer>> _queue_balancers;
+        std::unordered_map<uint32_t, std::unique_ptr<VulkanQueue>> _vulkan_queues;
+        std::unique_ptr<TransferEngine> _transfer_engine;
     };
 }

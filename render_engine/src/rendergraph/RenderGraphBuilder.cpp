@@ -6,25 +6,24 @@
 namespace RenderEngine::RenderGraph
 {
     RenderGraphBuilder::RenderGraphBuilder(std::string name,
-                                           std::weak_ptr<CommandContext> render_context,
-                                           std::weak_ptr<CommandContext> present_context,
-                                           std::weak_ptr<SingleShotCommandContext> transfer_context)
+                                           CommandBufferContext render_context,
+                                           CommandBufferContext present_context,
+                                           TransferEngine transfer_engine)
         : _graph(std::make_unique<RenderGraph::Graph>(std::move(name)))
-        , _render_context(render_context)
-        , _present_context(present_context)
-        , _transfer_context(transfer_context)
+        , _render_context(std::move(render_context))
+        , _present_context(std::move(present_context))
+        , _transfer_engine(transfer_engine)
     {
 
     }
 
     void RenderGraphBuilder::addRenderNode(std::string name, std::unique_ptr<AbstractRenderer> renderer)
     {
-        _graph->addNode(std::make_unique<RenderNode>(std::move(name), _render_context.lock(), std::move(renderer)));
+        _graph->addNode(std::make_unique<RenderNode>(std::move(name), _render_context.getFactory(), std::move(renderer)));
     }
     void RenderGraphBuilder::addTransferNode(std::string name)
     {
-        TransferEngine transfer_engine(_transfer_context.lock());
-        auto node = std::make_unique<TransferNode>(std::move(name), std::move(transfer_engine));
+        auto node = std::make_unique<TransferNode>(std::move(name), _transfer_engine);
         _graph->addNode(std::move(node));
     }
     void RenderGraphBuilder::addDeviceSynchronizeNode(std::string name, Device& device)
@@ -44,7 +43,7 @@ namespace RenderEngine::RenderGraph
     }
     void RenderGraphBuilder::addPresentNode(std::string name, SwapChain& swap_chain)
     {
-        auto node = std::make_unique<PresentNode>(std::move(name), swap_chain, _present_context.lock());
+        auto node = std::make_unique<PresentNode>(std::move(name), swap_chain, _present_context.getFactory());
         _graph->addNode(std::move(node));
     }
     void RenderGraphBuilder::addEmptyNode(std::string name)

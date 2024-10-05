@@ -31,9 +31,9 @@ namespace RenderEngine
 
     void QueueSubmitTracker::queueSubmit(VkSubmitInfo2&& submit_info,
                                          const SyncOperations& sync_operations,
-                                         AbstractCommandContext& command_context)
+                                         VulkanQueue& queue)
     {
-        command_context.queueSubmit(std::move(submit_info), sync_operations, createFence());
+        queue.queueSubmit(std::move(submit_info), sync_operations, createFence());
     }
 
     void QueueSubmitTracker::wait() const

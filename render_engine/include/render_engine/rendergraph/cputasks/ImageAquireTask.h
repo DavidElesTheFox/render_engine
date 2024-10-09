@@ -18,7 +18,7 @@ namespace RenderEngine::RenderGraph
                          uint32_t back_buffer_count,
                          std::string image_user_node_name);
         ~ImageAcquireTask();
-        void run(ExecutionContext& execution_context) final;
+        void run(CpuNode& self, ExecutionContext& execution_context) final;
 
         void registerExecutionContext(ExecutionContext& execution_context) override;;
 

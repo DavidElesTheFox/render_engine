@@ -38,7 +38,7 @@ namespace RenderEngine::RenderGraph
     }
     void RenderGraphBuilder::addCpuNode(std::string name, std::unique_ptr<RenderGraph::CpuNode::ICpuTask> task)
     {
-        auto node = std::make_unique<CpuNode>(std::move(name), std::move(task));
+        auto node = std::make_unique<CpuNode>(std::move(name), _render_context.getFactory(), std::move(task));
         _graph->addNode(std::move(node));
     }
     void RenderGraphBuilder::addPresentNode(std::string name, SwapChain& swap_chain)

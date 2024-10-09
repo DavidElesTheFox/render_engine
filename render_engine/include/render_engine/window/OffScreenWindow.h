@@ -74,4 +74,5 @@ namespace RenderEngine
         ImageStream _image_stream;
         WindowTunnel* _tunnel{ nullptr };
     };
+
 }

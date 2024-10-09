@@ -28,8 +28,8 @@ namespace RenderEngine
         VkImageLayout getFinalLayout() const { return _final_layout; }
         VkAttachmentLoadOp getLoadOperation() const { return _load_operation; }
         VkAttachmentStoreOp getStoreOperation() const { return _store_operation; }
-        const ITextureView& getTextureView(uint32_t index) const { return *_texture_views[index]; }
-        ITextureView& getTextureView(uint32_t index) { return *_texture_views[index]; }
+        const ITextureView* getTextureView(uint32_t index) const { return _texture_views[index]; }
+        ITextureView* getTextureView(uint32_t index) { return _texture_views[index]; }
         VkExtent2D getExtent() const { return _extent; }
         const Image& getImage(uint32_t index) const;
         uint32_t getTexturesCount() const { return static_cast<uint32_t>(_texture_views.size()); }

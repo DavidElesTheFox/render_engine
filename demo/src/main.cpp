@@ -23,7 +23,16 @@ void runDemoApplication()
 
 void runParallelDemoApplication()
 {
-    ParallelDemoApplication application;
+    ParallelDemoApplication::Description description
+    {
+        .backbuffer_count = 3,
+        .thread_count = 3,
+        .window_width = 1024,// TODO do not change it until the API is not ready
+        .window_height = 764,
+        .window_title = "DemoWindow",
+        .rendering_type = ParallelDemoApplication::RenderingType::Offscreen
+    };
+    ParallelDemoApplication application(description);
     application.init();
     application.run();
 }

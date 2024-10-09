@@ -55,6 +55,7 @@ namespace RenderEngine
             void registerSemaphore(BinarySemaphore semaphore) { _graph->registerSemaphore(std::move(semaphore)); }
             void registerSemaphore(TimelineSemaphore semaphore) { _graph->registerSemaphore(std::move(semaphore)); };
 
+            // TODO: remove new name from api and call release
             std::unique_ptr<RenderGraph::Graph> reset(std::string new_name)
             {
                 auto result = std::move(_graph);

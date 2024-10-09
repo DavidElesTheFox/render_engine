@@ -44,6 +44,7 @@ namespace RenderEngine::RenderGraph
             std::unique_lock lock{ _occupied_indexes_mutex };
             _occupied_sync_object_indexes.insert(sync_index);
         }
+        // TODO remove events. Not used anymore
         IndexSet<uint32_t> getOccupiedSyncIndexes() const
         {
             std::shared_lock lock(_occupied_indexes_mutex);
@@ -165,7 +166,7 @@ namespace RenderEngine::RenderGraph
 
     ImageAcquireTask::~ImageAcquireTask() = default;
 
-    void ImageAcquireTask::run(ExecutionContext& execution_context)
+    void ImageAcquireTask::run(CpuNode&, ExecutionContext& execution_context)
     {
         PROFILE_THREAD(g_thread_name.c_str());
         PROFILE_SCOPE();

@@ -71,7 +71,7 @@ namespace RenderEngine
         auto& logical_device = _render_engine.getDevice().getLogicalDevice();
 
         std::vector<VkImageView> attachments = {
-                render_target.getTextureView(frame_buffer_index).getImageView()
+                render_target.getTextureView(frame_buffer_index)->getImageView()
         };
         std::ranges::transform(render_pass_attachment.attachments, std::back_inserter(attachments),
                                [](ITextureView* view) { return view->getImageView(); });

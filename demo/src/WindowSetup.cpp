@@ -4,22 +4,13 @@
 #include <render_engine/renderers/ForwardRenderer.h>
 #include <render_engine/renderers/UIRenderer.h>
 
-SingleWindowSetup::SingleWindowSetup(std::vector<uint32_t> renderer_ids, bool use_parallel_engine)
+SingleWindowSetup::SingleWindowSetup(std::vector<uint32_t> renderer_ids)
 {
     using namespace RenderEngine;
 
     renderer_ids.push_back(UIRenderer::kRendererId);
-    if (use_parallel_engine)
-    {
-        _window = RenderContext::context().getDevice(0).createParallelWindow("Demo window Parallel Engine",
-                                                                             getBackbufferCount(),
-                                                                             getParallelFrameCount());
-    }
-    else
-    {
-        _window = RenderContext::context().getDevice(0).createWindow("Demo window", this->getBackbufferCount());
-        _window->registerRenderers(renderer_ids);
-    }
+    _window = RenderContext::context().getDevice(0).createWindow("Demo window", this->getBackbufferCount());
+    _window->registerRenderers(renderer_ids);
 }
 
 OffScreenWindowSetup::OffScreenWindowSetup(std::vector<uint32_t> renderer_ids)

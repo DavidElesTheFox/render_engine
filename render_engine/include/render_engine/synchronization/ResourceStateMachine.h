@@ -20,8 +20,14 @@ namespace RenderEngine
     class ResourceStateMachine
     {
     public:
+
+
         static void resetStages(Texture& texture);
         static void resetStages(Buffer& texture);
+
+        explicit ResourceStateMachine(SubmitScope&& scope)
+            : _current_scope(std::move(scope))
+        {}
         [[nodiscard]]
         static SyncObject transferOwnership(Texture* texture,
                                             TextureState new_state,
@@ -98,6 +104,7 @@ namespace RenderEngine
         LogicalDevice& _logical_device;
         std::unordered_map<Texture*, TextureState> _images{};
         std::unordered_map<Buffer*, BufferState> _buffers{};
-
+        SubmitScope _current_scope;
     };
+
 }

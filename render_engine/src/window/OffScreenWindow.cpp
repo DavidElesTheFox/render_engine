@@ -181,6 +181,10 @@ namespace RenderEngine
     }
     void OffScreenWindow::readBack()
     {
+        if (_renderers.empty())
+        {
+            return;
+        }
         {
             FrameData& frame_to_download = _back_buffer[getCurrentImageIndex()];
             // Start reading back the current image

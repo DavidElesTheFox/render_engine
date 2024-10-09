@@ -13,20 +13,10 @@ namespace RenderEngine
 
         ~LogicalDevice();
         LogicalDevice(const LogicalDevice&) = delete;
-        LogicalDevice(LogicalDevice&& o) noexcept
-        {
-            using std::swap;
-            *this = std::move(o);
-        }
+        LogicalDevice(LogicalDevice&& o) = delete;
 
         LogicalDevice& operator=(const LogicalDevice&) = delete;
-        LogicalDevice& operator=(LogicalDevice&& o) noexcept
-        {
-            using std::swap;
-            swap(_api, o._api);
-            swap(_logical_device, o._logical_device);
-            return *this;
-        }
+        LogicalDevice& operator=(LogicalDevice&& o) = delete;
 
         VolkDeviceTable* operator->() { return &_api; }
         VkDevice operator*() { return _logical_device; }

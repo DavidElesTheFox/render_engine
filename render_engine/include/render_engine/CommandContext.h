@@ -3,6 +3,7 @@
 #include <volk.h>
 
 #include <render_engine/DeviceLookup.h>
+#include <render_engine/ICommandBufferFactory.h>
 #include <render_engine/LogicalDevice.h>
 #include <render_engine/QueueLoadBallancer.h>
 #include <render_engine/VulkanQueue.h>
@@ -22,7 +23,7 @@
 
 namespace RenderEngine
 {
-    class SingleShotCommandBufferFactory
+    class SingleShotCommandBufferFactory : public ICommandBufferFactory
     {
         struct CreationToken
         {};
@@ -40,12 +41,12 @@ namespace RenderEngine
         SingleShotCommandBufferFactory& operator=(SingleShotCommandBufferFactory&&) noexcept = delete;
         SingleShotCommandBufferFactory& operator=(const SingleShotCommandBufferFactory&) = delete;
 
-        ~SingleShotCommandBufferFactory();
+        ~SingleShotCommandBufferFactory() override;
 
         VkCommandBuffer createCommandBuffer(uint32_t tray_index);
 
-        VulkanQueue& getQueue() { return *_vulkan_queue; }
-        const VulkanQueue& getQueue() const { return *_vulkan_queue; }
+        VulkanQueue& getQueue() override { return *_vulkan_queue; }
+        const VulkanQueue& getQueue() const override { return *_vulkan_queue; }
 
     private:
         class Tray;
@@ -55,7 +56,7 @@ namespace RenderEngine
         mutable std::mutex _trays_mutex;
     };
 
-    class CommandBufferFactory
+    class CommandBufferFactory : public ICommandBufferFactory
     {
         struct CreationToken
         {};
@@ -77,12 +78,12 @@ namespace RenderEngine
         CommandBufferFactory& operator=(CommandBufferFactory&&) noexcept = delete;
         CommandBufferFactory& operator=(const CommandBufferFactory&) = delete;
 
-        ~CommandBufferFactory();
+        ~CommandBufferFactory() override;
         VkCommandBuffer createCommandBuffer(uint32_t tray_index, uint32_t pool_index);
         std::vector<VkCommandBuffer> createCommandBuffers(uint32_t count, uint32_t tray_index, uint32_t pool_index);
 
-        VulkanQueue& getQueue() { return *_vulkan_queue; }
-        const VulkanQueue& getQueue() const { return *_vulkan_queue; }
+        VulkanQueue& getQueue() override { return *_vulkan_queue; }
+        const VulkanQueue& getQueue() const override { return *_vulkan_queue; }
 
     private:
         class Tray;

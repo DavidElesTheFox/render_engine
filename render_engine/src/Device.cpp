@@ -270,7 +270,7 @@ namespace RenderEngine
 
     std::unique_ptr<Window> Device::createParallelWindow(std::string_view name,
                                                          uint32_t backbuffer_count,
-                                                         uint32_t parallel_frame_count)
+                                                         std::unique_ptr<ParallelRenderEngine> render_engine)
     {
         constexpr auto width = 1024;
         constexpr auto height = 764;
@@ -300,7 +300,6 @@ namespace RenderEngine
                                                                                 _queue_family_present,
                                                                                 backbuffer_count,
                                                                                 true });
-            std::unique_ptr<IRenderEngine> render_engine = createParallelRenderEngine(backbuffer_count, parallel_frame_count);
             return std::make_unique<Window>(*this, std::move(render_engine),
                                             window,
                                             std::move(swap_chain),

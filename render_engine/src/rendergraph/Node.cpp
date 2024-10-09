@@ -19,7 +19,7 @@ namespace RenderEngine::RenderGraph
 
     }
 #define PROFILE_NODE() PROFILE_THREAD(g_thread_name.c_str()); PROFILE_SCOPE()
-    VkCommandBuffer RenderNode::createOrGetCommandBuffer(const ExecutionContext::PoolIndex& pool_index)
+    VkCommandBuffer BaseGpuNode::createOrGetCommandBuffer(const ExecutionContext::PoolIndex& pool_index)
     {
         std::lock_guard lock(_command_buffer_mutex);
         auto command_buffer_mapping = _command_buffers[pool_index.render_target_index];
@@ -75,13 +75,13 @@ namespace RenderEngine::RenderGraph
         {
             queue_tracker->queueSubmit(std::move(submit_info),
                                        in_operations,
-                                       _command_buffer_factory->getQueue());
+                                       getQueue());
         }
         else
         {
-            _command_buffer_factory->getQueue().queueSubmit(std::move(submit_info),
-                                                            in_operations,
-                                                            VK_NULL_HANDLE);
+            getQueue().queueSubmit(std::move(submit_info),
+                                   in_operations,
+                                   VK_NULL_HANDLE);
         }
         execution_context.setDrawCallRecorded(true);
 
@@ -224,7 +224,7 @@ namespace RenderEngine::RenderGraph
     void CpuNode::execute(ExecutionContext& execution_context, QueueSubmitTracker*)
     {
         PROFILE_NODE();
-        _cpu_task->run(execution_context);
+        _cpu_task->run(*this, execution_context);
     }
     void CpuNode::accept(GraphVisitor& visitor)
     {

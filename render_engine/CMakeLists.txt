@@ -250,6 +250,8 @@ set(RENDER_ENGINE_ROOT_SRC
         src/QueueSubmitTracker.cpp
         src/QueueLoadBallancer.cpp
         src/VulkanQueue.cpp
+        src/RenderPass.cpp 
+        src/FrameBuffer.cpp
 )
 set(RENDER_ENGINE_ROOT_HEADERS
 	${RENDER_ENGINE_HEADER_LOCATION}/RenderEngine.h
@@ -270,6 +272,8 @@ set(RENDER_ENGINE_ROOT_HEADERS
     ${RENDER_ENGINE_HEADER_LOCATION}/IRenderEngine.h
     ${RENDER_ENGINE_HEADER_LOCATION}/QueueLoadBallancer.h
     ${RENDER_ENGINE_HEADER_LOCATION}/VulkanQueue.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/RenderPass.h 
+    ${RENDER_ENGINE_HEADER_LOCATION}/FrameBuffer.h
 )
 source_group("src" FILES ${RENDER_ENGINE_ROOT_SRC})
 source_group("include" FILES ${RENDER_ENGINE_ROOT_HEADERS})
@@ -288,7 +292,7 @@ set(RENDER_ENGINE_SRC
     ${RENDER_ENGINE_RENDERGRAPH_SRC}
     ${RENDER_ENGINE_RENDERGRAPH_CPUTASKS_SRC}
     ${RENDER_ENGINE_DEBUG_SRC}
- )
+)
 
 set(RENDER_ENGINE_HEADERS 
     ${RENDER_ENGINE_RENDERERS_HEADERS}

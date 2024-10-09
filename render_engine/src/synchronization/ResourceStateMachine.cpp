@@ -30,8 +30,8 @@ namespace RenderEngine
     {
         if (next_state.layout == VK_IMAGE_LAYOUT_UNDEFINED)
         {
-            assert(image->getResourceState().layout != VK_IMAGE_LAYOUT_UNDEFINED);
-            next_state.layout = image->getResourceState().layout;
+            assert(image->getResourceState(_current_scope).layout != VK_IMAGE_LAYOUT_UNDEFINED);
+            next_state.layout = image->getResourceState(_current_scope).layout;
         }
         _images[image] = std::move(next_state);
     }
@@ -49,7 +49,7 @@ namespace RenderEngine
                                                            QueueSubmitTracker* submit_tracker)
     {
         PROFILE_SCOPE();
-        // TODO: Figuring out wheather a default tray should be introduced, or bring here down the thread information.
+        // TODO: Figuring out whether a default tray should be introduced, or bring here down the thread information.
         auto src_command_buffer = src->createCommandBuffer(0);
         auto dst_command_buffer = dst->createCommandBuffer(0);
 
@@ -356,7 +356,7 @@ namespace RenderEngine
         std::vector<VkImageMemoryBarrier2> image_barriers;
         for (auto& [texture, next_state] : _images)
         {
-            auto state_description = texture->getResourceState();
+            auto state_description = texture->getResourceState(_current_scope);
 
             if (next_state == state_description)
             {
@@ -387,7 +387,7 @@ namespace RenderEngine
             image_barriers.emplace_back(barrier);
             if (apply_state_change_on_texture)
             {
-                texture->overrideResourceState(next_state, {});
+                texture->overrideResourceState(next_state, _current_scope, {});
             }
         }
         _images.clear();
@@ -400,7 +400,7 @@ namespace RenderEngine
         std::vector<VkBufferMemoryBarrier2> buffer_barriers;
         for (auto& [buffer, next_state] : _buffers)
         {
-            auto state_description = buffer->getResourceState();
+            auto state_description = buffer->getResourceState(_current_scope);
 
             if (next_state == state_description)
             {
@@ -431,7 +431,7 @@ namespace RenderEngine
             buffer_barriers.emplace_back(barrier);
             if (apply_state_change_on_buffer)
             {
-                buffer->overrideResourceState(next_state, {});
+                buffer->overrideResourceState(next_state, _current_scope, {});
             }
         }
         _buffers.clear();

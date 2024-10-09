@@ -31,7 +31,7 @@ namespace RenderEngine
             uint32_t parallel_frame_count{ 0 };
             std::chrono::milliseconds _frame_timeout{ 1'000 };
         };
-
+        // TODO: Remove it, not used
         static inline const std::string kEndNodeName = "End";
 
         ParallelRenderEngine(Device& device,

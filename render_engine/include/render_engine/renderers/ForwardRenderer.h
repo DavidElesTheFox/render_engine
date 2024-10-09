@@ -5,7 +5,10 @@
 #include <map>
 
 #include <render_engine/containers/BackBuffer.h>
+#include <render_engine/FrameBuffer.h>
+#include <render_engine/memory/RefObj.h>
 #include <render_engine/renderers/SingleColorOutputRenderer.h>
+#include <render_engine/RenderPass.h>
 #include <render_engine/window/Window.h>
 
 namespace RenderEngine
@@ -16,7 +19,7 @@ namespace RenderEngine
     class Technique;
     class Buffer;
 
-    class ForwardRenderer : public SingleColorOutputRenderer
+    class ForwardRenderer : public AbstractRenderer
     {
     private:
         struct MeshBuffers
@@ -34,7 +37,7 @@ namespace RenderEngine
         };
     public:
         static constexpr uint32_t kRendererId = 2u;
-        ForwardRenderer(IRenderEngine& render_engine,
+        ForwardRenderer(RefObj<IRenderEngine> render_engine,
                         RenderTarget render_target,
                         bool use_internal_command_buffers);
         ~ForwardRenderer() override;
@@ -47,11 +50,19 @@ namespace RenderEngine
             return {};
         }
     private:
-        std::vector<AttachmentInfo> reinitializeAttachments(const RenderTarget&) override final { return {}; }
-
+        LogicalDevice& getLogicalDevice() { return _render_engine->getDevice().getLogicalDevice(); }
+        VkRect2D getRenderArea() const
+        {
+            return VkRect2D{ .offset {0, 0}, .extent {_render_target.getExtent()} };
+        }
+        RefObj<IRenderEngine> _render_engine;
+        RenderTarget _render_target;
         std::vector<MeshGroup> _meshes;
         std::map<const Mesh*, MeshBuffers> _mesh_buffers;
         PerformanceMarkerFactory _performance_markers;
+        std::unique_ptr<RenderPass> _render_pass;
+        std::vector<FrameBuffer> _frame_buffers;
 
+        std::vector<VkCommandBuffer> _internal_command_buffers;
     };
 }

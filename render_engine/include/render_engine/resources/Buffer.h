@@ -29,13 +29,61 @@ namespace RenderEngine
 
         VkBuffer getBuffer() const { return _buffer; }
         VkDeviceSize getDeviceSize() const { return _buffer_info.size; }
-        const BufferState& getResourceState() const
+        BufferState getResourceState(const SubmitScope& scope) const
         {
-            return _buffer_state;
+            auto it = std::ranges::find_if(_texture_states,
+                                           [&](const auto& pair) { return pair.first.getId() == scope.getId(); });
+            if (it == _texture_states.end())
+            {
+                BufferState result{};
+                result.command_context = _global_queue_owner;
+                return result;
+            }
+            else
+            {
+                return it->second;
+            }
         }
-        void overrideResourceState(BufferState value, ResourceAccessToken)
+
+        BufferState getResourceState(VkCommandBuffer command_buffer) const
         {
-            _buffer_state = std::move(value);
+            using namespace std::views;
+            auto it = std::ranges::find_if(_texture_states,
+                                           [&](const auto& pair) { return pair.first.hasCommandBuffer(command_buffer); });
+
+            if (it == _texture_states.end())
+            {
+                BufferState result{};
+                result.command_context = _global_queue_owner;
+                return result;
+            }
+            else
+            {
+                return it->second;
+            }
+        }
+        void overrideResourceState(BufferState value, const SubmitScope& scope, ResourceAccessToken)
+        {
+            auto it = std::ranges::find_if(_texture_states,
+                                           [&](const auto& pair) { return pair.first.getId() == scope.getId(); });
+            _global_queue_owner = value.command_context;
+            for (auto& [_, state] : _texture_states)
+            {
+                state.command_context = _global_queue_owner;
+            }
+            if (it == _texture_states.end())
+            {
+                _texture_states.push_back({ scope, value });
+            }
+            else
+            {
+                it->second = std::move(value);
+            }
+        }
+        void removeResourceState(BufferState value, const SubmitScope& scope, ResourceAccessToken)
+        {
+            std::erase_if(_texture_states,
+                          [&](const auto& pair) { return pair.first.getId() == scope.getId(); });
         }
         VkPhysicalDevice getPhysicalDevice() const { return _physical_device; }
         LogicalDevice& getLogicalDevice() const { return _logical_device; }
@@ -54,7 +102,8 @@ namespace RenderEngine
         VkBuffer _buffer{ VK_NULL_HANDLE };;
         VkDeviceMemory _buffer_memory{ VK_NULL_HANDLE };;
         BufferInfo _buffer_info;
-        BufferState _buffer_state;
+        std::vector<std::pair<SubmitScope, BufferState>> _texture_states;
+        std::weak_ptr<SingleShotCommandBufferFactory> _global_queue_owner;
         std::shared_ptr<UploadTask> _ongoing_upload{ nullptr };
         std::shared_ptr<DownloadTask> _ongoing_download{ nullptr };
     };

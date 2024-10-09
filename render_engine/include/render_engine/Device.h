@@ -113,7 +113,7 @@ namespace RenderEngine
         std::unique_ptr<Window> createWindow(std::string_view name, uint32_t back_buffer_size);
         std::unique_ptr<Window> createParallelWindow(std::string_view name,
                                                      uint32_t backbuffer_count,
-                                                     uint32_t parallel_frame_count);
+                                                     std::unique_ptr<ParallelRenderEngine> render_engine);
         std::unique_ptr<OffScreenWindow> createOffScreenWindow(uint32_t back_buffer_size);
         std::unique_ptr<RenderEngine> createRenderEngine(uint32_t back_buffer_size);
         std::unique_ptr<ParallelRenderEngine> createParallelRenderEngine(uint32_t backbuffer_count,

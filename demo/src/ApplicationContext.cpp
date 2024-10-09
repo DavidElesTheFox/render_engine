@@ -82,10 +82,12 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 void ApplicationContext::init(Scene::Scene* scene, GLFWwindow* window_handler)
 {
     _scene = scene;
-
-    original_cursor_position_callback = glfwSetCursorPosCallback(window_handler, cursorPositionCallback);
-    originak_key_callback = glfwSetKeyCallback(window_handler, keyCallback);
-    original_mouse_button_callback = glfwSetMouseButtonCallback(window_handler, mouseButtonCallback);
+    if (window_handler != nullptr)
+    {
+        original_cursor_position_callback = glfwSetCursorPosCallback(window_handler, cursorPositionCallback);
+        originak_key_callback = glfwSetKeyCallback(window_handler, keyCallback);
+        original_mouse_button_callback = glfwSetMouseButtonCallback(window_handler, mouseButtonCallback);
+    }
 }
 
 void ApplicationContext::updateInputEvents()

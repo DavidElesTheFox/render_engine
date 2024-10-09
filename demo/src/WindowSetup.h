@@ -14,7 +14,7 @@ public:
 class SingleWindowSetup : public IWindowSetup
 {
 public:
-    SingleWindowSetup(std::vector<uint32_t> renderer_ids, bool use_parallel_engine = false);
+    SingleWindowSetup(std::vector<uint32_t> renderer_ids);
     ~SingleWindowSetup() override = default;
     RenderEngine::IWindow& getRenderingWindow() override { return *_window; }
     RenderEngine::Window& getUiWindow() override { return *_window; };

@@ -11,6 +11,11 @@ namespace RenderEngine
     {
     public:
         IRenderEngine() = default;
+        IRenderEngine(IRenderEngine&&) = delete;
+        IRenderEngine(const IRenderEngine&) = delete;
+
+        IRenderEngine& operator=(IRenderEngine&&) = delete;
+        IRenderEngine& operator=(const IRenderEngine&) = delete;
         virtual ~IRenderEngine() = default;
 
         virtual GpuResourceManager& getGpuResourceManager() = 0;

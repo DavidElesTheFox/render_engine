@@ -540,7 +540,7 @@ namespace RenderEngine
         auto& logical_device = getLogicalDevice();
 
         VkImageView attachments[] = {
-                render_target.getTextureView(frame_buffer_index).getImageView()
+                render_target.getTextureView(frame_buffer_index)->getImageView()
         };
         VkFramebufferCreateInfo framebuffer_info{};
         framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;

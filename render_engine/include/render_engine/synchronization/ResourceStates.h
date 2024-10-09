@@ -3,6 +3,7 @@
 
 #include <render_engine/CommandContext.h>
 
+#include <render_engine/synchronization/ResourceStateMachine.h>
 
 #include <memory>
 #include <type_traits>
@@ -12,24 +13,67 @@ namespace RenderEngine
     class ResourceAccessToken
     {
         friend class ResourceStateMachine;
+        friend class RenderPass;
     private:
         ResourceAccessToken() = default;
     };
+    // TODO put it its own file
+    class SubmitScope
+    {
+        static inline std::atomic_uint32_t kNextId{ 0 };
+    public:
+        SubmitScope()
+            : _id(kNextId++)
+        {}
+
+        SubmitScope(SubmitScope&&) = default;
+        SubmitScope(const SubmitScope&) = default;
+
+        SubmitScope& operator=(SubmitScope&&) = default;
+        SubmitScope& operator=(const SubmitScope&) = default;
+
+        bool operator==(const SubmitScope& o)
+        {
+            return _id == o._id;
+        }
+
+        void assignCommandBuffer(VkCommandBuffer command_buffer)
+        {
+            _assigned_command_buffers->push_back(command_buffer);
+            std::ranges::sort(*_assigned_command_buffers,
+                              [](VkCommandBuffer a, VkCommandBuffer b) { return reinterpret_cast<void*>(a) < reinterpret_cast<void*>(b); });
+        }
+
+        bool hasCommandBuffer(VkCommandBuffer command_buffer) const
+        {
+            return std::ranges::binary_search(*_assigned_command_buffers,
+                                              command_buffer,
+                                              [](VkCommandBuffer a, VkCommandBuffer b) { return reinterpret_cast<void*>(a) < reinterpret_cast<void*>(b); });
+        }
+
+        uint64_t getId() const { return _id; }
+    private:
+        const uint32_t _id;
+        // shared between instances due to it is copiable.
+        std::shared_ptr<std::vector<VkCommandBuffer>> _assigned_command_buffers{ std::make_shared<std::vector<VkCommandBuffer>>() };
+    };
+
     struct TextureState
     {
         VkPipelineStageFlagBits2 pipeline_stage{ VK_PIPELINE_STAGE_2_NONE };
         VkAccessFlags2 access_flag{ VK_ACCESS_2_NONE };
         VkImageLayout layout{ VK_IMAGE_LAYOUT_UNDEFINED };
-        /* TODO: Implement borrow_ptr.
-        * Textures lifetime is managed by the application. Thus, storing a raw pointer to a command context is not
-        * a good solution. No one can guarantee that a texture doesn't have more lifetime then a transfer engine for example.
-        *
-        * For this solution a shared_ptr/weak_ptr is a solution but the ownership question is not clear. It is because the
-        * object is not shared, it has only one owner and many references.
-        *
-        * The solution for this a borrowed_ptr concept what Rust also has.
-        */
-        std::weak_ptr<SingleShotCommandBufferFactory> command_context{ };
+        This is also a state that needs to be preserved....
+            /* TODO: Implement borrow_ptr.
+            * Textures lifetime is managed by the application. Thus, storing a raw pointer to a command context is not
+            * a good solution. No one can guarantee that a texture doesn't have more lifetime then a transfer engine for example.
+            *
+            * For this solution a shared_ptr/weak_ptr is a solution but the ownership question is not clear. It is because the
+            * object is not shared, it has only one owner and many references.
+            *
+            * The solution for this a borrowed_ptr concept what Rust also has.
+            */
+            std::weak_ptr<SingleShotCommandBufferFactory> command_context{ };
 
         TextureState&& setPipelineStage(VkPipelineStageFlagBits2 value)&&
         {
@@ -143,20 +187,20 @@ namespace RenderEngine
         && std::is_same_v<decltype(std::remove_pointer_t<std::remove_const_t<std::remove_reference_t<T>>>::command_context), std::weak_ptr<SingleShotCommandBufferFactory>>;
 
     template<typename T>
-    concept TextureStateWriter = requires(T t, TextureState texture_state, ResourceAccessToken access_token)
+    concept TextureStateWriter = requires(T t, TextureState texture_state, const SubmitScope & scope, ResourceAccessToken access_token)
     {
-        { t.overrideResourceState(texture_state, access_token) };
+        { t.overrideResourceState(texture_state, scope, access_token) };
     };
 
     template<typename T>
-    concept BufferStateWriter = requires(T t, BufferState buffer_state, ResourceAccessToken access_token)
+    concept BufferStateWriter = requires(T t, BufferState buffer_state, const SubmitScope & scope, ResourceAccessToken access_token)
     {
-        { t.overrideResourceState(buffer_state, access_token) };
+        { t.overrideResourceState(buffer_state, scope, access_token) };
     };
     template<typename T>
-    concept ResourceStateHolder = requires(const T const_t)
+    concept ResourceStateHolder = requires(const T const_t, const SubmitScope & scope)
     {
-        { const_t.getResourceState() } -> ResourceState;
+        { const_t.getResourceState(scope) } -> ResourceState;
         TextureStateWriter<T> || BufferStateWriter<T>;
     };
 

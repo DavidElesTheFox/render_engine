@@ -16,58 +16,61 @@
 #include <render_engine/resources/RenderTarget.h>
 #include <render_engine/resources/Technique.h>
 
+#include <render_engine/FrameBuffer.h>
+#include <render_engine/RenderPass.h>
+
 #include <ranges>
 
 namespace RenderEngine
 {
-    ForwardRenderer::ForwardRenderer(IRenderEngine& render_engine,
+    ForwardRenderer::ForwardRenderer(RefObj<IRenderEngine> render_engine,
                                      RenderTarget render_target,
                                      bool use_internal_command_buffers)
-        try : SingleColorOutputRenderer(render_engine)
+        : _render_engine(render_engine)
+        , _render_target(std::move(render_target))
     {
 
-        VkAttachmentDescription color_attachment{};
-        color_attachment.format = render_target.getImageFormat();
-        color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-        color_attachment.loadOp = render_target.getLoadOperation();
-        color_attachment.storeOp = render_target.getStoreOperation();
-        color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-        color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        color_attachment.initialLayout = render_target.getInitialLayout();
-        color_attachment.finalLayout = render_target.getFinalLayout();
+        RenderPassBuilder render_pass_builder;
 
-        VkAttachmentReference colorAttachmentRef{};
-        colorAttachmentRef.attachment = 0;
-        colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-        VkSubpassDescription subpass{};
-        subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-        subpass.colorAttachmentCount = 1;
-        subpass.pColorAttachments = &colorAttachmentRef;
-
-        VkRenderPassCreateInfo renderPassInfo{};
-        renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-        renderPassInfo.attachmentCount = 1;
-        renderPassInfo.pAttachments = &color_attachment;
-        renderPassInfo.subpassCount = 1;
-        renderPassInfo.pSubpasses = &subpass;
-        renderPassInfo.dependencyCount = 0;
-
-        auto& logical_device = getLogicalDevice();
-        VkRenderPass render_pass{ VK_NULL_HANDLE };
-        if (logical_device->vkCreateRenderPass(*logical_device, &renderPassInfo, nullptr, &render_pass) != VK_SUCCESS)
         {
-            throw std::runtime_error("failed to create render pass!");
+            VkAttachmentDescription color_attachment{};
+            color_attachment.format = _render_target.getImageFormat();
+            color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
+            color_attachment.loadOp = _render_target.getLoadOperation();
+            color_attachment.storeOp = _render_target.getStoreOperation();
+            color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+            color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+            color_attachment.initialLayout = _render_target.getInitialLayout();
+            color_attachment.finalLayout = _render_target.getFinalLayout();
+            render_pass_builder.addAttachment(std::move(color_attachment));
         }
-        initializeRendererOutput(render_target,
-                                 render_pass,
-                                 getRenderEngine().getGpuResourceManager().getBackBufferSize(),
-                                 use_internal_command_buffers);
+
+        {
+            RenderPassBuilder::SubPass main_pass("main_pass", VK_PIPELINE_BIND_POINT_GRAPHICS);
+            main_pass.addColorAttachment({ .attachment = 0, .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
+            render_pass_builder.addSubPass(std::move(main_pass));
+        }
+        auto& logical_device = getLogicalDevice();
+
+        _render_pass = std::make_unique<RenderPass>(render_pass_builder.build(logical_device));
+        for (uint32_t i = 0; i < render_engine->getBackBufferSize(); ++i)
+        {
+            auto frame_buffer_builder = _render_pass->createFrameBufferBuilder();
+            frame_buffer_builder.setAttachment(0, _render_target.getTextureView(i));
+            _frame_buffers.emplace_back(frame_buffer_builder.build(_render_target.getWidth(), _render_target.getHeight(), logical_device));
+        }
+
+        if (use_internal_command_buffers)
+        {
+            for (uint32_t i = 0; i < render_engine->getBackBufferSize(); ++i)
+            {
+                VkCommandBuffer command_buffer = _render_engine->getCommandBufferContext().getFactory()->createCommandBuffer(i, 0);
+
+                _internal_command_buffers.push_back(command_buffer);
+            }
+        }
     }
-    catch (const std::exception&)
-    {
-        destroyRenderOutput();
-    }
+
 
     ForwardRenderer::~ForwardRenderer()
     {}
@@ -77,7 +80,7 @@ namespace RenderEngine
         PROFILE_SCOPE();
         const auto* mesh = mesh_instance->getMesh();
         const uint32_t material_instance_id = mesh_instance->getMaterialInstance()->getId();
-        auto& gpu_resource_manager = getRenderEngine().getGpuResourceManager();
+        auto& gpu_resource_manager = _render_engine->getGpuResourceManager();
 
         if (_mesh_buffers.contains(mesh) == false)
         {
@@ -89,20 +92,20 @@ namespace RenderEngine
                 std::vector vertex_buffer = mesh->createVertexBuffer();
                 mesh_buffers.vertex_buffer = gpu_resource_manager.createAttributeBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                                                                                         vertex_buffer.size());
-                getRenderEngine().getDevice().getDataTransferContext().getScheduler().upload(mesh_buffers.vertex_buffer.get(),
-                                                                                             std::span(vertex_buffer),
-                                                                                             getRenderEngine().getTransferEngine().getCommandBufferFactory(),
-                                                                                             mesh_buffers.vertex_buffer->getResourceState().clone());
+                _render_engine->getDevice().getDataTransferContext().getScheduler().upload(mesh_buffers.vertex_buffer.get(),
+                                                                                           std::span(vertex_buffer),
+                                                                                           _render_engine->getTransferEngine().getCommandBufferFactory(),
+                                                                                           mesh_buffers.vertex_buffer->getResourceState(SubmitScope{}).clone());
 
             }
             if (geometry.indexes.empty() == false)
             {
                 mesh_buffers.index_buffer = gpu_resource_manager.createAttributeBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
                                                                                        geometry.indexes.size() * sizeof(int16_t));
-                getRenderEngine().getDevice().getDataTransferContext().getScheduler().upload(mesh_buffers.index_buffer.get(),
-                                                                                             std::span(geometry.indexes),
-                                                                                             getRenderEngine().getTransferEngine().getCommandBufferFactory(),
-                                                                                             mesh_buffers.index_buffer->getResourceState().clone());
+                _render_engine->getDevice().getDataTransferContext().getScheduler().upload(mesh_buffers.index_buffer.get(),
+                                                                                           std::span(geometry.indexes),
+                                                                                           _render_engine->getTransferEngine().getCommandBufferFactory(),
+                                                                                           mesh_buffers.index_buffer->getResourceState(SubmitScope{}).clone());
             }
             _mesh_buffers[mesh] = std::move(mesh_buffers);
         }
@@ -118,7 +121,7 @@ namespace RenderEngine
             MeshGroup mesh_group;
             mesh_group.technique = mesh_instance->getMaterialInstance()->createTechnique(gpu_resource_manager,
                                                                                          {},
-                                                                                         getRenderPass(),
+                                                                                         _render_pass->get(),
                                                                                          0);
             mesh_group.mesh_instances.push_back(mesh_instance);
             _meshes.push_back(std::move(mesh_group));
@@ -138,71 +141,67 @@ namespace RenderEngine
 
         auto renderer_marker = _performance_markers.createMarker(command_buffer,
                                                                  "ForwardRenderer");
-        auto render_area = getRenderArea();
-        VkRenderPassBeginInfo render_pass_info{};
-        render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        render_pass_info.renderPass = getRenderPass();
-        render_pass_info.framebuffer = getFrameBuffer(swap_chain_image_index);
-        render_pass_info.renderArea = render_area;
 
-        VkClearValue clearColor = { {{0.0f, 0.0f, 0.0f, 1.0f}} };
-        render_pass_info.clearValueCount = 1;
-        render_pass_info.pClearValues = &clearColor;
-
-        getLogicalDevice()->vkCmdBeginRenderPass(command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
-        for (auto& mesh_group : _meshes)
         {
-            auto technique_marker = _performance_markers.createMarker(command_buffer,
-                                                                      mesh_group.technique->getMaterialInstance().getMaterial().getName());
-
-            MaterialInstance::UpdateContext material_update_context = mesh_group.technique->onFrameBegin(swap_chain_image_index, command_buffer);
-
-            getLogicalDevice()->vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_group.technique->getPipeline());
-
-            VkViewport viewport{};
-            viewport.x = 0.0f;
-            viewport.y = 0.0f;
-            viewport.width = (float)render_area.extent.width;
-            viewport.height = (float)render_area.extent.height;
-            viewport.minDepth = 0.0f;
-            viewport.maxDepth = 1.0f;
-            getLogicalDevice()->vkCmdSetViewport(command_buffer, 0, 1, &viewport);
-
-            VkRect2D scissor{};
-            scissor.offset = { 0, 0 };
-            scissor.extent = render_area.extent;
-            getLogicalDevice()->vkCmdSetScissor(command_buffer, 0, 1, &scissor);
-            auto descriptor_sets = mesh_group.technique->collectDescriptorSets(swap_chain_image_index);
-
-            if (descriptor_sets.empty() == false)
+            auto render_area = getRenderArea();
+            VkClearValue clear_color = { {{0.0f, 0.0f, 0.0f, 1.0f}} };
+            auto render_pass_scope = _render_pass->begin(getLogicalDevice(),
+                                                         command_buffer,
+                                                         render_area,
+                                                         _frame_buffers[swap_chain_image_index],
+                                                         { clear_color });
+            for (auto& mesh_group : _meshes)
             {
-                getLogicalDevice()->vkCmdBindDescriptorSets(command_buffer,
-                                                            VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                                            mesh_group.technique->getPipelineLayout(),
-                                                            0,
-                                                            static_cast<uint32_t>(descriptor_sets.size()),
-                                                            descriptor_sets.data(),
-                                                            0,
-                                                            nullptr);
+                auto technique_marker = _performance_markers.createMarker(command_buffer,
+                                                                          mesh_group.technique->getMaterialInstance().getMaterial().getName());
+
+                MaterialInstance::UpdateContext material_update_context = mesh_group.technique->onFrameBegin(swap_chain_image_index, command_buffer);
+
+                getLogicalDevice()->vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_group.technique->getPipeline());
+
+                VkViewport viewport{};
+                viewport.x = 0.0f;
+                viewport.y = 0.0f;
+                viewport.width = (float)render_area.extent.width;
+                viewport.height = (float)render_area.extent.height;
+                viewport.minDepth = 0.0f;
+                viewport.maxDepth = 1.0f;
+                getLogicalDevice()->vkCmdSetViewport(command_buffer, 0, 1, &viewport);
+
+                VkRect2D scissor{};
+                scissor.offset = { 0, 0 };
+                scissor.extent = render_area.extent;
+                getLogicalDevice()->vkCmdSetScissor(command_buffer, 0, 1, &scissor);
+                auto descriptor_sets = mesh_group.technique->collectDescriptorSets(swap_chain_image_index);
+
+                if (descriptor_sets.empty() == false)
+                {
+                    getLogicalDevice()->vkCmdBindDescriptorSets(command_buffer,
+                                                                VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                                                mesh_group.technique->getPipelineLayout(),
+                                                                0,
+                                                                static_cast<uint32_t>(descriptor_sets.size()),
+                                                                descriptor_sets.data(),
+                                                                0,
+                                                                nullptr);
+                }
+
+                for (auto& mesh_instance : mesh_group.mesh_instances)
+                {
+                    mesh_group.technique->onDraw(material_update_context, mesh_instance);
+                    auto& mesh_buffers = _mesh_buffers.at(mesh_instance->getMesh());
+
+                    VkBuffer vertexBuffers[] = { mesh_buffers.vertex_buffer->getBuffer() };
+                    VkDeviceSize offsets[] = { 0 };
+                    getLogicalDevice()->vkCmdBindVertexBuffers(command_buffer, 0, 1, vertexBuffers, offsets);
+                    getLogicalDevice()->vkCmdBindIndexBuffer(command_buffer, mesh_buffers.index_buffer->getBuffer(), 0, VK_INDEX_TYPE_UINT16);
+
+
+                    getLogicalDevice()->vkCmdDrawIndexed(command_buffer, static_cast<uint32_t>(mesh_buffers.index_buffer->getDeviceSize() / sizeof(uint16_t)), 1, 0, 0, 0);
+                }
+                technique_marker.finish();
             }
-
-            for (auto& mesh_instance : mesh_group.mesh_instances)
-            {
-                mesh_group.technique->onDraw(material_update_context, mesh_instance);
-                auto& mesh_buffers = _mesh_buffers.at(mesh_instance->getMesh());
-
-                VkBuffer vertexBuffers[] = { mesh_buffers.vertex_buffer->getBuffer() };
-                VkDeviceSize offsets[] = { 0 };
-                getLogicalDevice()->vkCmdBindVertexBuffers(command_buffer, 0, 1, vertexBuffers, offsets);
-                getLogicalDevice()->vkCmdBindIndexBuffer(command_buffer, mesh_buffers.index_buffer->getBuffer(), 0, VK_INDEX_TYPE_UINT16);
-
-
-                getLogicalDevice()->vkCmdDrawIndexed(command_buffer, static_cast<uint32_t>(mesh_buffers.index_buffer->getDeviceSize() / sizeof(uint16_t)), 1, 0, 0, 0);
-            }
-            technique_marker.finish();
         }
-        getLogicalDevice()->vkCmdEndRenderPass(command_buffer);
-
         if (getLogicalDevice()->vkEndCommandBuffer(command_buffer) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to record command buffer!");
@@ -211,7 +210,7 @@ namespace RenderEngine
 
     void ForwardRenderer::draw(uint32_t swap_chain_image_index)
     {
-        draw(getFrameData(swap_chain_image_index).command_buffer, swap_chain_image_index);
+        draw(_internal_command_buffers[swap_chain_image_index], swap_chain_image_index);
     }
 
     void ForwardRenderer::onFrameBegin(uint32_t frame_number)

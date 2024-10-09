@@ -62,14 +62,34 @@ namespace RenderEngine::RenderGraph
         bool isActive() const override { return true; }
     };
 
-    class RenderNode final : public Node
+    class BaseGpuNode : public Node
+    {
+    public:
+        BaseGpuNode(std::string name,
+                    std::shared_ptr<CommandBufferFactory> command_buffer_factory)
+            : Node(std::move(name))
+            , _command_buffer_factory(command_buffer_factory)
+        {}
+        ~BaseGpuNode() override = default;
+
+        VkCommandBuffer createOrGetCommandBuffer(const ExecutionContext::PoolIndex& pool_index);
+        VulkanQueue& getQueue() { return _command_buffer_factory->getQueue(); }
+    private:
+        using CommandBufferPerRenderTargetMap = std::map<uint32_t, VkCommandBuffer>;
+
+        std::shared_ptr<CommandBufferFactory> _command_buffer_factory;
+
+        std::mutex _command_buffer_mutex;
+        std::map<uint32_t, CommandBufferPerRenderTargetMap> _command_buffers;
+    };
+
+    class RenderNode final : public BaseGpuNode
     {
     public:
         RenderNode(std::string name,
                    std::shared_ptr<CommandBufferFactory> command_buffer_factory,
                    std::unique_ptr<AbstractRenderer> renderer)
-            : Node(std::move(name))
-            , _command_buffer_factory(command_buffer_factory)
+            : BaseGpuNode(std::move(name), command_buffer_factory)
             , _renderer(std::move(renderer))
         {}
         ~RenderNode() override = default;
@@ -80,14 +100,7 @@ namespace RenderEngine::RenderGraph
 
         bool isActive() const override { return true; }
     private:
-        using CommandBufferPerRenderTargetMap = std::map<uint32_t, VkCommandBuffer>;
-        VkCommandBuffer createOrGetCommandBuffer(const ExecutionContext::PoolIndex& pool_index);
-
-        std::shared_ptr<CommandBufferFactory> _command_buffer_factory;
         std::unique_ptr<AbstractRenderer> _renderer;
-
-        std::mutex _command_buffer_mutex;
-        std::map<uint32_t, CommandBufferPerRenderTargetMap> _command_buffers;
     };
 
     class TransferNode final : public Node
@@ -185,19 +198,19 @@ namespace RenderEngine::RenderGraph
         uint64_t _current_frame_number{ 0 };
     };
 
-    class CpuNode : public Node
+    class CpuNode : public BaseGpuNode
     {
     public:
         class ICpuTask
         {
         public:
             virtual ~ICpuTask() = default;
-            virtual void run(ExecutionContext& execution_context) = 0;
+            virtual void run(CpuNode& self, ExecutionContext& execution_context) = 0;
             virtual bool isActive() const = 0;
             virtual void registerExecutionContext(ExecutionContext&) = 0;
         };
-        CpuNode(std::string name, std::unique_ptr<ICpuTask> cpu_task)
-            : Node(std::move(name))
+        CpuNode(std::string name, std::unique_ptr<ICpuTask> cpu_task, std::shared_ptr<CommandBufferFactory> command_buffer_factory)
+            : BaseGpuNode(std::move(name), command_buffer_factory)
             , _cpu_task(std::move(cpu_task))
         {}
         ~CpuNode() override = default;

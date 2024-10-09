@@ -10,6 +10,8 @@
 #include <render_engine/synchronization/SyncOperations.h>
 #include <render_engine/TransferEngine.h>
 
+#include <algorithm>
+#include <ranges>
 #include <set>
 
 namespace RenderEngine
@@ -51,16 +53,65 @@ namespace RenderEngine
         VkImage getVkImage() const { return _texture; }
         const Image& getImage() const { return _image; }
 
-        const TextureState& getResourceState() const
+        TextureState getResourceState(const SubmitScope& scope) const
         {
-            return _texture_state;
+            auto it = std::ranges::find_if(_texture_states,
+                                           [&](const auto& pair) { return pair.first.getId() == scope.getId(); });
+            if (it == _texture_states.end())
+            {
+                TextureState result{};
+                result.command_context = _global_queue_owner;
+                return result;
+            }
+            else
+            {
+                return it->second;
+            }
         }
 
+        TextureState getResourceState(VkCommandBuffer command_buffer) const
+        {
+            using namespace std::views;
+            auto it = std::ranges::find_if(_texture_states,
+                                           [&](const auto& pair) { return pair.first.hasCommandBuffer(command_buffer); });
+
+            if (it == _texture_states.end())
+            {
+                TextureState result{};
+                result.command_context = _global_queue_owner;
+                return result;
+            }
+            else
+            {
+                return it->second;
+            }
+        }
+
+        void removeResourceState(BufferState value, const SubmitScope& scope, ResourceAccessToken)
+        {
+            std::erase_if(_texture_states,
+                          [&](const auto& pair) { return pair.first.getId() == scope.getId(); });
+        }
         HANDLE getMemoryHandle() const;
         const VkMemoryRequirements& getMemoryRequirements() const { return _memory_requirements; }
-        void overrideResourceState(TextureState value, ResourceAccessToken)
+        void overrideResourceState(TextureState value, const SubmitScope& scope, ResourceAccessToken)
         {
-            _texture_state = std::move(value);
+            auto it = std::ranges::find_if(_texture_states,
+                                           [&](const auto& pair) { return pair.first.getId() == scope.getId(); });
+            _global_queue_owner = value.command_context;
+            for (auto& [_, state] : _texture_states)
+            {
+                state.command_context = _global_queue_owner;
+            }
+            if (it == _texture_states.end())
+            {
+                _texture_states.push_back({ scope, value });
+            }
+            else
+            {
+                it->second = std::move(value);
+            }
+
         }
         void assignUploadTask(std::shared_ptr<UploadTask>);
         void assignDownloadTask(std::shared_ptr<DownloadTask>);
@@ -73,7 +124,6 @@ namespace RenderEngine
         CoherentBuffer& getStagingBuffer() { return _staging_buffer; }
         VkShaderStageFlags getShaderUsageFlag() const { return _shader_usage; }
 
-        void setInitialCommandContext(std::weak_ptr<SingleShotCommandBufferFactory> command_context);
     private:
         Texture(Image image,
                 VkPhysicalDevice physical_device,
@@ -101,7 +151,8 @@ namespace RenderEngine
         bool _vkimage_owner{ true };
 
         VkDeviceMemory _texture_memory{ VK_NULL_HANDLE };
-        TextureState _texture_state;
+        std::vector<std::pair<SubmitScope, TextureState>> _texture_states;
+        std::weak_ptr<SingleShotCommandBufferFactory> _global_queue_owner;
         VkMemoryRequirements _memory_requirements{};
         std::shared_ptr<UploadTask> _ongoing_upload{ nullptr };
         std::shared_ptr<DownloadTask> _ongoing_download{ nullptr };

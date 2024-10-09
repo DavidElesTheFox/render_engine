@@ -19,10 +19,10 @@ namespace RenderEngine
 
     namespace RenderGraph
     {
-        // TODO rename this file
         class ExecutionContext
         {
         public:
+            // TODO delete this struct. sync_object_index never changes.
             struct PoolIndex
             {
                 uint32_t render_target_index;

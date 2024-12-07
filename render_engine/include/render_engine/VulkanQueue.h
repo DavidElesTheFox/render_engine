@@ -7,6 +7,7 @@ namespace RenderEngine
 {
     class SyncOperations;
     class SwapChain;
+    class SubmitScope;
 
     class VulkanQueue
     {
@@ -38,7 +39,8 @@ namespace RenderEngine
 
         void queueSubmit(VkSubmitInfo2&& submit_info,
                          const SyncOperations& sync_operations,
-                         VkFence fence);
+                         VkFence fence,
+                         SubmitScope&& scope);
         void queuePresent(VkPresentInfoKHR&& present_info,
                           const SyncOperations& sync_operations,
                           SwapChain& swap_chain);

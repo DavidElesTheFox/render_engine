@@ -5,6 +5,7 @@
 #include <render_engine/Device.h>
 #include <render_engine/LogicalDevice.h>
 #include <render_engine/synchronization/ResourceStateMachine.h>
+#include <render_engine/synchronization/ResourceStates.h>
 #include <render_engine/TransferEngine.h>
 
 #include <cstdint>
@@ -22,6 +23,31 @@ namespace RenderEngine
     class Buffer
     {
     public:
+        struct PreservedState
+        {
+            PreservedState() = default;
+
+            explicit PreservedState(const BufferState& buffer_state)
+                : command_context(buffer_state.command_context)
+            {}
+
+            void reset(const BufferState& buffer_state)
+            {
+                command_context = buffer_state.command_context;
+            }
+
+            explicit operator BufferState() const
+            {
+                BufferState result;
+                result.command_context = command_context;
+                return result;
+            }
+            std::optional<uint32_t> getQueueFamilyIndex() const
+            {
+                return command_context.expired() ? std::nullopt : std::optional{ command_context.lock()->getQueue().getQueueFamilyIndex() };
+            }
+            std::weak_ptr<SingleShotCommandBufferFactory> command_context;
+        };
         friend class ResourceStateMachine;
 
         Buffer(VkPhysicalDevice physical_device, LogicalDevice& logical_device, BufferInfo&& buffer_info);
@@ -29,66 +55,71 @@ namespace RenderEngine
 
         VkBuffer getBuffer() const { return _buffer; }
         VkDeviceSize getDeviceSize() const { return _buffer_info.size; }
-        BufferState getResourceState(const SubmitScope& scope) const
+
+        const PreservedState& getGlobalResourceState() const { return _preserved_state; }
+        BufferState getResourceState(SubmitScope* scope)
         {
-            auto it = std::ranges::find_if(_texture_states,
-                                           [&](const auto& pair) { return pair.first.getId() == scope.getId(); });
-            if (it == _texture_states.end())
+            auto it = std::ranges::find_if(_buffer_states,
+                                           [&](const auto& pair) { return pair.first == scope; });
+            if (it == _buffer_states.end())
             {
-                BufferState result{};
-                result.command_context = _global_queue_owner;
-                return result;
+                std::lock_guard lock(_preserve_state_mutex);
+                _buffer_states.push_back({ scope, static_cast<BufferState>(_preserved_state) });
+                it = _buffer_states.end() - 1;
+                scope->addCleanUpFunction([this](const SubmitScope* scope) { removeResourceState(scope, ResourceAccessToken{}); });
             }
-            else
-            {
-                return it->second;
-            }
+            return it->second;
         }
 
-        BufferState getResourceState(VkCommandBuffer command_buffer) const
+        void removeResourceState(const SubmitScope* scope, ResourceAccessToken)
         {
-            using namespace std::views;
-            auto it = std::ranges::find_if(_texture_states,
-                                           [&](const auto& pair) { return pair.first.hasCommandBuffer(command_buffer); });
+            std::lock_guard lock(_preserve_state_mutex);
+            auto it = std::ranges::find_if(_buffer_states,
+                                           [&](const auto& pair) { return pair.first == scope; });
+            _preserved_state.reset(it->second);
 
-            if (it == _texture_states.end())
-            {
-                BufferState result{};
-                result.command_context = _global_queue_owner;
-                return result;
-            }
-            else
-            {
-                return it->second;
-            }
+            _buffer_states.erase(it);
         }
-        void overrideResourceState(BufferState value, const SubmitScope& scope, ResourceAccessToken)
+
+        void overrideResourceState(BufferState value, SubmitScope* scope, ResourceAccessToken)
         {
-            auto it = std::ranges::find_if(_texture_states,
-                                           [&](const auto& pair) { return pair.first.getId() == scope.getId(); });
-            _global_queue_owner = value.command_context;
-            for (auto& [_, state] : _texture_states)
+            auto it = std::ranges::find_if(_buffer_states,
+                                           [&](const auto& pair) { return pair.first == scope; });
+#ifdef RENDER_ENGINE_DEBUG
             {
-                state.command_context = _global_queue_owner;
+                auto debug_it = std::ranges::find_if(_buffer_states,
+                                                     [&](const auto& pair) { return (pair.second.dirty_flags & value.dirty_flags) != 0; });
+                if (debug_it != _buffer_states.end())
+                {
+                    auto& debugger = RenderContext::context().getDebugger();
+                    debugger.print(Debug::Topics::ResourceStateValidation{},
+                                   "Warning: State change cross reference detected. This Texture has an active submit scope (it is still recording commands into the queue),"
+                                   " and that commands are modifying the same state of the texture what the current commands also modified. The other scope id is: {:d} the current: {:d}."
+                                   " This is a Warning message, if between the two submit there are proper synchronization then it is not an issue.",
+                                   debug_it->first->getId(),
+                                   scope->getId());
+                }
             }
-            if (it == _texture_states.end())
+#endif
+            if (it == _buffer_states.end())
             {
-                _texture_states.push_back({ scope, value });
+                _buffer_states.push_back({ scope, value });
+                scope->addCleanUpFunction([this](const SubmitScope* scope) { removeResourceState(scope, ResourceAccessToken{}); });
             }
             else
             {
                 it->second = std::move(value);
             }
         }
-        void removeResourceState(BufferState value, const SubmitScope& scope, ResourceAccessToken)
-        {
-            std::erase_if(_texture_states,
-                          [&](const auto& pair) { return pair.first.getId() == scope.getId(); });
-        }
         VkPhysicalDevice getPhysicalDevice() const { return _physical_device; }
         LogicalDevice& getLogicalDevice() const { return _logical_device; }
 
-        void setInitialCommandContext(std::weak_ptr<SingleShotCommandBufferFactory> command_context);
+        void setInitialCommandContext(std::weak_ptr<SingleShotCommandBufferFactory> command_context)
+        {
+            std::lock_guard lock(_preserve_state_mutex);
+            assert(_preserved_state.command_context.expired());
+            _preserved_state.command_context = command_context;
+        }
 
         void assignUploadTask(std::shared_ptr<UploadTask>);
         void assignDownloadTask(std::shared_ptr<DownloadTask>);
@@ -102,13 +133,14 @@ namespace RenderEngine
         VkBuffer _buffer{ VK_NULL_HANDLE };;
         VkDeviceMemory _buffer_memory{ VK_NULL_HANDLE };;
         BufferInfo _buffer_info;
-        std::vector<std::pair<SubmitScope, BufferState>> _texture_states;
-        std::weak_ptr<SingleShotCommandBufferFactory> _global_queue_owner;
+        std::vector<std::pair<const SubmitScope*, BufferState>> _buffer_states;
+        PreservedState _preserved_state;
+        std::mutex _preserve_state_mutex;
         std::shared_ptr<UploadTask> _ongoing_upload{ nullptr };
         std::shared_ptr<DownloadTask> _ongoing_download{ nullptr };
     };
 
-    static_assert(IsResourceStateHolder_V<Buffer>, "Buffer must be a resource state holder");
+    static_assert(ResourceStateHolder<Buffer>, "Buffer must be a resource state holder");
 
     class CoherentBuffer
     {

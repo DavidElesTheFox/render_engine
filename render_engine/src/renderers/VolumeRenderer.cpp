@@ -242,15 +242,6 @@ namespace RenderEngine
         destroyRenderOutput();
     }
 
-    void VolumeRenderer::onFrameBegin(uint32_t image_index)
-    {
-        for (MeshGroup& mesh_group : _meshes)
-        {
-            resetResourceStatesOf(*mesh_group.technique_data.front_face_technique, image_index);
-            resetResourceStatesOf(*mesh_group.technique_data.back_face_technique, image_index);
-            resetResourceStatesOf(*mesh_group.technique_data.volume_technique, image_index);
-        }
-    }
 
     void VolumeRenderer::addVolumeObject(const VolumetricObjectInstance* mesh_instance)
     {
@@ -263,23 +254,27 @@ namespace RenderEngine
         auto& gpu_resource_manager = getRenderEngine().getGpuResourceManager();
         if (geometry.positions.empty() == false)
         {
+            SubmitScope upload_scope;
             std::vector vertex_buffer = mesh->createVertexBuffer();
             mesh_buffers.vertex_buffer = gpu_resource_manager.createAttributeBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                                                                                     vertex_buffer.size());
             getRenderEngine().getDevice().getDataTransferContext().getScheduler().upload(mesh_buffers.vertex_buffer.get(),
                                                                                          std::span(vertex_buffer),
                                                                                          getRenderEngine().getTransferEngine().getCommandBufferFactory(),
-                                                                                         mesh_buffers.vertex_buffer->getResourceState().clone());
+                                                                                         mesh_buffers.vertex_buffer->getResourceState(&upload_scope).clone(),
+                                                                                         std::move(upload_scope));
 
         }
         if (geometry.indexes.empty() == false)
         {
+            SubmitScope upload_scope;
             mesh_buffers.index_buffer = gpu_resource_manager.createAttributeBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
                                                                                    geometry.indexes.size() * sizeof(int16_t));
             getRenderEngine().getDevice().getDataTransferContext().getScheduler().upload(mesh_buffers.index_buffer.get(),
                                                                                          std::span(geometry.indexes),
                                                                                          getRenderEngine().getTransferEngine().getCommandBufferFactory(),
-                                                                                         mesh_buffers.index_buffer->getResourceState().clone());
+                                                                                         mesh_buffers.index_buffer->getResourceState(&upload_scope).clone(),
+                                                                                         std::move(upload_scope));
         }
         _mesh_buffers[mesh_instance->getMesh()] = std::move(mesh_buffers);
         if (mesh_instance->getVolumeMaterialInstance()->getVolumeMaterial().isRequireDistanceField())
@@ -330,9 +325,10 @@ namespace RenderEngine
 
     void VolumeRenderer::draw(uint32_t swap_chain_image_index)
     {
-        draw(getFrameData(swap_chain_image_index).command_buffer, swap_chain_image_index);
+        SubmitScope current_scope;
+        draw(&current_scope, getFrameData(swap_chain_image_index).command_buffer, swap_chain_image_index);
     }
-    void VolumeRenderer::draw(VkCommandBuffer command_buffer, uint32_t swap_chain_image_index)
+    void VolumeRenderer::draw(SubmitScope* current_scope, VkCommandBuffer command_buffer, uint32_t swap_chain_image_index)
     {
         VkCommandBufferBeginInfo begin_info{};
         begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -360,7 +356,7 @@ namespace RenderEngine
         {
             ResourceStateMachine resource_state_machine{ getLogicalDevice() };
             resource_state_machine.recordStateChange(mesh_group.technique_data.distance_field_textures[swap_chain_image_index].get(),
-                                                     mesh_group.technique_data.distance_field_textures[swap_chain_image_index]->getResourceState().clone()
+                                                     mesh_group.technique_data.distance_field_textures[swap_chain_image_index]->getResourceState(current_scope).clone()
                                                      .setImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
                                                      .setPipelineStage(VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT)
                                                      .setAccessFlag(VK_ACCESS_2_SHADER_SAMPLED_READ_BIT));
@@ -684,19 +680,5 @@ namespace RenderEngine
         return render_pass_attachments;
     }
 
-    void VolumeRenderer::resetResourceStatesOf(Technique& technique, uint32_t image_index)
-    {
-        for (const auto& uniform_binding : technique.getUniformBindings())
-        {
-            if (auto texture = uniform_binding->getTextureForFrame(image_index); texture != nullptr)
-            {
-                ResourceStateMachine::resetStages(*texture);
-            }
-            if (auto buffer = uniform_binding->getTextureForFrame(image_index); buffer != nullptr)
-            {
-                ResourceStateMachine::resetStages(*buffer);
-            }
-        }
-    }
 
 }

@@ -1,7 +1,9 @@
 #include <render_engine/RenderEngine.h>
 
+
 #include <render_engine/RenderContext.h>
 #include <render_engine/RendererFactory.h>
+#include <render_engine/synchronization/ResourceStates.h>
 
 #include <cassert>
 
@@ -27,6 +29,7 @@ namespace RenderEngine
                                        const SyncOperations& sync_operations,
                                        QueueSubmitTracker* submit_tracker)
     {
+        SubmitScope current_scope;
         VkSubmitInfo2 submit_info{};
         submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
 
@@ -35,11 +38,11 @@ namespace RenderEngine
 
         if (submit_tracker != nullptr)
         {
-            submit_tracker->queueSubmit(std::move(submit_info), sync_operations, _command_buffer_context.getQueue());
+            submit_tracker->queueSubmit(std::move(submit_info), sync_operations, _command_buffer_context.getQueue(), std::move(current_scope));
         }
         else
         {
-            _command_buffer_context.getQueue().queueSubmit(std::move(submit_info), sync_operations, VK_NULL_HANDLE);
+            _command_buffer_context.getQueue().queueSubmit(std::move(submit_info), sync_operations, VK_NULL_HANDLE, std::move(current_scope));
         }
     }
 

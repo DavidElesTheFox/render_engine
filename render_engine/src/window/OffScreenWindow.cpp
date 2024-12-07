@@ -169,7 +169,6 @@ namespace RenderEngine
         }
         auto renderers = _renderers | std::views::transform([](const auto& ptr) { return ptr.get(); });
         auto& render_engine = dynamic_cast<RenderEngine&>(*_render_engine);
-        render_engine.onFrameBegin(renderers, getCurrentImageIndex());
 
         const std::string operation_group_name = frame_data.contains_image ? SyncGroups::kInternal : SyncGroups::kEmpty;
 
@@ -188,8 +187,9 @@ namespace RenderEngine
         {
             FrameData& frame_to_download = _back_buffer[getCurrentImageIndex()];
             // Start reading back the current image
-            _device.getDataTransferContext().getScheduler().download(frame_to_download.render_target_texture.get(),
-                                                                     frame_to_download.synch_render.getOperationsGroup(SyncGroups::kPresent));
+            _device.getDataTransferContext().download(frame_to_download.render_target_texture.get(),
+                                                      frame_to_download.synch_render.getOperationsGroup(SyncGroups::kPresent),
+                                                      SubmitScope{});
         }
         {
             FrameData& frame_to_read_back = _back_buffer[getOldestImageIndex()];

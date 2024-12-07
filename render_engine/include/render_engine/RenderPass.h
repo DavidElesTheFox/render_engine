@@ -15,6 +15,7 @@ namespace RenderEngine
 {
     class RenderPass;
     class LogicalDevice;
+    class SubmitScope;
 
     class RenderPassBuilder
     {
@@ -43,7 +44,7 @@ namespace RenderEngine
             VkSubpassDependency& operator()(uint32_t from, const ExternalDependency&);
             VkSubpassDependency& operator()(const ExternalDependency&, uint32_t to);
             VkRenderPassCreateInfo& fill(VkRenderPassCreateInfo& create_info) const;
-            uint32_t getSize() const { return _dependency_matrix.size(); }
+            uint32_t getSize() const { return static_cast<uint32_t>(_dependency_matrix.size()); }
         private:
             uint32_t getIndex(uint32_t row, uint32_t col) const;
             uint32_t _size;
@@ -56,7 +57,7 @@ namespace RenderEngine
         {
             if (_dependency_graph == std::nullopt)
             {
-                _dependency_graph = SubPassGraph(_subpasses.size());
+                _dependency_graph = SubPassGraph(static_cast<uint32_t>(_subpasses.size()));
             }
             return *_dependency_graph;
         }
@@ -75,19 +76,22 @@ namespace RenderEngine
         SubPass(std::string name, VkPipelineBindPoint bind_point)
             : _name(std::move(name))
         {
+
             _description.pipelineBindPoint = bind_point;
         }
         SubPass& addColorAttachment(VkAttachmentReference reference)
         {
             _color_attachments.push_back(std::move(reference));
             _description.pColorAttachments = _color_attachments.data();
-            _description.colorAttachmentCount = _color_attachments.size();
+            _description.colorAttachmentCount = static_cast<uint32_t>(_color_attachments.size());
+            return *this;
         }
         SubPass& addInputAttachment(VkAttachmentReference reference)
         {
             _input_attachment.push_back(std::move(reference));
             _description.pInputAttachments = _input_attachment.data();
-            _description.inputAttachmentCount = _input_attachment.size();
+            _description.inputAttachmentCount = static_cast<uint32_t>(_input_attachment.size());
+            return *this;
         }
         const VkSubpassDescription& get() const
         {
@@ -119,6 +123,7 @@ namespace RenderEngine
 
         FrameBufferBuilder createFrameBufferBuilder() const;
         EnableScope begin(LogicalDevice& logical_device,
+                          SubmitScope* current_scope,
                           VkCommandBuffer command_buffer,
                           VkRect2D render_area,
                           FrameBuffer* frame_buffer,
@@ -126,7 +131,7 @@ namespace RenderEngine
 
         VkRenderPass get() { return _render_pass; }
     private:
-        void overrideResourceState(Texture& texture, SubmitScope& scope, TextureState new_state)
+        void overrideResourceState(Texture& texture, SubmitScope* scope, TextureState new_state)
         {
             texture.overrideResourceState(std::move(new_state), scope, {});
         }
@@ -143,14 +148,15 @@ namespace RenderEngine
                     VkCommandBuffer command_buffer,
                     const VkRenderPassBeginInfo& begin_info,
                     FrameBuffer* frame_buffer,
-                    RenderPass* render_pass);
+                    RenderPass* render_pass,
+                    SubmitScope* current_scope);
         EnableScope(EnableScope&&) = default;
         EnableScope(const EnableScope&) = delete;
 
         EnableScope& operator=(EnableScope&&) = default;
         EnableScope& operator=(const EnableScope&) = delete;
 
-        SubmitScope& getSubmitScope() { return _current_scope; }
+        SubmitScope& getSubmitScope() { return *_current_scope; }
 
         ~EnableScope();
     private:
@@ -158,7 +164,7 @@ namespace RenderEngine
         VkCommandBuffer _command_buffer{ VK_NULL_HANDLE };
         RenderPass* _render_pass;
         FrameBuffer* _frame_buffer;
-        SubmitScope _current_scope;
+        SubmitScope* _current_scope{ nullptr };
     };
 
 }

@@ -25,13 +25,6 @@ namespace RenderEngine
                      TransferEngine transfer_engine_on_render_queue,
                      uint32_t back_buffer_count);
 
-        void onFrameBegin(const std::ranges::input_range auto& renderers, uint32_t image_index)
-        {
-            for (auto* renderer : renderers)
-            {
-                renderer->onFrameBegin(image_index);
-            }
-        }
         [[nodiscard]]
         bool render(const SyncOperations& sync_operations,
                     const std::ranges::input_range auto& renderers,

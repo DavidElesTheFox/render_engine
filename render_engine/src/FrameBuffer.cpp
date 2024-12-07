@@ -14,14 +14,14 @@ namespace RenderEngine
         VkFramebufferCreateInfo create_info{};
         create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
         create_info.renderPass = _render_pass;
-        create_info.attachmentCount = attachments.size();
+        create_info.attachmentCount = static_cast<uint32_t>(attachments.size());
         create_info.pAttachments = attachments.data();
         create_info.width = width;
         create_info.height = height;
         create_info.layers = 1; // TODO: add multiview support
 
         VkFramebuffer frame_buffer{ VK_NULL_HANDLE };
-        if (logical_device->vkCreateFramebuffer(*logical_device, &create_info, VK_NULL_HANDLE, &frame_buffer) == false)
+        if (logical_device->vkCreateFramebuffer(*logical_device, &create_info, VK_NULL_HANDLE, &frame_buffer) != VK_SUCCESS)
         {
             throw std::runtime_error("Can't create framebuffer");
         }

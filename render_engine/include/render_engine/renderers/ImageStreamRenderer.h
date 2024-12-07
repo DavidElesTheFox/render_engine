@@ -22,9 +22,8 @@ namespace RenderEngine
             destroy();
         };
 
-        void onFrameBegin(uint32_t frame_number) final;
         void draw(uint32_t swap_chain_image_index) final;
-        void draw(VkCommandBuffer command_buffer, uint32_t swap_chain_image_index) final;
+        void draw(SubmitScope* current_scope, VkCommandBuffer command_buffer, uint32_t swap_chain_image_index) final;
 
         SyncOperations getSyncOperations(uint32_t image_index) final;
     private:

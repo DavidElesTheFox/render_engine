@@ -107,17 +107,6 @@ namespace RenderEngine
         _ongoing_download = task;
     }
 
-    void Buffer::setInitialCommandContext(std::weak_ptr<SingleShotCommandBufferFactory> command_context)
-    {
-        if (_buffer_state.command_context.expired() == false)
-        {
-            throw std::runtime_error("Buffer has a command context which shouldn't be overwritten");
-        }
-        _buffer_state.command_context = command_context;
-    }
-
-
-
     std::shared_ptr<DownloadTask> Buffer::clearDownloadTask()
     {
         auto result = _ongoing_download;

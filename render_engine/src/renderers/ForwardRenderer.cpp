@@ -53,12 +53,8 @@ namespace RenderEngine
         auto& logical_device = getLogicalDevice();
 
         _render_pass = std::make_unique<RenderPass>(render_pass_builder.build(logical_device));
-        for (uint32_t i = 0; i < render_engine->getBackBufferSize(); ++i)
-        {
-            auto frame_buffer_builder = _render_pass->createFrameBufferBuilder();
-            frame_buffer_builder.setAttachment(0, _render_target.getTextureView(i));
-            _frame_buffers.emplace_back(frame_buffer_builder.build(_render_target.getWidth(), _render_target.getHeight(), logical_device));
-        }
+
+        createFrameBuffers();
 
         if (use_internal_command_buffers)
         {
@@ -71,6 +67,16 @@ namespace RenderEngine
         }
     }
 
+    void ForwardRenderer::createFrameBuffers()
+    {
+        auto& logical_device = getLogicalDevice();
+        for (uint32_t i = 0; i < _render_engine->getBackBufferSize(); ++i)
+        {
+            auto frame_buffer_builder = _render_pass->createFrameBufferBuilder();
+            frame_buffer_builder.setAttachment(0, _render_target.getTextureView(i));
+            _frame_buffers.emplace_back(frame_buffer_builder.build(_render_target.getWidth(), _render_target.getHeight(), logical_device));
+        }
+    }
 
     ForwardRenderer::~ForwardRenderer()
     {}
@@ -89,23 +95,27 @@ namespace RenderEngine
             MeshBuffers mesh_buffers;
             if (geometry.positions.empty() == false)
             {
+                SubmitScope upload_scope;
                 std::vector vertex_buffer = mesh->createVertexBuffer();
                 mesh_buffers.vertex_buffer = gpu_resource_manager.createAttributeBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                                                                                         vertex_buffer.size());
                 _render_engine->getDevice().getDataTransferContext().getScheduler().upload(mesh_buffers.vertex_buffer.get(),
                                                                                            std::span(vertex_buffer),
                                                                                            _render_engine->getTransferEngine().getCommandBufferFactory(),
-                                                                                           mesh_buffers.vertex_buffer->getResourceState(SubmitScope{}).clone());
+                                                                                           mesh_buffers.vertex_buffer->getResourceState(&upload_scope).clone(),
+                                                                                           std::move(upload_scope));
 
             }
             if (geometry.indexes.empty() == false)
             {
+                SubmitScope upload_scope;
                 mesh_buffers.index_buffer = gpu_resource_manager.createAttributeBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
                                                                                        geometry.indexes.size() * sizeof(int16_t));
                 _render_engine->getDevice().getDataTransferContext().getScheduler().upload(mesh_buffers.index_buffer.get(),
                                                                                            std::span(geometry.indexes),
                                                                                            _render_engine->getTransferEngine().getCommandBufferFactory(),
-                                                                                           mesh_buffers.index_buffer->getResourceState(SubmitScope{}).clone());
+                                                                                           mesh_buffers.index_buffer->getResourceState(&upload_scope).clone(),
+                                                                                           std::move(upload_scope));
             }
             _mesh_buffers[mesh] = std::move(mesh_buffers);
         }
@@ -127,7 +137,7 @@ namespace RenderEngine
             _meshes.push_back(std::move(mesh_group));
         }
     }
-    void ForwardRenderer::draw(VkCommandBuffer command_buffer, uint32_t swap_chain_image_index)
+    void ForwardRenderer::draw(SubmitScope* current_scope, VkCommandBuffer command_buffer, uint32_t swap_chain_image_index)
     {
         PROFILE_SCOPE();
 
@@ -146,9 +156,10 @@ namespace RenderEngine
             auto render_area = getRenderArea();
             VkClearValue clear_color = { {{0.0f, 0.0f, 0.0f, 1.0f}} };
             auto render_pass_scope = _render_pass->begin(getLogicalDevice(),
+                                                         current_scope,
                                                          command_buffer,
                                                          render_area,
-                                                         _frame_buffers[swap_chain_image_index],
+                                                         &_frame_buffers[swap_chain_image_index],
                                                          { clear_color });
             for (auto& mesh_group : _meshes)
             {
@@ -210,25 +221,25 @@ namespace RenderEngine
 
     void ForwardRenderer::draw(uint32_t swap_chain_image_index)
     {
-        draw(_internal_command_buffers[swap_chain_image_index], swap_chain_image_index);
+        SubmitScope current_scope;
+        draw(&current_scope, _internal_command_buffers[swap_chain_image_index], swap_chain_image_index);
     }
 
-    void ForwardRenderer::onFrameBegin(uint32_t frame_number)
+    void ForwardRenderer::beforeReinit()
     {
-        PROFILE_SCOPE();
-        for (auto& mesh_group : _meshes)
-        {
-            for (const auto& uniform_binding : mesh_group.technique->getUniformBindings())
-            {
-                if (auto texture = uniform_binding->getTextureForFrame(frame_number); texture != nullptr)
-                {
-                    ResourceStateMachine::resetStages(*texture);
-                }
-                if (auto buffer = uniform_binding->getTextureForFrame(frame_number); buffer != nullptr)
-                {
-                    ResourceStateMachine::resetStages(*buffer);
-                }
-            }
-        }
+        _frame_buffers.clear();
     }
+    void ForwardRenderer::finalizeReinit(const RenderTarget& render_target)
+    {
+        assert(render_target.getLoadOperation() == _render_target.getLoadOperation() && "Incompatible render target. We need to reinitialize here the render pass");
+        assert(render_target.getStoreOperation() == _render_target.getStoreOperation() && "Incompatible render target. We need to reinitialize here the render pass");
+        assert(render_target.getImageFormat() == _render_target.getImageFormat() && "Incompatible render target. We need to reinitialize here the render pass");
+        assert(render_target.getInitialLayout() == _render_target.getInitialLayout() && "Incompatible render target. We need to reinitialize here the render pass");
+        assert(render_target.getFinalLayout() == _render_target.getFinalLayout() && "Incompatible render target. We need to reinitialize here the render pass");
+        _render_target = render_target;
+        createFrameBuffers();
+    }
+
+
+
 }

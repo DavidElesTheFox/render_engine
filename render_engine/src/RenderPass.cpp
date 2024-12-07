@@ -11,14 +11,15 @@ namespace RenderEngine
 {
     namespace
     {
+
         uint32_t calculateSumOfFirstNNumbers(float n)
         {
-            return std::round(n / 2.0f * (n + 1));
+            return static_cast<uint32_t>(std::round(n / 2.0f * (n + 1)));
         }
     }
 
     RenderPassBuilder::SubPassGraph::SubPassGraph(uint32_t size)
-        :_dependency_matrix(calculateSumOfFirstNNumbers(size - 1), VkSubpassDependency{})
+        :_dependency_matrix(calculateSumOfFirstNNumbers(static_cast<float>(size - 1)), VkSubpassDependency{})
     {
         // Setting 'no-link' between subpasses by default
         for (uint32_t i = 1; i < size; ++i)
@@ -80,7 +81,7 @@ namespace RenderEngine
 
     VkRenderPassCreateInfo& RenderPassBuilder::SubPassGraph::fill(VkRenderPassCreateInfo& create_info) const
     {
-        create_info.dependencyCount = _dependency_matrix.size();
+        create_info.dependencyCount = static_cast<uint32_t>(_dependency_matrix.size());
         create_info.pDependencies = _dependency_matrix.data();
         return create_info;
     }
@@ -108,17 +109,17 @@ namespace RenderEngine
 
         auto sum_of_firs_n_number = [](float n) -> uint32_t
             {
-                return std::round(n / 2.0f * (n + 1));
+                return static_cast<uint32_t>(std::round(n / 2.0f * (n + 1)));
             };
 
-        return linear_index - sum_of_firs_n_number(row + 1);
+        return linear_index - sum_of_firs_n_number(static_cast<float>(row + 1));
     }
     RenderPass RenderPassBuilder::build(LogicalDevice& logical_device)
     {
         VkRenderPassCreateInfo create_info{};
         create_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
 
-        create_info.attachmentCount = _attachments.size();
+        create_info.attachmentCount = static_cast<uint32_t>(_attachments.size());
         create_info.pAttachments = _attachments.data();
 
         std::vector<VkSubpassDescription> subpass_descriptions;
@@ -126,14 +127,16 @@ namespace RenderEngine
         {
             subpass_descriptions.push_back(subpass.get());
         }
-        create_info.subpassCount = subpass_descriptions.size();
+        create_info.subpassCount = static_cast<uint32_t>(subpass_descriptions.size());
         create_info.pSubpasses = subpass_descriptions.data();
-
-        _dependency_graph->fill(create_info);
+        if (_dependency_graph != std::nullopt)
+        {
+            _dependency_graph->fill(create_info);
+        }
 
         VkRenderPass render_pass{ VK_NULL_HANDLE };
 
-        if (logical_device->vkCreateRenderPass(*logical_device, &create_info, VK_NULL_HANDLE, &render_pass) == false)
+        if (logical_device->vkCreateRenderPass(*logical_device, &create_info, VK_NULL_HANDLE, &render_pass) != VK_SUCCESS)
         {
             throw std::runtime_error("Can't create render pass");
         }
@@ -155,6 +158,7 @@ namespace RenderEngine
         return FrameBufferBuilder(_render_pass, _origin.getAttachmentDescriptions());
     }
     RenderPass::EnableScope RenderPass::begin(LogicalDevice& logical_device,
+                                              SubmitScope* current_scope,
                                               VkCommandBuffer command_buffer,
                                               VkRect2D render_area,
                                               FrameBuffer* frame_buffer,
@@ -162,7 +166,7 @@ namespace RenderEngine
     {
         VkRenderPassBeginInfo begin_info{};
         begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        begin_info.clearValueCount = clear_colors.size();
+        begin_info.clearValueCount = static_cast<uint32_t>(clear_colors.size());
         begin_info.pClearValues = clear_colors.data();
         begin_info.framebuffer = frame_buffer->get();
         begin_info.renderArea = render_area;
@@ -172,17 +176,20 @@ namespace RenderEngine
                            command_buffer,
                            begin_info,
                            frame_buffer,
-                           this);
+                           this,
+                           current_scope);
     }
     RenderPass::EnableScope::EnableScope(LogicalDevice& logical_device,
                                          VkCommandBuffer command_buffer,
                                          const VkRenderPassBeginInfo& begin_info,
                                          FrameBuffer* frame_buffer,
-                                         RenderPass* render_pass)
+                                         RenderPass* render_pass,
+                                         SubmitScope* current_scope)
         : _logical_device(logical_device)
         , _command_buffer(command_buffer)
         , _frame_buffer(frame_buffer)
         , _render_pass(render_pass)
+        , _current_scope(current_scope)
     {
         logical_device->vkCmdBeginRenderPass(command_buffer, &begin_info, VK_SUBPASS_CONTENTS_INLINE);
         const auto& attachment_descriptions = _render_pass->_origin.getAttachmentDescriptions();

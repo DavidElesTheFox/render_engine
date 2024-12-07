@@ -15,13 +15,14 @@
           "name": "ENABLE_RENDERDOC",
           "value": "False",
           "type": "BOOL"
+        },
+        {
+          "name": "RENDER_ENGINE_DEBUG",
+          "value": "True",
+          "type": "BOOL"
         }
       ],
-      "environments_": [
-        {
-          "VK_ADD_LAYER_PATH": "${projectDir}\\3rd_party\\vulkan-validation-layers\\build\\install\\bin"
-        }
-      ]
+      "environments_": [ { "VK_ADD_LAYER_PATH": "${projectDir}\\3rd_party\\vulkan-validation-layers\\build\\install\\bin" } ]
     },
     {
       "name": "x64-Release",
@@ -33,10 +34,7 @@
       "buildCommandArgs": "",
       "ctestCommandArgs": "",
       "inheritEnvironments": [ "msvc_x64_x64" ],
-      "environments": [
-        {
-        }
-      ]
+      "environments": [ {} ]
     }
   ]
 }

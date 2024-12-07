@@ -41,15 +41,22 @@ namespace RenderEngine
                         RenderTarget render_target,
                         bool use_internal_command_buffers);
         ~ForwardRenderer() override;
-        void onFrameBegin(uint32_t image_index) override;
         void addMesh(const MeshInstance* mesh_instance);
         void draw(uint32_t swap_chain_image_index) override;
-        void draw(VkCommandBuffer command_buffer, uint32_t swap_chain_image_index) override;
+        void draw(SubmitScope* current_scope, VkCommandBuffer command_buffer, uint32_t swap_chain_image_index) override;
+        std::vector<VkCommandBuffer> getCommandBuffers(uint32_t frame_number) final
+        {
+            return { _internal_command_buffers[frame_number] };
+        }
+
         SyncOperations getSyncOperations(uint32_t) final
         {
             return {};
         }
+        void beforeReinit() final;
+        void finalizeReinit(const RenderTarget& render_target) final;
     private:
+        void createFrameBuffers();
         LogicalDevice& getLogicalDevice() { return _render_engine->getDevice().getLogicalDevice(); }
         VkRect2D getRenderArea() const
         {

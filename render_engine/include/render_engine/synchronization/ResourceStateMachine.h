@@ -20,13 +20,10 @@ namespace RenderEngine
     class ResourceStateMachine
     {
     public:
-
-
-        static void resetStages(Texture& texture);
-        static void resetStages(Buffer& texture);
-
-        explicit ResourceStateMachine(SubmitScope&& scope)
-            : _current_scope(std::move(scope))
+        explicit ResourceStateMachine(LogicalDevice& logical_device,
+                                      SubmitScope* scope)
+            : _logical_device(logical_device)
+            , _current_scope(scope)
         {}
         [[nodiscard]]
         static SyncObject transferOwnership(Texture* texture,
@@ -34,6 +31,7 @@ namespace RenderEngine
                                             SingleShotCommandBufferFactory* src,
                                             std::shared_ptr<SingleShotCommandBufferFactory> dst,
                                             const SyncOperations& sync_operations,
+                                            SubmitScope&& scope,
                                             QueueSubmitTracker* submit_tracker = nullptr);
 
         [[nodiscard]]
@@ -42,17 +40,20 @@ namespace RenderEngine
                                             SingleShotCommandBufferFactory* src,
                                             std::shared_ptr<SingleShotCommandBufferFactory> dst,
                                             const SyncOperations& sync_operations,
+                                            SubmitScope&& scope,
                                             QueueSubmitTracker* submit_tracker = nullptr);
 
         [[nodiscard]]
         static SyncObject barrier(Texture& texture,
                                   SingleShotCommandBufferFactory& src,
                                   const SyncOperations& sync_operations,
+                                  SubmitScope&& submit_scope,
                                   QueueSubmitTracker* submit_tracker = nullptr);
         [[nodiscard]]
         static SyncObject barrier(Buffer* buffer,
                                   SingleShotCommandBufferFactory* src,
                                   const SyncOperations& sync_operations,
+                                  SubmitScope&& submit_scope,
                                   QueueSubmitTracker* submit_tracker = nullptr);
         explicit ResourceStateMachine(LogicalDevice& logical_device)
             : _logical_device(logical_device)
@@ -60,10 +61,7 @@ namespace RenderEngine
 
         void recordStateChange(Texture* texture, TextureState next_state);
         void recordStateChange(Buffer* buffer, BufferState next_state);
-        void commitChanges(VkCommandBuffer command_buffer)
-        {
-            commitChanges(command_buffer, true);
-        }
+        void commitChanges(VkCommandBuffer command_buffer);
     private:
         [[nodiscard]]
         static SyncObject transferOwnershipImpl(ResourceStateHolder auto* texture,
@@ -71,7 +69,8 @@ namespace RenderEngine
                                                 SingleShotCommandBufferFactory* src,
                                                 std::shared_ptr<SingleShotCommandBufferFactory> dst,
                                                 const SyncOperations& sync_operations,
-                                                QueueSubmitTracker* submit_tracker);
+                                                QueueSubmitTracker* submit_tracker,
+                                                SubmitScope&& scope);
 
         static void ownershipTransformRelease(VkCommandBuffer src_command_buffer,
                                               SingleShotCommandBufferFactory* command_context,
@@ -79,7 +78,8 @@ namespace RenderEngine
                                               const ResourceState auto& transition_state,
                                               const SyncObject& transformation_sync_object,
                                               const SyncOperations& external_operations,
-                                              QueueSubmitTracker* submit_tracker);
+                                              QueueSubmitTracker* submit_tracker,
+                                              SubmitScope&& scope);
 
         static void ownershipTransformAcquire(VkCommandBuffer dst_command_buffer,
                                               SingleShotCommandBufferFactory* command_context,
@@ -88,23 +88,24 @@ namespace RenderEngine
                                               const SyncObject& transformation_sync_object,
                                               const SyncOperations& external_operations,
                                               const std::function<void(VkCommandBuffer, ResourceStateMachine&)>& additional_command,
-                                              QueueSubmitTracker* submit_tracker);
+                                              QueueSubmitTracker* submit_tracker,
+                                              SubmitScope&& scope);
 
         static SyncObject barrierImpl(ResourceStateHolder auto& resource,
                                       SingleShotCommandBufferFactory& src,
                                       const SyncOperations& sync_operations,
-                                      QueueSubmitTracker* submit_tracker);
+                                      QueueSubmitTracker* submit_tracker,
+                                      SubmitScope&& scope);
 
-        void commitChanges(VkCommandBuffer command_buffer, bool apply_state_change_on_objects);
 
-        std::vector<VkImageMemoryBarrier2> createImageBarriers(bool apply_state_change_on_texture);
-        std::vector<VkBufferMemoryBarrier2> createBufferBarriers(bool apply_state_change_on_buffer);
+        std::vector<VkImageMemoryBarrier2> createImageBarriers();
+        std::vector<VkBufferMemoryBarrier2> createBufferBarriers();
         bool stateCanMakeChangesOnMemory(VkAccessFlags2 access);
 
         LogicalDevice& _logical_device;
         std::unordered_map<Texture*, TextureState> _images{};
         std::unordered_map<Buffer*, BufferState> _buffers{};
-        SubmitScope _current_scope;
+        SubmitScope* _current_scope{ nullptr };
     };
 
 }

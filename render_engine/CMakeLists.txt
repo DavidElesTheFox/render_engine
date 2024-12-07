@@ -7,10 +7,23 @@ set(EMPTY_SCREEN_IMAGE_PATH "${DATA_DIRECTORY}/empty_screen.bmp")
 
 set(RENDER_ENGINE_HEADER_LOCATION include/render_engine)
 
+option(RENDER_ENGINE_DEBUG "When true render engine debug checks will be active" OFF)
+
+#TODO remove this
 configure_file(config/data_config_in.h "${GENERATED_INCLUDE_DIR}/data_config.h")
+
+configure_file(config/debug_config_in.h "${CMAKE_CURRENT_SOURCE_DIR}/${RENDER_ENGINE_HEADER_LOCATION}/config/DebugConfig.h")
 
 ###############################################################################
 
+
+#############
+# Config #
+#############
+set(RENDER_ENGINE_CONFIG_HEADERS 
+    ${RENDER_ENGINE_HEADER_LOCATION}/config/DebugConfig.h
+	)
+source_group("include\\config" FILES ${RENDER_ENGINE_CONFIG_HEADERS})
 
 #############
 # Renderers #
@@ -281,6 +294,7 @@ source_group("include" FILES ${RENDER_ENGINE_ROOT_HEADERS})
 ###############################################################################
 
 set(RENDER_ENGINE_SRC
+    ${RENDER_ENGINE_CONFIG_HEADERS}
     ${RENDER_ENGINE_RENDERS_SRC}
     ${RENDER_ENGINE_RESOURCES_SRC}
     ${RENDER_ENGINE_ASSETS_SRC}

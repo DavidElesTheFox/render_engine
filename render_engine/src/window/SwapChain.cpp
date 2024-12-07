@@ -241,7 +241,8 @@ namespace RenderEngine
                                                                                          vk_image,
                                                                                          info.physical_device,
                                                                                          *info.logical_device,
-                                                                                         VK_IMAGE_ASPECT_COLOR_BIT));
+                                                                                         VK_IMAGE_ASPECT_COLOR_BIT,
+                                                                                         VK_IMAGE_LAYOUT_PRESENT_SRC_KHR));
                 result.texture_views.push_back(result.textures.back()->createTextureView(image_view_data, std::nullopt));
             }
 

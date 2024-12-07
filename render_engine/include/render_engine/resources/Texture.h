@@ -3,12 +3,21 @@
 #include <volk.h>
 
 #include <render_engine/assets/Image.h>
+
+#include <render_engine/config/DebugConfig.h>
+
 #include <render_engine/DataTransferScheduler.h>
 #include <render_engine/DataTransferTasks.h>
+#include <render_engine/Debugger.h>
+#include <render_engine/RenderContext.h>
+#include <render_engine/Topic.h>
+#include <render_engine/TransferEngine.h>
+
 #include <render_engine/resources/Buffer.h>
+
 #include <render_engine/synchronization/ResourceStateMachine.h>
 #include <render_engine/synchronization/SyncOperations.h>
-#include <render_engine/TransferEngine.h>
+
 
 #include <algorithm>
 #include <ranges>
@@ -37,6 +46,37 @@ namespace RenderEngine
             bool unnormalize_coordinate{ false };
         };
 
+        struct PreservedState
+        {
+            PreservedState() = default;
+
+            explicit PreservedState(const TextureState& texture_state)
+                : command_context(texture_state.command_context)
+                , image_layout(texture_state.layout)
+            {}
+
+            void reset(const TextureState& texture_state)
+            {
+                command_context = texture_state.command_context;
+                image_layout = texture_state.layout;
+            }
+
+            explicit operator TextureState() const
+            {
+                TextureState result;
+                result.command_context = command_context;
+                result.layout = image_layout;
+                return result;
+            }
+            std::optional<uint32_t> getQueueFamilyIndex() const
+            {
+                return command_context.expired() ? std::nullopt : std::optional{ command_context.lock()->getQueue().getQueueFamilyIndex() };
+            }
+            std::weak_ptr<SingleShotCommandBufferFactory> command_context;
+            VkImageLayout image_layout{ VK_IMAGE_LAYOUT_UNDEFINED };
+        };
+
+
         ~Texture()
         {
             destroy();
@@ -53,59 +93,59 @@ namespace RenderEngine
         VkImage getVkImage() const { return _texture; }
         const Image& getImage() const { return _image; }
 
-        TextureState getResourceState(const SubmitScope& scope) const
+        TextureState getResourceState(SubmitScope* scope)
         {
             auto it = std::ranges::find_if(_texture_states,
-                                           [&](const auto& pair) { return pair.first.getId() == scope.getId(); });
+                                           [&](const auto& pair) { return pair.first == scope; });
             if (it == _texture_states.end())
             {
-                TextureState result{};
-                result.command_context = _global_queue_owner;
-                return result;
+                std::lock_guard lock(_preserve_state_mutex);
+                _texture_states.push_back({ scope, static_cast<TextureState>(_preserved_state) });
+                it = _texture_states.end() - 1;
+                scope->addCleanUpFunction([this](const SubmitScope* scope) { removeResourceState(scope, ResourceAccessToken{}); });
             }
-            else
-            {
-                return it->second;
-            }
+            return it->second;
         }
-
-        TextureState getResourceState(VkCommandBuffer command_buffer) const
+        const PreservedState& getGlobalResourceState() const { return _preserved_state; }
+        void removeResourceState(const SubmitScope* scope, ResourceAccessToken)
         {
-            using namespace std::views;
+            std::lock_guard lock(_preserve_state_mutex);
             auto it = std::ranges::find_if(_texture_states,
-                                           [&](const auto& pair) { return pair.first.hasCommandBuffer(command_buffer); });
+                                           [&](const auto& pair) { return pair.first == scope; });
+            _preserved_state.reset(it->second);
 
-            if (it == _texture_states.end())
-            {
-                TextureState result{};
-                result.command_context = _global_queue_owner;
-                return result;
-            }
-            else
-            {
-                return it->second;
-            }
+            _texture_states.erase(it);
         }
 
-        void removeResourceState(BufferState value, const SubmitScope& scope, ResourceAccessToken)
-        {
-            std::erase_if(_texture_states,
-                          [&](const auto& pair) { return pair.first.getId() == scope.getId(); });
-        }
         HANDLE getMemoryHandle() const;
         const VkMemoryRequirements& getMemoryRequirements() const { return _memory_requirements; }
-        void overrideResourceState(TextureState value, const SubmitScope& scope, ResourceAccessToken)
+        void overrideResourceState(TextureState value, SubmitScope* scope, ResourceAccessToken)
         {
             auto it = std::ranges::find_if(_texture_states,
-                                           [&](const auto& pair) { return pair.first.getId() == scope.getId(); });
-            _global_queue_owner = value.command_context;
-            for (auto& [_, state] : _texture_states)
+                                           [&](const auto& pair) { return pair.first == scope; });
+
+#ifdef RENDER_ENGINE_DEBUG
             {
-                state.command_context = _global_queue_owner;
+                auto debug_it = std::ranges::find_if(_texture_states,
+                                                     [&](const auto& pair) { return (pair.second.dirty_flags & value.dirty_flags) != 0; });
+                if (debug_it != _texture_states.end())
+                {
+                    auto& debugger = RenderContext::context().getDebugger();
+
+                    debugger.print(Debug::Topics::ResourceStateValidation{},
+                                   "Warning: State change cross reference detected. This Texture has an active submit scope (it is still recording commands into the queue),"
+                                   " and that commands are modifying the same state of the texture what the current commands also modified. The other scope id is: {:d} the current: {:d}."
+                                   " This is a Warning message, if between the two submit there are proper synchronization then it is not an issue.",
+                                   debug_it->first->getId(),
+                                   scope->getId());
+                }
             }
+#endif
+
             if (it == _texture_states.end())
             {
                 _texture_states.push_back({ scope, value });
+                scope->addCleanUpFunction([this](const SubmitScope* scope) { removeResourceState(scope, ResourceAccessToken{}); });
             }
             else
             {
@@ -116,7 +156,12 @@ namespace RenderEngine
         void assignUploadTask(std::shared_ptr<UploadTask>);
         void assignDownloadTask(std::shared_ptr<DownloadTask>);
 
-
+        void setInitialCommandContext(std::weak_ptr<SingleShotCommandBufferFactory> command_context)
+        {
+            std::lock_guard lock(_preserve_state_mutex);
+            assert(_preserved_state.command_context.expired());
+            _preserved_state.command_context = command_context;
+        }
         std::shared_ptr<DownloadTask> clearDownloadTask();
         std::shared_ptr<UploadTask> getUploadTask() { return _ongoing_upload; }
 
@@ -125,6 +170,7 @@ namespace RenderEngine
         VkShaderStageFlags getShaderUsageFlag() const { return _shader_usage; }
 
     private:
+
         Texture(Image image,
                 VkPhysicalDevice physical_device,
                 LogicalDevice& logical_device,
@@ -132,12 +178,14 @@ namespace RenderEngine
                 VkShaderStageFlags shader_usage,
                 std::set<uint32_t> compatible_queue_family_indexes,
                 VkImageUsageFlags image_usage,
-                bool support_external_usage);
+                bool support_external_usage,
+                VkImageLayout image_layout = VK_IMAGE_LAYOUT_UNDEFINED);
         Texture(Image image,
                 VkImage texture,
                 VkPhysicalDevice physical_device,
                 LogicalDevice& logical_device,
-                VkImageAspectFlags aspect);
+                VkImageAspectFlags aspect,
+                VkImageLayout image_layout);
         void destroy() noexcept;
 
         VkPhysicalDevice _physical_device{ VK_NULL_HANDLE };
@@ -151,14 +199,16 @@ namespace RenderEngine
         bool _vkimage_owner{ true };
 
         VkDeviceMemory _texture_memory{ VK_NULL_HANDLE };
-        std::vector<std::pair<SubmitScope, TextureState>> _texture_states;
-        std::weak_ptr<SingleShotCommandBufferFactory> _global_queue_owner;
+        std::vector<std::pair<const SubmitScope*, TextureState>> _texture_states;
+        PreservedState _preserved_state;
+        std::mutex _preserve_state_mutex;
+
         VkMemoryRequirements _memory_requirements{};
         std::shared_ptr<UploadTask> _ongoing_upload{ nullptr };
         std::shared_ptr<DownloadTask> _ongoing_download{ nullptr };
     };
 
-    static_assert(IsResourceStateHolder_V<Texture>, "Texture needs to be a resource state holder");
+    static_assert(ResourceStateHolder<Texture>, "Texture needs to be a resource state holder");
 
     class ITextureView
     {
@@ -322,7 +372,8 @@ namespace RenderEngine
                                                VkImage texture,
                                                VkPhysicalDevice physical_device,
                                                LogicalDevice& logical_device,
-                                               VkImageAspectFlags aspect);
+                                               VkImageAspectFlags aspect,
+                                               VkImageLayout image_layout);
     private:
 
         TransferEngine _transfer_engine;

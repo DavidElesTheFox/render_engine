@@ -2,6 +2,7 @@
 
 #include <deque>
 #include <iterator>
+#include <shared_mutex>
 #include <vector>
 
 #include <volk.h>
@@ -25,6 +26,7 @@ namespace RenderEngine
         }
         ImageStream& operator<<(std::vector<uint8_t> data)
         {
+            std::unique_lock lock(_image_data_container_mutex);
             _image_data_container.emplace_back(std::move(data));
             return *this;
         }
@@ -35,18 +37,25 @@ namespace RenderEngine
             {
                 return *this;
             }
-            auto result = _image_data_container.front();
+
+            std::unique_lock lock(_image_data_container_mutex);
+
+            output = std::move(_image_data_container.front());
             _image_data_container.pop_front();
-            output = std::move(result);
             return *this;
 
         }
 
-        bool isEmpty() const { return _image_data_container.empty(); }
+        bool isEmpty() const
+        {
+            std::shared_lock lock(_image_data_container_mutex);
+            return _image_data_container.empty();
+        }
 
         const ImageDescription getImageDescription() const { return _image_description; }
     private:
         ImageDescription _image_description;
         std::deque<std::vector<uint8_t>> _image_data_container;
+        mutable std::shared_mutex _image_data_container_mutex;
     };
 }

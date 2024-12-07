@@ -6,6 +6,8 @@
 #include <render_engine/rendergraph/GraphVisitor.h>
 #include <render_engine/rendergraph/Topic.h>
 
+#include <render_engine/synchronization/ResourceStates.h>
+
 #include <format>
 #include <iostream>
 #include <numeric>
@@ -40,7 +42,7 @@ namespace RenderEngine::RenderGraph
     {
         PROFILE_NODE();
 
-
+        SubmitScope submit_scope;
         const auto pool_index = execution_context.getPoolIndex();
         auto& sync_object = execution_context.getSyncObject(pool_index.sync_object_index);
 
@@ -53,7 +55,7 @@ namespace RenderEngine::RenderGraph
                                                      std::this_thread::get_id());
         const auto& in_operations = sync_object.getOperationsGroup(getName());
         auto command_buffer = createOrGetCommandBuffer(pool_index);
-        _renderer->draw(command_buffer, pool_index.render_target_index);
+        _renderer->draw(&submit_scope, command_buffer, pool_index.render_target_index);
 
         std::vector<VkCommandBufferSubmitInfo> command_buffer_infos;
 
@@ -75,13 +77,15 @@ namespace RenderEngine::RenderGraph
         {
             queue_tracker->queueSubmit(std::move(submit_info),
                                        in_operations,
-                                       getQueue());
+                                       getQueue(),
+                                       std::move(submit_scope));
         }
         else
         {
             getQueue().queueSubmit(std::move(submit_info),
                                    in_operations,
-                                   VK_NULL_HANDLE);
+                                   VK_NULL_HANDLE,
+                                   std::move(submit_scope));
         }
         execution_context.setDrawCallRecorded(true);
 

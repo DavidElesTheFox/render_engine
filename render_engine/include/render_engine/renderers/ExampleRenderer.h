@@ -35,12 +35,11 @@ namespace RenderEngine
                         uint32_t back_buffer_size);
 
         void init(const std::vector<Vertex>& vertices, const std::vector<uint16_t>& indicies);
-        void onFrameBegin(uint32_t) override  final {}
         void draw(uint32_t swap_chain_image_index) override final
         {
             draw(_frame_buffers[swap_chain_image_index], getFrameData(swap_chain_image_index));
         }
-        void draw(VkCommandBuffer, uint32_t) final
+        void draw(SubmitScope*, VkCommandBuffer, uint32_t) final
         {
             // TODO: Remove this class.
             throw std::runtime_error("Not compatible renderer");

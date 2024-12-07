@@ -37,12 +37,11 @@ namespace RenderEngine
                    RenderTarget render_target,
                    uint32_t back_buffer_size,
                    bool use_internal_command_buffers);
-        void onFrameBegin(uint32_t) override final {}
         void draw(uint32_t swap_chain_image_index) override final
         {
             draw(getFrameBuffer(swap_chain_image_index), getFrameData(swap_chain_image_index).command_buffer);
         }
-        void draw(VkCommandBuffer command_buffer, uint32_t swap_chain_image_index) final
+        void draw(SubmitScope*, VkCommandBuffer command_buffer, uint32_t swap_chain_image_index) final
         {
             draw(getFrameBuffer(swap_chain_image_index), command_buffer);
         }

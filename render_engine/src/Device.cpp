@@ -213,8 +213,14 @@ namespace RenderEngine
 
     Device::DataTransferContext::~DataTransferContext() = default;
 
+    void Device::DataTransferContext::download(Texture* texture, SyncOperations sync_operations, SubmitScope&& submit_scope)
+    {
+        _impl->scheduler->download(texture, *_impl->transfer_engine.getCommandBufferFactory(), std::move(submit_scope), sync_operations);
+    }
+
     DataTransferScheduler& Device::DataTransferContext::getScheduler() { return *_impl->scheduler; }
     const DataTransferScheduler& Device::DataTransferContext::getScheduler() const { return *_impl->scheduler; }
+
     TextureFactory& Device::DataTransferContext::getTextureFactory() { return *_impl->texture_factory; }
 
     Device::Device(VkInstance instance,

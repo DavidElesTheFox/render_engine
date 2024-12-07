@@ -219,7 +219,6 @@ namespace RenderEngine
         }
         frame_data.submit_tracker->clear();
         auto& render_engine = dynamic_cast<RenderEngine&>(*_render_engine);
-        render_engine.onFrameBegin(renderers, *_swap_chain_image_index);
 
 
         bool draw_call_recorded = render_engine.render(frame_data.synch_render.getOperationsGroup(SyncGroups::kInternal),

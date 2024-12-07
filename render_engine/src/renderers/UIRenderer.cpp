@@ -238,11 +238,12 @@ namespace RenderEngine
 
                 // Using the render engine's transfer capability
                 window.getRenderEngine().getTransferEngineOnRenderQueue().transfer(sync_object.getOperationsGroup(SyncGroups::kInternal),
-                                                                                   [](VkCommandBuffer command_buffer)
+                                                                                   [](VkCommandBuffer command_buffer, SubmitScope*)
                                                                                    {
                                                                                        ImGui_ImplVulkan_CreateFontsTexture(command_buffer);
                                                                                    },
-                                                                                   &submit_tracker);
+                                                                                   &submit_tracker,
+                                                                                   SubmitScope{});
                 submit_tracker.wait();
 
             }

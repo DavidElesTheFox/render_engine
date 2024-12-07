@@ -20,10 +20,9 @@ namespace RenderEngine
                        RenderTarget render_target,
                        bool use_internal_command_buffers);
         ~VolumeRenderer() override = default;
-        void onFrameBegin(uint32_t image_index) override;
         void addVolumeObject(const VolumetricObjectInstance* mesh_instance);
         void draw(uint32_t swap_chain_image_index) override;
-        void draw(VkCommandBuffer command_buffer, uint32_t swap_chain_image_index) override;
+        void draw(SubmitScope* current_scope, VkCommandBuffer command_buffer, uint32_t swap_chain_image_index) override;
         SyncOperations getSyncOperations(uint32_t image_index) final;
     private:
         struct MeshBuffers
@@ -65,7 +64,6 @@ namespace RenderEngine
         TechniqueData createTechniqueDataFor(const VolumetricObjectInstance& mesh);
         std::vector<AttachmentInfo> reinitializeAttachments(const RenderTarget& render_target) override final;
         std::vector<AttachmentInfo> createFrameBuffersAndAttachments(const RenderTarget& render_target);
-        void resetResourceStatesOf(Technique& technique, uint32_t image_index);
         void drawWithTechnique(const std::string& subpass_name,
                                Technique& technique,
                                const std::vector<const VolumetricObjectInstance*>& meshes,

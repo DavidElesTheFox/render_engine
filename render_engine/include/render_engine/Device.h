@@ -85,8 +85,10 @@ namespace RenderEngine
                                 LogicalDevice& logical_device);
 
             ~DataTransferContext();
+            void download(Texture* texture, SyncOperations sync_operations, SubmitScope&& submit_scope);
             DataTransferScheduler& getScheduler();
             const DataTransferScheduler& getScheduler() const;
+
             TextureFactory& getTextureFactory();
             void synchronizeScheduler(SyncOperations sync_operations);
             void destroy();
@@ -133,6 +135,7 @@ namespace RenderEngine
         void synchronizeStagingArea(SyncOperations sync_operations);
         DataTransferContext& getDataTransferContext() { return *_staging_area; }
         const DataTransferContext& getDataTransferContext() const { return *_staging_area; }
+        VulkanQueue& getTransferQueue() { return *_vulkan_queues.at(_queue_family_transfer); }
     private:
         void destroy() noexcept;
 

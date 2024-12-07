@@ -392,21 +392,25 @@ namespace RenderEngine
     void ExampleRenderer::init(const std::vector<Vertex>& vertices, const std::vector<uint16_t>& indicies)
     {
         {
+            SubmitScope upload_scope;
             VkDeviceSize size = sizeof(Vertex) * vertices.size();
             _vertex_buffer = _render_engine.getGpuResourceManager().createAttributeBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, size);
 
             _render_engine.getDevice().getDataTransferContext().getScheduler().upload(_vertex_buffer.get(),
                                                                                       std::span(vertices),
                                                                                       _render_engine.getTransferEngine().getCommandBufferFactory(),
-                                                                                      _vertex_buffer->getResourceState().clone());
+                                                                                      _vertex_buffer->getResourceState(&upload_scope).clone(),
+                                                                                      std::move(upload_scope));
         }
         {
+            SubmitScope upload_scope;
             VkDeviceSize size = sizeof(uint16_t) * indicies.size();
             _index_buffer = _render_engine.getGpuResourceManager().createAttributeBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, size);
             _render_engine.getDevice().getDataTransferContext().getScheduler().upload(_index_buffer.get(),
                                                                                       std::span(indicies),
                                                                                       _render_engine.getTransferEngine().getCommandBufferFactory(),
-                                                                                      _vertex_buffer->getResourceState().clone());
+                                                                                      _vertex_buffer->getResourceState(&upload_scope).clone(),
+                                                                                      std::move(upload_scope));
         }
 
         std::vector<CoherentBuffer*> created_buffers;

@@ -41,7 +41,12 @@ namespace RenderEngine
 
     void UploadTask::start(StartToken, SyncOperations in_operations, TransferEngine& transfer_engine)
     {
-        _transfer_objects = _task(in_operations, transfer_engine, _storage, *_submit_tracker);
+        assert(_submit_scope != std::nullopt);
+        _transfer_objects = _task(in_operations,
+                                  transfer_engine,
+                                  _storage,
+                                  *_submit_tracker,
+                                  std::move(*std::exchange(_submit_scope, std::nullopt)));
         assert(_transfer_objects.empty() == false && "transfer must return at leas one sync objects to be able to wait for its finish");
         assert(_transfer_objects.back().getPrimitives().hasTimelineSemaphore(DataTransferScheduler::kDataTransferFinishSemaphoreName)
                && "The last object needs to have the timeline semaphore that can be waited");
@@ -71,7 +76,11 @@ namespace RenderEngine
 
     void DownloadTask::start(StartToken, SyncOperations in_operations, TransferEngine& transfer_engine)
     {
-        _transfer_objects = _task(in_operations, transfer_engine, *_submit_tracker);
+        assert(_submit_scope != std::nullopt);
+        _transfer_objects = _task(in_operations,
+                                  transfer_engine,
+                                  *_submit_tracker,
+                                  std::move(*std::exchange(_submit_scope, std::nullopt)));
         assert(_transfer_objects.empty() == false && "transfer must return at leas one sync objects to be able to wait for its finish");
         assert(_transfer_objects.back().getPrimitives().hasTimelineSemaphore(DataTransferScheduler::kDataTransferFinishSemaphoreName)
                && "The last object needs to have the timeline semaphore that can be waited");

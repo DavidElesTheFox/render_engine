@@ -30,29 +30,36 @@ namespace RenderEngine
                                          Image image,
                                          std::shared_ptr<SingleShotCommandBufferFactory> dst_context,
                                          TextureState final_state,
+                                         SubmitScope&& current_scope,
                                          SyncOperations sync_operations = {});
         std::weak_ptr<UploadTask> upload(Buffer* buffer,
                                          std::vector<uint8_t> data,
                                          std::shared_ptr<SingleShotCommandBufferFactory> dst_context,
-                                         BufferState final_state);
+                                         BufferState final_state,
+                                         SubmitScope&& submit_scope);
 
         std::weak_ptr<UploadTask> upload(Buffer* buffer,
                                          std::span<const uint8_t> data,
                                          std::shared_ptr<SingleShotCommandBufferFactory> dst_context,
-                                         BufferState final_state);
+                                         BufferState final_state,
+                                         SubmitScope&& submit_scope);
         template<typename T>
         std::weak_ptr<UploadTask> upload(Buffer* buffer,
                                          std::span<T> data,
                                          std::shared_ptr<SingleShotCommandBufferFactory> dst_context,
-                                         BufferState final_state)
+                                         BufferState final_state,
+                                         SubmitScope&& submit_scope)
         {
             return upload(buffer,
                           std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(data.data()), sizeof(T) * data.size()),
                           dst_context,
-                          std::move(final_state));
+                          std::move(final_state),
+                          std::move(submit_scope));
 
         }
         std::weak_ptr<DownloadTask> download(Texture* texture,
+                                             SingleShotCommandBufferFactory& src_context,
+                                             SubmitScope&& submit_scope,
                                              SyncOperations sync_operations = {});
 
         void executeTasks(SyncOperations sync_operations, TransferEngine& transfer_engine);

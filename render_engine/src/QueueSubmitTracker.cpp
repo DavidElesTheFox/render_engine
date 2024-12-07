@@ -31,9 +31,10 @@ namespace RenderEngine
 
     void QueueSubmitTracker::queueSubmit(VkSubmitInfo2&& submit_info,
                                          const SyncOperations& sync_operations,
-                                         VulkanQueue& queue)
+                                         VulkanQueue& queue,
+                                         SubmitScope&& scope)
     {
-        queue.queueSubmit(std::move(submit_info), sync_operations, createFence());
+        queue.queueSubmit(std::move(submit_info), sync_operations, createFence(), std::move(scope));
     }
 
     void QueueSubmitTracker::wait() const

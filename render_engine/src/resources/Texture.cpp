@@ -46,7 +46,8 @@ namespace RenderEngine
                      VkShaderStageFlags shader_usage,
                      std::set<uint32_t> compatible_queue_family_indexes,
                      VkImageUsageFlags image_usage,
-                     bool support_external_usage)
+                     bool support_external_usage,
+                     VkImageLayout image_layout)
         try : _physical_device(physical_device)
         , _logical_device(logical_device)
         , _staging_buffer(physical_device, logical_device, image.createBufferInfo())
@@ -66,7 +67,7 @@ namespace RenderEngine
         image_info.extent.height = _image.getHeight();
         image_info.extent.depth = _image.getDepth();
 
-        image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED; // TODO add initial layout for opimization
+        image_info.initialLayout = image_layout;
         image_info.imageType = _image.is3D() ? VK_IMAGE_TYPE_3D : VK_IMAGE_TYPE_2D;
         image_info.tiling = VK_IMAGE_TILING_OPTIMAL;
         image_info.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT // for download
@@ -85,7 +86,7 @@ namespace RenderEngine
             image_info.pNext = &external_create_info;
         }
 
-        _texture_state.layout = image_info.initialLayout;
+        _preserved_state.image_layout = image_info.initialLayout;
 
         if (_logical_device->vkCreateImage(*_logical_device, &image_info, nullptr, &_texture) != VK_SUCCESS)
         {
@@ -121,7 +122,8 @@ namespace RenderEngine
                      VkImage texture,
                      VkPhysicalDevice physical_device,
                      LogicalDevice& logical_device,
-                     VkImageAspectFlags aspect)
+                     VkImageAspectFlags aspect,
+                     VkImageLayout image_layout)
         : _physical_device(physical_device)
         , _logical_device(logical_device)
         , _texture(texture)
@@ -131,15 +133,7 @@ namespace RenderEngine
         , _vkimage_owner(false)
     {
         _logical_device->vkGetImageMemoryRequirements(*_logical_device, _texture, &_memory_requirements);
-    }
-
-    void Texture::setInitialCommandContext(std::weak_ptr<SingleShotCommandBufferFactory> command_context)
-    {
-        if (_texture_state.command_context.expired() == false)
-        {
-            throw std::runtime_error("Texture has a command context which shouldn't be overwritten");
-        }
-        _texture_state.command_context = command_context;
+        _preserved_state.image_layout = image_layout;
     }
 
     std::shared_ptr<DownloadTask> Texture::clearDownloadTask()
@@ -295,11 +289,13 @@ namespace RenderEngine
             shader_usage,
             _compatible_queue_family_indexes,
             image_usage,
-            support_external_usage) };
+            support_external_usage,
+            VK_IMAGE_LAYOUT_UNDEFINED) };
         _data_transfer_scheduler.upload(result.get(),
                                         std::move(image),
                                         dst_context,
                                         final_state,
+                                        SubmitScope{},
                                         sync_operations);
         return result;
     }
@@ -319,11 +315,13 @@ namespace RenderEngine
             shader_usage,
             _compatible_queue_family_indexes,
             image_usage,
-            support_external_usage) };
+            support_external_usage,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) };
         _data_transfer_scheduler.upload(result.get(),
                                         std::move(image),
                                         dst_context,
                                         final_state,
+                                        SubmitScope{},
                                         sync_operations);
         return result;
     }
@@ -366,13 +364,15 @@ namespace RenderEngine
                                                            VkImage texture,
                                                            VkPhysicalDevice physical_device,
                                                            LogicalDevice& logical_device,
-                                                           VkImageAspectFlags aspect)
+                                                           VkImageAspectFlags aspect,
+                                                           VkImageLayout image_layout)
     {
         std::unique_ptr<Texture> result{ new Texture(image,
                                                      texture,
                                                      physical_device,
                                                      logical_device,
-                                                     aspect) };
+                                                     aspect,
+                                                     image_layout) };
         return result;
     }
 

@@ -19,7 +19,7 @@ public:
     RenderEngine::IWindow& getRenderingWindow() override { return *_window; }
     RenderEngine::Window& getUiWindow() override { return *_window; };
     void update() override { _window->update(); }
-    uint32_t getBackbufferCount() const override { return 3; }
+    uint32_t getBackbufferCount() const override { return 1; }
     uint32_t getParallelFrameCount() const { return 1; }
 private:
     std::unique_ptr<RenderEngine::Window> _window;
@@ -36,7 +36,7 @@ public:
         return static_cast<RenderEngine::Window&>(_window_tunnel->getDestinationWindow());
     }
     void update() override { _window_tunnel->update(); }
-    uint32_t getBackbufferCount() const override { return 3; }
+    uint32_t getBackbufferCount() const override { return 1; }
 private:
     std::unique_ptr<RenderEngine::WindowTunnel> _window_tunnel;
 };

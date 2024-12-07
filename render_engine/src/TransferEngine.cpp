@@ -7,8 +7,9 @@ namespace RenderEngine
     {}
 
     void TransferEngine::transfer(const SyncOperations& sync_operations,
-                                  std::function<void(VkCommandBuffer)> record_transfer_command,
-                                  QueueSubmitTracker* queue_submit_tracker)
+                                  std::function<void(VkCommandBuffer, SubmitScope* scope)> record_transfer_command,
+                                  QueueSubmitTracker* queue_submit_tracker,
+                                  SubmitScope&& current_scope)
     {
         // TODO add thread_info to the interface. 0 should be replaced ot the 'id' of the current thread.
         VkCommandBuffer command_buffer = _transfer_context.getSingleShotFactory()->createCommandBuffer(0);
@@ -23,7 +24,7 @@ namespace RenderEngine
 
         _transfer_context.getQueue().getLogicalDevice()->vkBeginCommandBuffer(command_buffer, &begin_info);
 
-        record_transfer_command(command_buffer);
+        record_transfer_command(command_buffer, &current_scope);
 
         _transfer_context.getQueue().getLogicalDevice()->vkEndCommandBuffer(command_buffer);
 
@@ -33,11 +34,11 @@ namespace RenderEngine
         submitInfo.pCommandBufferInfos = &command_buffer_info;
         if (queue_submit_tracker != nullptr)
         {
-            queue_submit_tracker->queueSubmit(std::move(submitInfo), sync_operations, _transfer_context.getQueue());
+            queue_submit_tracker->queueSubmit(std::move(submitInfo), sync_operations, _transfer_context.getQueue(), std::move(current_scope));
         }
         else
         {
-            _transfer_context.getQueue().queueSubmit(std::move(submitInfo), sync_operations, VK_NULL_HANDLE);
+            _transfer_context.getQueue().queueSubmit(std::move(submitInfo), sync_operations, VK_NULL_HANDLE, std::move(current_scope));
         }
     }
 }

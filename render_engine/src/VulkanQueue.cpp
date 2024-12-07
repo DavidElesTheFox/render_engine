@@ -1,11 +1,11 @@
 #include <render_engine/VulkanQueue.h>
 
+#include <render_engine/synchronization/ResourceStates.h>
 #include <render_engine/synchronization/SyncOperations.h>
 
 #include <render_engine/debug/Profiler.h>
 
 #include <render_engine/window/SwapChain.h>
-
 
 namespace RenderEngine
 {
@@ -27,7 +27,8 @@ namespace RenderEngine
 
     void VulkanQueue::queueSubmit(VkSubmitInfo2&& submit_info,
                                   const SyncOperations& sync_operations,
-                                  VkFence fence)
+                                  VkFence fence,
+                                  SubmitScope&&)
     {
         PROFILE_SCOPE();
         sync_operations.fillInfo(submit_info);

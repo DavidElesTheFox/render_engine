@@ -24,9 +24,6 @@ namespace
 }
 namespace RenderEngine
 {
-
-
-
     RenderTargetTextures::RenderTargetTextures(std::vector<std::unique_ptr<Texture>>&& textures)
         : _textures(std::move(textures))
     {
@@ -78,8 +75,9 @@ namespace RenderEngine
     }
     void OffscreenSwapChain::present(uint32_t render_target_index, const SyncOperations& sync_operations)
     {
-        _device->getDataTransferContext().getScheduler().download(&_render_target_textures->getTexture(render_target_index),
-                                                                  sync_operations);
+        _device->getDataTransferContext().download(&_render_target_textures->getTexture(render_target_index),
+                                                   sync_operations,
+                                                   SubmitScope{});
     }
     void OffscreenSwapChain::readback(uint32_t render_target_index, ImageStream& stream)
     {
@@ -104,43 +102,13 @@ namespace RenderEngine::RenderGraph
             explicit OfflineImageAcquireTask(RefObj<OffscreenSwapChain> swap_chain)
                 : _swap_chain(std::move(swap_chain))
             {}
-            void run(CpuNode& self, ExecutionContext& execution_context) final
+            void run(CpuNode&, ExecutionContext& execution_context) final
             {
                 using namespace std::chrono_literals;
                 const auto timeout = 1s;
                 auto current_index = execution_context.getPoolIndex();
                 current_index.render_target_index = _swap_chain->acquireImageIndex(timeout);
                 execution_context.setPoolIndex(current_index);
-
-                auto& texture = _swap_chain->getRenderTargetTextures().getTexture(current_index.render_target_index);
-                ResourceStateMachine state_machine(_swap_chain->getDevice().getLogicalDevice());
-                state_machine.recordStateChange(&texture,
-                                                texture.getResourceState().clone().setImageLayout(VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL));
-                /*
-                    TODO: WAT overview of the problem
-                    Remove BaseGpuNode.The problem is not about the resource state or transition.The state gonna be set by the first render_pass who touches the texture.
-                    This logic is removed recently from the renderer.but Should be added back in a more generic way.
-                    Create the textures with an empty upload ? Or handle it during render
-
-                    Big issue.Resource State machine doesn't follows the attachments changes.... At the end of the pipeline we need to change it. The end doesn't matter.
-                    For this a RenderPass object is neccessary.
-                    Some thoughts about it :
-                Why at the end ? During a render pass changing anything on the render target image with barriers does not makes sense.For that purpose one can use
-                    subpasses and subpass dependeces
-                    Why is it enough ? What if render pass and a download is recorded parallel ? It shouldn't happen. Between the two submit some synchronization is required. While it is
-                    most probably happens on the same queue(or not? ) semaphores are used.Thus it needs to first submitted before it can be waited.Of course when these are timeline
-                    semaphores theoretically the two commands could be recorded parallel.In this situation we can handle with a new objet some ScopedLocalTextureState.Which can be bypassed to the
-                    state machine and handling locally the changes.In this case the texture shouldn't have a global state. That should be invalidated.
-                    Add this node to the ADR.
-                    Why wasn't it earlier a problem? It makes the things fishy only around the textures that are used as attachments and downloaded/uploaded.
-
-                    To make it real we need a VulkanRenderPass.When it starts it needs a frame buffer.The frame buffer has the binding to a texture.So this is the point where we can access to the texture
-                    and override its state.It is tricky because FrameBuffers are linked to the attachments.So when a VulkanFrameBuffer is attached to the VulkanRenderPass::begin() or the end() we need to change the corresponding
-                    texture's state.
-
-                    ResourceStateMachine::resetStages looks also fishy.If the same texture is used on a parallel rendering then it will cause a big issue ...
-                    Resource states should be valid through a SubmitionScope :)
-            */
             }
             bool isActive() const final { return true; }
             void registerExecutionContext(ExecutionContext&) final {};

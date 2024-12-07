@@ -17,6 +17,7 @@ namespace RenderEngine
                            std::vector<VkAttachmentDescription> attachment_description)
             : _render_pass(render_pass)
             , _attachment_description(std::move(attachment_description))
+            , _attachments(_attachment_description.size(), nullptr)
         {}
         void setAttachment(uint32_t id, ITextureView* texture_view);
         FrameBuffer build(uint32_t width, uint32_t height, LogicalDevice& logical_device);

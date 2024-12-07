@@ -259,19 +259,6 @@ namespace RenderEngine
         destroy();
     }
 
-    void ImageStreamRenderer::onFrameBegin(uint32_t image_index)
-    {
-        if (const auto& texture = _texture_container[image_index]; texture != nullptr)
-        {
-            ResourceStateMachine::resetStages(*texture);
-        }
-
-        if (const auto& texture = _texture_container[image_index]; texture != nullptr)
-        {
-            ResourceStateMachine::resetStages(*texture);
-        }
-    }
-
     SyncOperations ImageStreamRenderer::getSyncOperations(uint32_t image_index)
     {
         if (skipDrawCall(image_index))
@@ -298,10 +285,11 @@ namespace RenderEngine
 
     void ImageStreamRenderer::draw(uint32_t swap_chain_image_index)
     {
-        draw(getFrameData(swap_chain_image_index).command_buffer, swap_chain_image_index);
+        SubmitScope current_scope;
+        draw(&current_scope, getFrameData(swap_chain_image_index).command_buffer, swap_chain_image_index);
     }
 
-    void ImageStreamRenderer::draw(VkCommandBuffer command_buffer, uint32_t swap_chain_image_index)
+    void ImageStreamRenderer::draw(SubmitScope*, VkCommandBuffer command_buffer, uint32_t swap_chain_image_index)
     {
         static std::vector<uint8_t> image_data;
         image_data.clear();
@@ -328,28 +316,32 @@ namespace RenderEngine
                 sync_objcet.addWaitOperationToGroup(SyncGroups::kExternal,
                                                     "copy-finished",
                                                     VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT); // TODO add as pipeline dependency
-
-                getRenderEngine().getDevice().getDataTransferContext().getScheduler().upload(upload_texture.get(),
-                                                                                             _image_cache,
-                                                                                             getRenderEngine().getCommandBufferContext().getSingleShotFactory(),
-                                                                                             upload_texture->getResourceState().clone()
-                                                                                             .setPipelineStage(VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT)
-                                                                                             .setAccessFlag(VK_ACCESS_2_SHADER_READ_BIT)
-                                                                                             .setImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
-                                                                                             sync_objcet.getOperationsGroup(SyncGroups::kInternal));
-
+                {
+                    SubmitScope upload_scope;
+                    getRenderEngine().getDevice().getDataTransferContext().getScheduler().upload(upload_texture.get(),
+                                                                                                 _image_cache,
+                                                                                                 getRenderEngine().getCommandBufferContext().getSingleShotFactory(),
+                                                                                                 upload_texture->getResourceState(&upload_scope).clone()
+                                                                                                 .setPipelineStage(VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT)
+                                                                                                 .setAccessFlag(VK_ACCESS_2_SHADER_READ_BIT)
+                                                                                                 .setImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+                                                                                                 std::move(upload_scope),
+                                                                                                 sync_objcet.getOperationsGroup(SyncGroups::kInternal));
+                }
                 _upload_data.insert(std::make_pair(upload_texture.get(),
                                                    UploadData(std::move(sync_objcet))));
             }
             else
             {
+                SubmitScope upload_scope;
                 getRenderEngine().getDevice().getDataTransferContext().getScheduler().upload(upload_texture.get(),
                                                                                              _image_cache,
                                                                                              getRenderEngine().getCommandBufferContext().getSingleShotFactory(),
-                                                                                             upload_texture->getResourceState().clone()
+                                                                                             upload_texture->getResourceState(&upload_scope).clone()
                                                                                              .setPipelineStage(VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT)
                                                                                              .setAccessFlag(VK_ACCESS_2_SHADER_READ_BIT)
                                                                                              .setImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+                                                                                             std::move(upload_scope),
                                                                                              it->second.synchronization_object.getOperationsGroup(SyncGroups::kInternal));
             }
         }

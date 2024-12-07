@@ -42,10 +42,9 @@ namespace RenderEngine
         AbstractRenderer& operator=(const AbstractRenderer&) = delete;
 
         virtual ~AbstractRenderer() = default;
-        virtual void onFrameBegin(uint32_t frame_number) = 0;
         // TODO: Remove this interface
         virtual void draw(uint32_t swap_chain_image_index) = 0;
-        virtual void draw(VkCommandBuffer command_buffer, uint32_t swap_chain_image_index) = 0;
+        virtual void draw(SubmitScope* current_scope, VkCommandBuffer command_buffer, uint32_t swap_chain_image_index) = 0;
 
         // TODO: remove this interface
         virtual std::vector<VkCommandBuffer> getCommandBuffers(uint32_t frame_number) = 0;

@@ -20,9 +20,10 @@ namespace RenderEngine
     {
     public:
 
-        void add(std::unique_ptr<SyncObject> sync_object)
+        uint32_t add(std::unique_ptr<SyncObject> sync_object)
         {
             _sync_objects.push_back(std::move(sync_object));
+            return static_cast<uint32_t>(_sync_objects.size() - 1);
         }
         std::vector<const SyncObject*> collectConstSyncObjects() const
         {
@@ -40,6 +41,12 @@ namespace RenderEngine
         SyncFeedbackService* getFeedbackService()
         {
             return _feedback_service.get();
+        }
+
+        void stepSemaphores(uint32_t backbuffer_index)
+        {
+            auto& sync_object = _sync_objects[backbuffer_index];
+            sync_object->stepTimelineOnAll();
         }
     private:
         std::unique_ptr<SyncFeedbackService> _feedback_service{ std::make_unique<SyncFeedbackService>() };
@@ -76,6 +83,8 @@ namespace RenderEngine
     {
         using namespace std::views;
         using namespace views;
+        auto& debugger = RenderContext::context().getDebugger();
+
         if (_skeleton != nullptr)
         {
             throw std::runtime_error("Renderer has already a graph");
@@ -90,7 +99,8 @@ namespace RenderEngine
         {
             auto sync_object = createSyncObjectFromGraph(*_skeleton, std::format("ExecutionContext-{:d}", i));
             sync_object_pointers.push_back(sync_object.get());
-            _sync_service->add(std::move(sync_object));
+            [[maybe_unused]] auto index = _sync_service->add(std::move(sync_object));
+            assert(index == i);
         }
 
         for (uint32_t i = 0; i < _description.backbuffer_count; ++i)
@@ -102,6 +112,11 @@ namespace RenderEngine
                                                                             _device.getLogicalDevice(),
                                                                             sync_object_pointers[i],
                                                                             *_sync_service->getFeedbackService());
+            std::ostringstream os;
+            rendering_process->task_flow.dump(os);
+            debugger.print(Debug::Topics::RenderGraphExecution{}, "Task flow of @{}:\n{}",
+                           i,
+                           os.str());
             _rendering_processes.push_back(std::move(rendering_process));
         }
     }
@@ -179,14 +194,14 @@ namespace RenderEngine
 
         current_process->execution_context.setCurrentFrameNumber(_render_call_count);
 
+        _sync_service->stepSemaphores(available_backbuffer_id);
+
         current_process->calling_token = _task_flow_executor.run(current_process->task_flow,
                                                                  [=]
                                                                  {
                                                                      pushAvailableBackbufferId(available_backbuffer_id);
                                                                  });
-        debugger.print(Debug::Topics::Synchronization{}, "Synchronization Log @{:d}: \n{:s}\n",
-                       _render_call_count,
-                       debugger.getSyncLogbook().toString());
+
         debugger.print(Debug::Topics::RenderGraphExecution{}, "Pipeline started for frame: {:d} on: {:d} [thread: {}]",
                        _render_call_count,
                        available_backbuffer_id,

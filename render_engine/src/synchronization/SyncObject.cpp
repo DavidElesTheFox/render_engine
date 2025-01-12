@@ -160,6 +160,14 @@ namespace RenderEngine
         }
     }
 
+    void SyncObject::stepTimelineOnAll()
+    {
+        for (const auto& name : _primitives.getTimelineSemaphoreNames())
+        {
+            stepTimeline(name);
+        }
+    }
+
     SyncObject::SyncObject(LogicalDevice& logical_device, std::string name)
         : _primitives(logical_device)
         , _name(std::move(name))

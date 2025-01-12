@@ -3,6 +3,7 @@
 #include <volk.h>
 
 #include <render_engine/Device.h>
+#include <render_engine/synchronization/Topic.h>
 
 #include <algorithm>
 #include <iostream>
@@ -64,10 +65,17 @@ namespace
                                                  const VkDebugUtilsMessengerCallbackDataEXT* data,
                                                  void*)
     {
+
         // TODO Add topic for validation errors
         if (severity < VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
         {
             return VK_FALSE;
+        }
+        if (RenderEngine::RenderContext::hasValidContext())
+        {
+            auto& debugger = RenderEngine::RenderContext::context().getDebugger();
+            debugger.print(RenderEngine::Debug::Topics::Synchronization{}, "Synchronization Log : \n{:s}\n",
+                           debugger.getSyncLogbook().toString());
         }
         std::cerr << "validation layer: " << data->pMessage << std::endl;
 
@@ -92,6 +100,11 @@ namespace RenderEngine
     {
         auto& context = context_impl();
         context.init(std::move(info));
+    }
+    bool RenderContext::hasValidContext()
+    {
+        auto& result = context_impl();
+        return result._initialized;
     }
     RenderContext& RenderContext::context_impl()
     {
@@ -121,7 +134,7 @@ namespace RenderEngine
         else
         {
             throw std::runtime_error("Cannot open the file handle: " + std::string{ RENDERDOC_DLL });
-        }
+}
 #endif
         _renderer_factory = std::move(info.renderer_factory);
 

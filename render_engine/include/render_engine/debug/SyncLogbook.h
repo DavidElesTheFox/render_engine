@@ -25,8 +25,8 @@ namespace RenderEngine
         void registerSemaphore(std::string name, SemaphoreType type, void* handler, std::string sync_object_name);
         void signaledSemaphoreFromHost(void* handler, uint64_t value);
         void imageAcquire(void* handler);
-        void usedAtSubmitForSignal(void* handler, VkPipelineStageFlagBits2 stage);
-        void usedAtSubmitForWait(void* handler, VkPipelineStageFlagBits2 stage);
+        void usedAtSubmitForSignal(void* handler, VkPipelineStageFlagBits2 stage, uint64_t value);
+        void usedAtSubmitForWait(void* handler, VkPipelineStageFlagBits2 stage, uint64_t value);
         void usedAtPresentForWait(void* handler);
         friend std::ostream& operator<<(std::ostream& os, const SyncLogbook& logbook);
         std::string toString() const;
@@ -68,6 +68,6 @@ namespace RenderEngine
         std::deque<StackLine> _stack;
         mutable std::shared_mutex _semaphore_mutex;
         mutable std::shared_mutex _stack_mutex;
-        uint32_t _stack_max_size{ 1 };
+        uint32_t _stack_max_size{ 100 };
     };
 }

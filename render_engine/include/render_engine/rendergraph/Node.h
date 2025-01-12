@@ -141,6 +141,7 @@ namespace RenderEngine::RenderGraph
         bool isActive() const override;
     private:
         RefObj<Device> _device;
+        static inline std::mutex _global_mutex;
     };
 
     class ComputeNode final : public Node

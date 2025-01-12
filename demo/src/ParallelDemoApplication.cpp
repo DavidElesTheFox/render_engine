@@ -82,6 +82,7 @@ namespace RenderEngine
     void OffscreenSwapChain::readback(uint32_t render_target_index, ImageStream& stream)
     {
         auto download_task = _render_target_textures->getTexture(render_target_index).clearDownloadTask();
+
         auto image = download_task->getImage();
         stream << std::move(std::get<std::vector<uint8_t>>(image.getData()));
         {
@@ -126,7 +127,10 @@ namespace RenderEngine::RenderGraph
             {
                 using namespace std::chrono_literals;
                 const auto timeout = 1s;
+                auto& debugger = RenderContext::context().getDebugger();
+
                 auto current_index = execution_context.getPoolIndex();
+                debugger.print(Debug::Topics::RenderGraphExecution{}, "Execute present: {:d}", current_index.render_target_index);
                 _swap_chain->present(current_index.render_target_index,
                                      execution_context.getSyncObject(current_index.sync_object_index).getOperationsGroup(self.getName()));
 
@@ -157,8 +161,10 @@ namespace RenderEngine::RenderGraph
             void run(CpuNode&, ExecutionContext& execution_context) final
             {
                 using namespace std::chrono_literals;
+                auto& debugger = RenderContext::context().getDebugger();
                 const auto timeout = 1s;
                 auto current_index = execution_context.getPoolIndex();
+                debugger.print(Debug::Topics::RenderGraphExecution{}, "Execute ReadBack: {:d}", current_index.render_target_index);
                 _swap_chain->readback(current_index.render_target_index,
                                       _image_stream);
                 {
@@ -257,6 +263,13 @@ void ParallelDemoApplication::createOffscreenRenderEngine()
 {
     namespace rg = RenderEngine::RenderGraph;
     rg::RenderGraphBuilder builder = _render_engine->createRenderGraphBuilder("OffscreenPipeline");
+    constexpr const uint64_t c_image_prepared = 0;
+    constexpr const uint64_t c_image_ready = 1;
+    constexpr const uint64_t c_image_downloaded = 2;
+    constexpr const uint64_t c_readback_semaphore_range = c_image_downloaded - c_image_prepared;
+    const rg::TimelineSemaphore readback_semaphore("ReadbackSemaphore", c_image_prepared, c_readback_semaphore_range);
+    builder.registerSemaphore(readback_semaphore);
+
     auto& device = _render_engine->getDevice();
     {
         auto base_render_target = _offscreen_textures->createRenderTarget();
@@ -278,7 +291,7 @@ void ParallelDemoApplication::createOffscreenRenderEngine()
         builder.addEmptyNode(RenderEngine::ParallelRenderEngine::kEndNodeName);
     }
 
-    builder.addCpuSyncLink("AcquireImage", "ForwardRenderer");
+    //builder.addCpuSyncLink("AcquireImage", "ForwardRenderer");
     builder.addCpuSyncLink("AcquireImage", "SynchronizeRenderGpu");
     builder.addCpuSyncLink("SynchronizeRenderGpu", "ForwardRenderer");
     /* TODO Needs to implement a merge tasks into the data transfer scheduler.
@@ -286,14 +299,15 @@ void ParallelDemoApplication::createOffscreenRenderEngine()
     .signalOnGpu(VK_PIPELINE_STAGE_2_TRANSFER_BIT)
     .waitOnGpu(VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
     */
-    builder.addCpuSyncLink("ForwardRenderer", "Present")
-        .signalOnGpu(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT)
-        .waitOnGpu(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
-    builder.addCpuSyncLink("Present", "SynchronizeReadBackImage")
-        .signalOnGpu(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT)
+    // TODO: This one can run parallel probably.
+    builder.addCpuSyncLink("ForwardRenderer", "Present");
+    builder.addCpuSyncLink("Present", "SynchronizeReadBackImage");
+
+    builder.addCpuAsyncLink("ForwardRenderer", "SynchronizeReadBackImage")
+        .signalOnGpu(readback_semaphore, c_image_ready, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT)
         .waitOnGpu(VK_PIPELINE_STAGE_2_TRANSFER_BIT);
     builder.addCpuSyncLink("SynchronizeReadBackImage", "Readback")
-        .signalOnGpu(VK_PIPELINE_STAGE_2_TRANSFER_BIT)
+        .signalOnGpu(readback_semaphore, c_image_downloaded, VK_PIPELINE_STAGE_2_TRANSFER_BIT)
         .waitOnGpu(VK_PIPELINE_STAGE_2_TRANSFER_BIT);
     _render_engine->setRenderGraph(builder.reset("none"));
 

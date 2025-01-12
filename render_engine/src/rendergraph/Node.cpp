@@ -105,7 +105,8 @@ namespace RenderEngine::RenderGraph
     void TransferNode::execute(ExecutionContext& execution_context, QueueSubmitTracker*)
     {
         PROFILE_NODE();
-
+        // TODO: move it to node::execute
+        auto thread_definition_scope = RenderContext::context().getThreadingInfo().getScope(std::this_thread::get_id());
         const auto pool_index = execution_context.getPoolIndex();
         auto& sync_object = execution_context.getSyncObject(pool_index.sync_object_index);
         const auto& in_operations = sync_object.getOperationsGroup(getName());
@@ -122,10 +123,15 @@ namespace RenderEngine::RenderGraph
 
     void DeviceSynchronizeNode::execute(ExecutionContext& execution_context, QueueSubmitTracker*)
     {
+        // TODO this lock should not needed. It is necessary because parallel upload and download during offscreen rendering. A new asset synchronization is necessary to support batch uploads and concurrency
+        std::lock_guard global_access_mutex(_global_mutex);
+        auto thread_definition_scope = RenderContext::context().getThreadingInfo().getScope(std::this_thread::get_id());
+        RenderContext::context().getDebugger().print(Debug::Topics::RenderGraphExecution{}, "Synchronize node: thread index: {:d}", thread_definition_scope.getIndex());
         const auto pool_index = execution_context.getPoolIndex();
         auto& sync_object = execution_context.getSyncObject(pool_index.sync_object_index);
         const auto& in_operations = sync_object.getOperationsGroup(getName());
         _device->synchronizeStagingArea(in_operations);
+
     }
     void DeviceSynchronizeNode::accept(GraphVisitor& visitor)
     {

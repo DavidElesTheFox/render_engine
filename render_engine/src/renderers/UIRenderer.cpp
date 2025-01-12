@@ -233,6 +233,8 @@ namespace RenderEngine
 
             ImGui_ImplVulkan_Init(&init_info, getRenderPass());
             {
+                auto thread_info_scope = RenderContext::context().getThreadingInfo().getScope(std::this_thread::get_id());
+
                 QueueSubmitTracker submit_tracker{ logical_device, "UIDataUpload" };
                 SyncObject sync_object(logical_device, "UIRenderer-UploadSync");
 

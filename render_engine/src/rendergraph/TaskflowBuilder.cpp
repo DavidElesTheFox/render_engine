@@ -150,32 +150,9 @@ namespace RenderEngine::RenderGraph
             assert(edge->getToNode() != nullptr);
             assert(edge->getFromNode() != nullptr);
 
-            // Link all the task dependences before this node that can run parallel on CPU
-            {
-                auto& task_later = _task_map.at(edge->getToNode()->getName());
-
-                std::vector<const Node*> all_node_before = getGraph().findAllPredecessors(edge->getFromNode(), LinkType::CpuSync);
-                all_node_before.push_back(edge->getFromNode());
-
-                for (auto& node_before : all_node_before)
-                {
-                    auto& task_before = _task_map.at(node_before->getName());
-                    task_before.precede(task_later);
-                }
-            }
-            // Link all the task dependences after this node that can run parallel on CPU
-            {
-                auto& task_before = _task_map.at(edge->getFromNode()->getName());
-
-                std::vector<const Node*> all_node_after = getGraph().findAllSuccessor(edge->getToNode(), LinkType::CpuSync);
-                all_node_after.push_back(edge->getToNode());
-
-                for (auto& node_after : all_node_after)
-                {
-                    auto& task_after = _task_map.at(node_after->getName());
-                    task_after.succeed(task_before);
-                }
-            }
+            auto& task_before = _task_map.at(edge->getFromNode()->getName());
+            auto& task_after = _task_map.at(edge->getToNode()->getName());
+            task_after.succeed(task_before);
         }
 
         void VisitorForTaskCreation::visitImpl(Node* node)
@@ -198,7 +175,7 @@ namespace RenderEngine::RenderGraph
                                                            return;
                                                        }
                                                        node->execute(execution_context_for_job, submit_tracker);
-                                                   });
+                                                   }).name(node->getName());
             assert(_task_map.contains(node->getName()) == false);
             _task_map.insert({ node->getName(), std::move(tf_task) });
         }

@@ -401,10 +401,12 @@ namespace RenderEngine
     std::unique_ptr<ParallelRenderEngine> Device::createParallelRenderEngine(uint32_t backbuffer_count,
                                                                              uint32_t parallel_frame_count)
     {
+
         ParallelRenderEngine::Description render_engine_description
         {
             .backbuffer_count = backbuffer_count,
-            .parallel_frame_count = parallel_frame_count
+            .parallel_frame_count = parallel_frame_count,
+            ._frame_timeout = std::chrono::seconds(3)
         };
         /* TODO: Investigate: Currently each usecase uses different command pool(command buffer context).
         * This can be shared when the context are shared in case of the same family is used.

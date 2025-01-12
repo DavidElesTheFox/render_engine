@@ -8,7 +8,7 @@ namespace RenderEngine::Debug::Topics
     {
         static inline PrintDestinationType print_destination{ PrintDestinationType::Console };
         static inline const std::optional<ConsoleColor> console_color = ConsoleColors::White;
-        static constexpr const bool enabled{ false };
+        static constexpr const bool enabled{ true };
     };
     static_assert(Topic<Synchronization>, "A debug topic must fulfill the requirements");
 }

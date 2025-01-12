@@ -189,6 +189,7 @@ namespace
         }
         {
             {
+                auto thread_info_scope = RenderEngine::RenderContext::context().getThreadingInfo().getScope(std::this_thread::get_id());
                 auto& logical_device = _device.getLogicalDevice();
                 RenderEngine::SyncObject sync_object(logical_device, "QuadSceneUpload");
                 RenderEngine::Image image(std::filesystem::path{ IMAGE_BASE } / "statue.jpg");

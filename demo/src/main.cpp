@@ -30,7 +30,7 @@ void runParallelDemoApplication()
         .window_width = 1024,// TODO do not change it until the API is not ready
         .window_height = 764,
         .window_title = "DemoWindow",
-        .rendering_type = ParallelDemoApplication::RenderingType::Offscreen
+        .rendering_type = ParallelDemoApplication::RenderingType::Direct
     };
     ParallelDemoApplication application(description);
     application.init();

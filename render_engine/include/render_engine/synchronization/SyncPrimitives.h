@@ -2,6 +2,7 @@
 
 #include <volk.h>
 
+#include <ranges>
 #include <string>
 #include <unordered_map>
 
@@ -47,6 +48,15 @@ namespace RenderEngine
 
         bool hasSemaphore(const std::string& name) const { return _semaphore_map.contains(name); }
         bool hasTimelineSemaphore(const std::string& name) const { return _timeline_data.contains(name); }
+
+        std::ranges::input_range auto getTimelineSemaphoreNames() const
+        {
+            return std::views::keys(_timeline_data);
+        }
+        std::ranges::input_range auto getSemaphoreNames() const
+        {
+            return std::views::keys(_semaphore_map);
+        }
     private:
         struct TimelineSemaphoreData
         {

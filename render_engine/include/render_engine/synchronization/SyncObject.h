@@ -137,6 +137,8 @@ namespace RenderEngine
 
         void stepTimeline(const std::string& name);
 
+        void stepTimelineOnAll();
+
         Query query() const { return Query::from(*this); }
 
         const std::string& getName() const { return _name; }

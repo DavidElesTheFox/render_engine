@@ -112,9 +112,12 @@ namespace RenderEngine
             std::lock_guard lock(_preserve_state_mutex);
             auto it = std::ranges::find_if(_texture_states,
                                            [&](const auto& pair) { return pair.first == scope; });
-            _preserved_state.reset(it->second);
+            if (it != _texture_states.end())
+            {
+                _preserved_state.reset(it->second);
 
-            _texture_states.erase(it);
+                _texture_states.erase(it);
+            }
         }
 
         HANDLE getMemoryHandle() const;

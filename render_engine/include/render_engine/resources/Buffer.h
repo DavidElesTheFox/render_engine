@@ -76,9 +76,12 @@ namespace RenderEngine
             std::lock_guard lock(_preserve_state_mutex);
             auto it = std::ranges::find_if(_buffer_states,
                                            [&](const auto& pair) { return pair.first == scope; });
-            _preserved_state.reset(it->second);
+            if (it != _buffer_states.end())
+            {
+                _preserved_state.reset(it->second);
 
-            _buffer_states.erase(it);
+                _buffer_states.erase(it);
+            }
         }
 
         void overrideResourceState(BufferState value, SubmitScope* scope, ResourceAccessToken)

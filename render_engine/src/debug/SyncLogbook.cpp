@@ -254,7 +254,7 @@ namespace RenderEngine
                           });
         shrink();
     }
-    void SyncLogbook::usedAtSubmitForSignal(void* handler, VkPipelineStageFlagBits2 stage)
+    void SyncLogbook::usedAtSubmitForSignal(void* handler, VkPipelineStageFlagBits2 stage, uint64_t value)
     {
         PROFILE_SCOPE();
         std::unique_lock lock(_stack_mutex);
@@ -262,11 +262,12 @@ namespace RenderEngine
                           {
                               .operation = Operation::Signal,
                               .handler = handler,
+                              .value = value,
                               .stage_info = StageInfo{.stage_flag = stage}
                           });
         shrink();
     }
-    void SyncLogbook::usedAtSubmitForWait(void* handler, VkPipelineStageFlagBits2 stage)
+    void SyncLogbook::usedAtSubmitForWait(void* handler, VkPipelineStageFlagBits2 stage, uint64_t value)
     {
         PROFILE_SCOPE();
         std::unique_lock lock(_stack_mutex);
@@ -274,6 +275,7 @@ namespace RenderEngine
                           {
                               .operation = Operation::Wait,
                               .handler = handler,
+                              .value = value,
                               .stage_info = StageInfo{.stage_flag = stage}
                           });
         shrink();

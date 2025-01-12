@@ -85,7 +85,7 @@ set(RENDER_ENGINE_SYNCHRONIZATION_SRC
     src/synchronization/SyncPrimitives.cpp
 	src/synchronization/SyncOperations.cpp
 	src/synchronization/ResourceStateMachine.cpp
-
+    src/synchronization/ThreadingInfo.cpp
     )
 set(RENDER_ENGINE_SYNCHRONIZATION_HEADERS 
 	${RENDER_ENGINE_HEADER_LOCATION}/synchronization/SyncObject.h
@@ -95,6 +95,7 @@ set(RENDER_ENGINE_SYNCHRONIZATION_HEADERS
     ${RENDER_ENGINE_HEADER_LOCATION}/synchronization/ResourceStates.h
     ${RENDER_ENGINE_HEADER_LOCATION}/synchronization/Topic.h
     ${RENDER_ENGINE_HEADER_LOCATION}/synchronization/SyncFeedbackService.h
+    ${RENDER_ENGINE_HEADER_LOCATION}/synchronization/ThreadingInfo.h
 	)
 source_group("src\\synchronization" FILES ${RENDER_ENGINE_SYNCHRONIZATION_SRC})
 source_group("include\\synchronization" FILES ${RENDER_ENGINE_SYNCHRONIZATION_HEADERS})
@@ -321,7 +322,7 @@ set(RENDER_ENGINE_HEADERS
     ${RENDER_ENGINE_RENDERGRAPH_CPUTASKS_HEADERS}
     ${RENDER_ENGINE_DEBUG_HEADERS}
     ${RENDER_ENGINE_MEMORY_HEADERS} 
- )
+  )
 
 add_library(RenderEngine STATIC ${RENDER_ENGINE_SRC} ${RENDER_ENGINE_HEADERS})
 set_property(TARGET RenderEngine PROPERTY CXX_STANDARD 23)

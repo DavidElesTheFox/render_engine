@@ -48,7 +48,7 @@ namespace RenderEngine
     void SyncOperations::addSignalOperation(SyncPrimitives& sync_object, const std::string& semaphore_name, VkPipelineStageFlags2 stage_mask, uint64_t value)
     {
         VkSemaphore semaphore = sync_object.getSemaphore(semaphore_name);
-        assert(std::ranges::find(_wait_semaphore_container, semaphore) == _wait_semaphore_container.end() && "Semaphore cannot be signaled two times in the same operation");
+        //assert(std::ranges::find(_wait_semaphore_container, semaphore) == _wait_semaphore_container.end() && "Semaphore cannot be signaled two times in the same operation");
 
         VkSemaphoreSubmitInfo submit_info{};
         submit_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
@@ -70,12 +70,14 @@ namespace RenderEngine
         for (uint32_t i = 0; i < _wait_semaphore_dependency.size(); ++i)
         {
             RenderContext::context().getDebugger().getSyncLogbook().usedAtSubmitForWait(_wait_semaphore_dependency[i].semaphore,
-                                                                                        _wait_semaphore_dependency[i].stageMask);
+                                                                                        _wait_semaphore_dependency[i].stageMask,
+                                                                                        _wait_semaphore_dependency[i].value);
         }
         for (uint32_t i = 0; i < _signal_semaphore_dependency.size(); ++i)
         {
             RenderContext::context().getDebugger().getSyncLogbook().usedAtSubmitForSignal(_signal_semaphore_dependency[i].semaphore,
-                                                                                          _signal_semaphore_dependency[i].stageMask);
+                                                                                          _signal_semaphore_dependency[i].stageMask,
+                                                                                          _signal_semaphore_dependency[i].value);
         }
         return *this;
     }

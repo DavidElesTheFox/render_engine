@@ -1,5 +1,7 @@
+#include <render_engine/RenderContext.h>
 #include <render_engine/TransferEngine.h>
 
+#include <thread>
 namespace RenderEngine
 {
     TransferEngine::TransferEngine(CommandBufferContext transfer_context)
@@ -11,8 +13,8 @@ namespace RenderEngine
                                   QueueSubmitTracker* queue_submit_tracker,
                                   SubmitScope&& current_scope)
     {
-        // TODO add thread_info to the interface. 0 should be replaced ot the 'id' of the current thread.
-        VkCommandBuffer command_buffer = _transfer_context.getSingleShotFactory()->createCommandBuffer(0);
+        uint32_t thread_index = RenderContext::context().getThreadingInfo().getThreadIndex(std::this_thread::get_id());
+        VkCommandBuffer command_buffer = _transfer_context.getSingleShotFactory()->createCommandBuffer(thread_index);
 
         VkCommandBufferSubmitInfo command_buffer_info{};
         command_buffer_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;

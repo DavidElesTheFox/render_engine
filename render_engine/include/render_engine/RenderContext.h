@@ -9,6 +9,7 @@
 #include <render_engine/DeviceLookup.h>
 #include <render_engine/RendererFactory.h>
 #include <render_engine/synchronization/SyncObject.h>
+#include <render_engine/synchronization/ThreadingInfo.h>
 
 #include <variant>
 
@@ -42,6 +43,7 @@ namespace RenderEngine
         static constexpr uint32_t kEngineReservedIdStart = UINT_MAX - 1'000'000;
         static RenderContext& context();
         static void initialize(InitializationInfo&& info);
+        static bool hasValidContext();
 
         Device& getDevice(size_t index) const
         {
@@ -60,6 +62,7 @@ namespace RenderEngine
         void addGarbage(Garbage garbage) { _garbage.emplace_back(std::move(garbage)); }
         void clearGarbage();
         Debugger& getDebugger() { return _debugger; }
+        ThreadingInfo& getThreadingInfo() { return _threading_info; }
     private:
         struct GarbageData
         {
@@ -88,5 +91,6 @@ namespace RenderEngine
         uint32_t _engine_id_counter{ kEngineReservedIdStart };
         std::vector<GarbageData> _garbage;
         Debugger _debugger{};
+        ThreadingInfo _threading_info;
     };
 }

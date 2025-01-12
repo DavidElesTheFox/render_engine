@@ -651,7 +651,6 @@ namespace RenderEngine
                                                                 SyncOperations sync_operations)
     {
         std::lock_guard lock{ _task_mutex };
-
         auto task = [texture, additional_sync_operations = sync_operations]
         (SyncOperations sync_operations,
          TransferEngine& transfer_engine,
